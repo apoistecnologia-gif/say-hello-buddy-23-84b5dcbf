@@ -14,7 +14,7 @@ import { WalletProvider } from '@/hooks/use-wallet';
 import { CouponProvider } from '@/hooks/use-coupon';
 import { CheckoutPreparationProvider } from '@/hooks/use-checkout-preparation';
 import { RideRequestProvider } from '@/hooks/rides/use-ride-request';
-import { BottomNavigation } from "@/components/layout/BottomNavigation";
+import { BottomNavigation } from "@/components/BottomNavigation";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Toaster } from "@/components/ui/sonner";
 
