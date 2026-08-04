@@ -55,14 +55,13 @@ function CadastroPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
           data: {
-            name: name,
+            full_name: name,
             phone: phone,
-            role: "passenger",
           },
         },
       });
@@ -73,7 +72,12 @@ function CadastroPage() {
         } else {
           toast.error(error.message);
         }
+      } else if (data.session) {
+        // Se Confirm email estiver desabilitado, o Supabase retorna a sessão imediatamente
+        toast.success("Cadastro realizado com sucesso!");
+        navigate({ to: "/inicio" });
       } else {
+        // Caso o projeto exija confirmação de e-mail (data.session === null)
         toast.success("Cadastro realizado! Verifique seu e-mail para confirmar a conta.");
         navigate({ to: "/login" });
       }
