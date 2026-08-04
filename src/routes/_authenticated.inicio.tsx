@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/use-auth";
 import { useState } from "react";
 import { useLocation } from "@/hooks/use-location";
 import { usePickupAddress } from "@/hooks/use-pickup-address";
