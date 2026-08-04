@@ -1,70 +1,44 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState } from "react";
 import { CouponValidationResult, CouponStatus } from "@/types/payments";
-import { couponService } from "@/services/coupons/coupon-service";
-import { useAuth } from "@/hooks/use-auth";
-import { useRideCategories } from "@/hooks/use-ride-categories";
-import { usePricing } from "@/hooks/use-pricing";
 
 interface CouponContextType {
-  code: string;
+  coupon: CouponValidationResult | null;
   status: CouponStatus;
-  result: CouponValidationResult | null;
-  discount: number;
-  isLoading: boolean;
-  setCode: (code: string) => void;
-  validate: () => Promise<void>;
-  remove: () => void;
+  validateCoupon: (code: string) => Promise<void>;
+  removeCoupon: () => void;
+  isAvailable: boolean;
 }
 
 const CouponContext = createContext<CouponContextType | undefined>(undefined);
 
 export const CouponProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  const { selectedCategory } = useRideCategories();
-  const { estimate } = usePricing();
-  const [code, setCode] = useState("");
+  const [coupon, setCoupon] = useState<CouponValidationResult | null>(null);
   const [status, setStatus] = useState<CouponStatus>("idle");
-  const [result, setResult] = useState<CouponValidationResult | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
-  const validate = useCallback(async () => {
-    if (!code || !user || !selectedCategory || !estimate) return;
+  const validateCoupon = async (code: string) => {
+    setStatus("not_applicable");
+    setCoupon({
+      valid: false,
+      code,
+      discount_type: "fixed",
+      discount_value: 0,
+      message: "Cupons estarão disponíveis após integração com o servidor."
+    });
+  };
 
-    try {
-      setIsLoading(true);
-      setStatus("validating");
-      const validation = await couponService.validateCoupon(code, user.id, selectedCategory.key, estimate.total);
-      setResult(validation);
-      setStatus(validation.valid ? "valid" : "invalid");
-    } catch (err) {
-      setStatus("error");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [code, user, selectedCategory, estimate]);
-
-  const remove = () => {
-    setCode("");
-    setResult(null);
+  const removeCoupon = () => {
+    setCoupon(null);
     setStatus("idle");
   };
 
-  const discount = React.useMemo(() => {
-    if (!result || !result.valid || !estimate) return 0;
-    
-    let value = 0;
-    if (result.discount_type === "percentage") {
-      value = estimate.total * (result.discount_value / 100);
-      if (result.max_discount) value = Math.min(value, result.max_discount);
-    } else {
-      value = result.discount_value;
-    }
-    
-    return Math.min(value, estimate.total);
-  }, [result, estimate]);
-
   return (
-    <CouponContext.Provider value={{ code, status, result, discount, isLoading, setCode, validate, remove }}>
+    <CouponContext.Provider value={{ 
+      coupon, 
+      status, 
+      validateCoupon, 
+      removeCoupon,
+      isAvailable: false // Honesty flag
+    }}>
       {children}
     </CouponContext.Provider>
   );
