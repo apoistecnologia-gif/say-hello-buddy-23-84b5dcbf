@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { RideCategory } from "@/types/pricing";
+import { RideCategory, RideCategoryCode } from "@/types/pricing";
 
 class CategoryService {
   async getCategories(): Promise<RideCategory[]> {
@@ -17,14 +17,17 @@ class CategoryService {
     return (data || []).map(cat => ({
       id: cat.id,
       code: cat.code,
+      key: cat.code as RideCategoryCode,
       name: cat.name,
+      label: cat.name,
       description: cat.description,
       icon: cat.icon,
       imageUrl: cat.image_url,
       isActive: cat.is_active || false,
       sortOrder: cat.sort_order || 0,
       capacityLabel: cat.capacity_label,
-      etaLabel: cat.eta_label
+      etaLabel: cat.eta_label,
+      details: {}
     }));
   }
 }

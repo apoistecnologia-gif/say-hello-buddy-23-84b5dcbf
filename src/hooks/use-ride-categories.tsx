@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { RideCategory } from "@/types/pricing";
 import { categoryService } from "@/services/categories/category-service";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface RideCategoriesContextType {
   categories: RideCategory[];
@@ -42,7 +42,7 @@ export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = (
 
   useEffect(() => {
     fetchCategories();
-  }, [fetchCategories]);
+  }, []); // Only fetch on mount or manual refresh
 
   const selectCategory = (category: RideCategory) => {
     if (category.isActive) {

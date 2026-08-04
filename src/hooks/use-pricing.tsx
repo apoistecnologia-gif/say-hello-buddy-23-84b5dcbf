@@ -1,43 +1,47 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useRoute } from "@/hooks/use-route";
 import { useRideCategories } from "@/hooks/use-ride-categories";
-import { FareEstimate, PricingRequest } from "@/types/pricing";
+import { FareEstimate, PricingRequest, ServiceDetails } from "@/types/pricing";
 import { pricingService } from "@/services/pricing/pricing-service";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
 
 interface PricingContextType {
   estimates: FareEstimate[];
   selectedEstimate: FareEstimate | null;
+  estimate: FareEstimate | null; // Compatibility alias
   status: "idle" | "loading" | "success" | "error";
   error: string | null;
+  serviceDetails: ServiceDetails; // Added back for compatibility
+  setServiceDetails: (details: ServiceDetails) => void; // Added back for compatibility
   calculatePricing: () => Promise<void>;
 }
 
 const PricingContext = createContext<PricingContextType | undefined>(undefined);
 
 export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { route, origin, destination } = useRoute();
+  const { route } = useRoute();
   const { selectedCategory, categories } = useRideCategories();
-  const { stops } = useRideStops();
+  const { orderedStops } = useRideStops();
   const [estimates, setEstimates] = useState<FareEstimate[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [serviceDetails, setServiceDetails] = useState<ServiceDetails>({});
   
   const lastRequestRef = useRef<string>("");
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const calculatePricing = useCallback(async () => {
-    if (!route || !origin || !destination) {
+    if (!route) {
       setEstimates([]);
       setStatus("idle");
       return;
     }
 
     const request: PricingRequest = {
-      routeId: route.routeId,
-      origin: { latitude: origin.latitude, longitude: origin.longitude },
-      destination: { latitude: destination.latitude, longitude: destination.longitude },
-      stops: stops.map(s => ({ latitude: s.latitude, longitude: s.longitude })),
+      routeId: route.requestKey, // useRoute uses requestKey
+      origin: { latitude: route.origin.lat, longitude: route.origin.lng },
+      destination: { latitude: route.destination.lat, longitude: route.destination.lng },
+      stops: orderedStops.map(s => ({ latitude: s.latitude, longitude: s.longitude })),
       distanceMeters: route.distanceMeters,
       durationSeconds: route.durationSeconds,
       categoryIds: categories.map(c => c.id)
@@ -59,7 +63,7 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setError("Não foi possível calcular os valores agora.");
       setStatus("error");
     }
-  }, [route, origin, destination, stops, categories]);
+  }, [route, orderedStops, categories]);
 
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -79,8 +83,11 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     <PricingContext.Provider value={{ 
       estimates, 
       selectedEstimate,
+      estimate: selectedEstimate,
       status, 
       error,
+      serviceDetails,
+      setServiceDetails,
       calculatePricing
     }}>
       {children}

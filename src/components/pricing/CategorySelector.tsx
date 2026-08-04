@@ -4,21 +4,21 @@ import { usePricing } from "@/hooks/use-pricing";
 import { PRICING_CONFIG } from "@/services/pricing/pricing-config";
 import { cn } from "@/lib/utils";
 import { Car, Bike, Truck, Anchor, Package } from "lucide-react";
-import { RideCategoryKey } from "@/types/pricing";
+import { RideCategoryCode } from "@/types/pricing";
 
-const IconMap: Record<RideCategoryKey, React.ElementType> = {
-  carros: Car,
-  motos: Bike,
+const IconMap: Record<RideCategoryCode, React.ElementType> = {
+  carro: Car,
+  moto: Bike,
   fretes: Truck,
   guincho: Anchor,
   envios: Package,
 };
 
 export const CategorySelector: React.FC = () => {
-  const { categories, selectedCategory, selectCategory, isLoading } = useRideCategories();
-  const { estimate, status } = usePricing();
+  const { categories, selectedCategory, selectCategory, isLoading: categoriesLoading } = useRideCategories();
+  const { estimates, status: pricingStatus } = usePricing();
 
-  if (isLoading) {
+  if (categoriesLoading) {
     return (
       <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar px-4">
         {[1, 2, 3].map((i) => (
@@ -31,7 +31,7 @@ export const CategorySelector: React.FC = () => {
   if (categories.length === 0) {
     return (
       <div className="px-6 py-4 text-center text-zinc-400 text-sm">
-        Os serviços estão temporariamente indisponíveis.
+        Não há categorias disponíveis para esta rota no momento.
       </div>
     );
   }
@@ -39,19 +39,24 @@ export const CategorySelector: React.FC = () => {
   return (
     <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar px-4 scroll-smooth">
       {categories.map((cat) => {
-        const isSelected = selectedCategory?.key === cat.key;
+        const isSelected = selectedCategory?.id === cat.id;
         const Icon = IconMap[cat.key] || Car;
-        const categoryLabel = PRICING_CONFIG.LABELS[cat.key] || cat.label;
+        const categoryLabel = PRICING_CONFIG.LABELS[cat.key] || cat.name;
+        const estimate = estimates.find(e => e.categoryId === cat.id);
+        const isAvailable = estimate?.available !== false;
 
         return (
           <button
-            key={cat.key}
-            onClick={() => selectCategory(cat)}
+            key={cat.id}
+            onClick={() => isAvailable && selectCategory(cat)}
+            disabled={!isAvailable}
             className={cn(
               "flex-shrink-0 w-32 p-4 rounded-2xl flex flex-col items-center justify-between transition-all active:scale-95 border-2",
               isSelected 
                 ? "bg-apois-yellow border-apois-yellow text-black shadow-lg shadow-apois-yellow/20" 
-                : "bg-zinc-900/80 border-transparent text-zinc-400"
+                : isAvailable 
+                  ? "bg-zinc-900/80 border-transparent text-zinc-400"
+                  : "bg-zinc-900/40 border-transparent text-zinc-600 grayscale cursor-not-allowed"
             )}
           >
             <div className={cn(
@@ -66,9 +71,13 @@ export const CategorySelector: React.FC = () => {
                 {categoryLabel}
               </span>
               <span className="text-[11px] font-medium opacity-80 mt-1 block">
-                {isSelected && estimate 
-                  ? PRICING_CONFIG.CURRENCY_FORMAT.format(estimate.total)
-                  : "..."
+                {!isAvailable 
+                  ? "Indisponível"
+                  : pricingStatus === "loading"
+                    ? "Calculando..."
+                    : estimate
+                      ? PRICING_CONFIG.CURRENCY_FORMAT.format(estimate.estimatedPrice)
+                      : "..."
                 }
               </span>
             </div>
