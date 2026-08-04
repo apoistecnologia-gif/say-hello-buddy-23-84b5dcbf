@@ -28,7 +28,7 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
     if (!user) blockingReasons.push("user_not_authenticated");
     if (!route) blockingReasons.push("route_missing");
     if (!selectedCategory) blockingReasons.push("category_missing");
-    if (pricingStatus !== "success" || !estimate) blockingReasons.push("pricing_invalid");
+    if (pricingStatus !== "success" || !estimate || !estimate.available) blockingReasons.push("pricing_invalid");
     if (!selectedMethod) blockingReasons.push("payment_method_missing");
     
     // Wallet block rule

@@ -114,6 +114,7 @@ function InicioPage() {
                 <CouponInput />
                 
                 <div className="pt-2">
+                  <FareDetails />
                   <CheckoutSummary />
                 </div>
               </div>
