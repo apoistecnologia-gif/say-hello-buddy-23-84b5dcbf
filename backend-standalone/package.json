@@ -1,5 +1,6 @@
 {
   "name": "movvi-backend-standalone",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "sideEffects": false,
@@ -36,5 +37,8 @@
     "typescript": "^5.7.2",
     "vite": "^7.0.0",
     "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }
