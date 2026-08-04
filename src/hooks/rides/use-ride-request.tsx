@@ -89,7 +89,7 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
       pickup_short_label: pickupShortLabel,
       pickup_address: address,
       pickup_place_id: pickupPlaceId,
-      pickup_source: "gps", // Simplified for now
+      pickup_source: "gps",
       payment_method: selectedMethod,
       service_details: selectedCategory.details || null,
       scheduled_for: null
@@ -102,7 +102,6 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setOfficialPrice(response.estimated_price || null);
       setStatus(response.reused ? "reused" : "success");
       
-      // Navigate to ride page
       navigate({ to: "/corrida/$rideId", params: { rideId: response.rideId } });
     } else {
       setError(response.message || "Erro ao solicitar corrida");
