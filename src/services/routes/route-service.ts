@@ -128,7 +128,7 @@ class RouteService {
     
     return {
       code,
-      message: ROUTE_ERROR_MESSAGES[code] || ROUTE_ERROR_MESSAGES.route_unknown_error
+      message: ROUTE_ERROR_MESSAGES[code] || ROUTE_ERROR_MESSAGES['route_unknown_error']
     };
   }
 
