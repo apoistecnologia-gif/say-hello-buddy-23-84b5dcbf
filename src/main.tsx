@@ -29,7 +29,8 @@ const rootElement = document.getElementById('root')
 console.info("[APOIS] root encontrado", !!rootElement);
 
 if (rootElement) {
-  console.info("[APOIS] React montando");
+  console.info("[APOIS] React montando v2");
+  rootElement.innerHTML = "<h1>REACT OVERRIDE TEST</h1>";
   const root = ReactDOM.createRoot(rootElement)
   root.render(
     <React.StrictMode>
