@@ -1,9 +1,9 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/hooks/use-auth";
-import { Toaster } from "@/components/ui/sonner";
 import { GlobalErrorBoundary } from "@/components/diagnostics/GlobalErrorBoundary";
 import { StartupTimeout } from "@/components/diagnostics/StartupTimeout";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 
 const queryClient = new QueryClient();
 
@@ -19,15 +19,13 @@ function RootComponent() {
       <StartupTimeout>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-          <AuthGuard>
-            <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
+            <AuthGuard>
               <Outlet />
-              <Toaster />
-            </div>
-          </AuthGuard>
+            </AuthGuard>
           </AuthProvider>
         </QueryClientProvider>
       </StartupTimeout>
     </GlobalErrorBoundary>
   );
 }
+
