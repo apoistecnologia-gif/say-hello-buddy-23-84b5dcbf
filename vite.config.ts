@@ -19,13 +19,14 @@ export default defineConfig({
     },
     tsconfigPaths: true,
   },
-  base: './', // CRITICAL for Capacitor/Android WebView
+  base: './',
   build: {
     outDir: 'dist',
     emptyOutDir: true,
     assetsDir: 'assets',
     sourcemap: false,
-    minify: false, // Disabling minification to bypass the terser/esbuild issue in this specific environment
+    minify: false,
+    target: 'es2020', // Explicit target to see if it avoids the transpile hook
   },
   server: {
     port: 8080,
