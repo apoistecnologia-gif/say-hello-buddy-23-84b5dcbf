@@ -125,10 +125,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
-        <Outlet />
-        <BottomNavigation />
-      </div>
+      <AuthProvider>
+        <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
+          <Outlet />
+          <BottomNavigation />
+        </div>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
