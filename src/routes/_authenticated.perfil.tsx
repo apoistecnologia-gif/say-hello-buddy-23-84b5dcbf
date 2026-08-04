@@ -23,7 +23,7 @@ function PerfilPage() {
   const { user, signOut } = useAuth();
   
   // Hardcoded example to bypass 'never' inference when it's just 'null'
-  const profile = {
+  const profile: any = {
     name: "Passageiro",
     avatar_url: "",
     phone: "",
