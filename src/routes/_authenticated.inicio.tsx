@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/inicio")({
 function InicioPage() {
   const navigate = useNavigate();
   const { address, status: addressStatus } = usePickupAddress();
-  const { profile } = useAuth();
+  const { profile, authState } = useAuth();
   const { destination, hasDestination } = useDestination();
   const { route } = useRoute();
   const { selectedCategory } = useRideCategories();
@@ -47,6 +47,13 @@ function InicioPage() {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-black text-white relative overflow-hidden">
+      {/* Debug Overlay - Somente em Dev */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-0 left-0 z-[9999] bg-black/80 p-1 text-[8px] pointer-events-none">
+          Auth: {authState} | Loc: {location ? 'Sim' : 'Não'} | Addr: {addressStatus}
+        </div>
+      )}
+
       {/* Mapa como fundo principal */}
       <div className="absolute inset-0 z-0">
         <PassengerMap 
