@@ -25,7 +25,7 @@ export default defineConfig({
     emptyOutDir: true,
     assetsDir: 'assets',
     sourcemap: false,
-    minify: 'esbuild', // Use esbuild which is faster and included
+    minify: false, // Disabling minification to bypass the terser/esbuild issue in this specific environment
   },
   server: {
     port: 8080,
