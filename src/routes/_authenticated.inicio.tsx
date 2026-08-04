@@ -66,6 +66,7 @@ function InicioPage() {
             aria-label="Escolher destino"
             className="bg-black/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl flex items-center gap-4 active:scale-[0.98] focus:ring-2 focus:ring-apois-yellow outline-none transition-all cursor-pointer"
           >
+
             <div className="w-10 h-10 bg-apois-yellow rounded-xl flex items-center justify-center shrink-0">
               <MapPin className="text-black" size={20} />
             </div>
@@ -160,11 +161,12 @@ function InicioPage() {
                   </p>
                 </div>
                 <button 
-                  onClick={() => navigate({ to: "/buscar-destino" })}
+                  onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
                   className="mt-2 w-full py-4 bg-apois-yellow text-black font-black rounded-2xl active:scale-95 shadow-lg shadow-apois-yellow/10 uppercase tracking-widest text-xs"
                 >
                   Escolher destino
                 </button>
+
               </div>
             </div>
           )}
