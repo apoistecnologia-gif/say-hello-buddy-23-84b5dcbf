@@ -29,8 +29,12 @@ class RouteService {
     return RouteService.instance;
   }
 
-  public async computeRoute(origin: RouteCoordinates, destination: RouteCoordinates): Promise<RouteResult> {
-    const requestKey = this.createRequestKey(origin, destination);
+  public async computeRoute(
+    origin: RouteCoordinates, 
+    destination: RouteCoordinates,
+    intermediates: RouteCoordinates[] = []
+  ): Promise<RouteResult> {
+    const requestKey = this.createRequestKey(origin, destination, intermediates);
     
     // Check Cache
     const cached = this.cache.get(requestKey);
@@ -41,7 +45,11 @@ class RouteService {
     this.cancelPendingRoute();
     this.activeController = new AbortController();
 
-    const request: RouteRequest = { origin, destination };
+    const request: RouteRequest = { 
+      origin, 
+      destination,
+      intermediates: intermediates.length > 0 ? intermediates : undefined
+    };
 
     try {
       const response = await apiClient.post<RouteResponse>('/api/passenger/routes/compute', request, {
@@ -58,6 +66,7 @@ class RouteService {
       const result: RouteResult = {
         origin,
         destination,
+        intermediates,
         distanceMeters: response.route.distanceMeters,
         durationSeconds: response.route.durationSeconds,
         encodedPolyline: response.route.encodedPolyline,
@@ -95,10 +104,15 @@ class RouteService {
     }
   }
 
-  public createRequestKey(origin: RouteCoordinates, destination: RouteCoordinates): string {
+  public createRequestKey(
+    origin: RouteCoordinates, 
+    destination: RouteCoordinates,
+    intermediates: RouteCoordinates[] = []
+  ): string {
     // Round to 5 decimal places for normalization (approx 1.1m precision)
     const norm = (val: number) => val.toFixed(5);
-    return `route:${norm(origin.lat)},${norm(origin.lng)}->${norm(destination.lat)},${norm(destination.lng)}`;
+    const stopsKey = intermediates.map(i => `${norm(i.lat)},${norm(i.lng)}`).join('|');
+    return `route:${norm(origin.lat)},${norm(origin.lng)}->${stopsKey ? `[${stopsKey}]->` : ''}${norm(destination.lat)},${norm(destination.lng)}`;
   }
 
   public validateRouteResult(result: RouteResult): void {
