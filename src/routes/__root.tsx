@@ -21,6 +21,7 @@ import { PaymentMethodsProvider } from '@/hooks/use-payment-methods';
 import { WalletProvider } from '@/hooks/use-wallet';
 import { CouponProvider } from '@/hooks/use-coupon';
 import { CheckoutPreparationProvider } from '@/hooks/use-checkout-preparation';
+import { RideRequestProvider } from '@/hooks/rides/use-ride-request';
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { initializeNativePlatform, hideSplashScreen, setupBackButton } from "@/lib/platform/native";
 
