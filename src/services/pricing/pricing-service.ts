@@ -15,8 +15,8 @@ class PricingService {
   private tariffCache: Map<RideCategoryKey, CategoryTariff> = new Map();
 
   async loadTariffs(): Promise<void> {
-    // Usando any para bypass do linter de tipos inexistentes no schema local
-    const { data, error } = await (supabase.from("tariff_rules") as any)
+    // Usando cast para any para evitar erros de tipo quando o schema local não está sincronizado com tabelas dinâmicas
+    const { data, error } = await (supabase as any).from("tariff_rules")
       .select("*");
 
     if (error) {
