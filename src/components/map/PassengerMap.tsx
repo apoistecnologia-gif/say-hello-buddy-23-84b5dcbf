@@ -38,7 +38,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     const initMap = async () => {
       if (!mapRef.current) return;
       
-      const mapsLib = await googleMapsLoader.importLibrary('maps') as google.maps.MapsLibrary;
+      const mapsLib = await googleMapsLoader.importLibrary('maps') as any;
       
       if (!googleMapRef.current) {
         googleMapRef.current = new mapsLib.Map(mapRef.current, {
