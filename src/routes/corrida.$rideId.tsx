@@ -12,8 +12,13 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, Share2, Shield, X, Search, Home } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
+import { createFileRoute } from "@tanstack/react-router";
 
-export default function ActiveRidePage() {
+export const Route = createFileRoute("/corrida/$rideId")({
+  component: ActiveRidePage,
+});
+
+function ActiveRidePage() {
   const { rideId } = useParams({ from: "/corrida/$rideId" });
   const navigate = useNavigate();
   const { 
