@@ -60,7 +60,7 @@ function BuscarDestinoPage() {
     
     setIsSelecting(true);
     try {
-      const details = await placesService.getPlaceDetails(suggestion.placeId);
+      const details = await placesService.selectPrediction(suggestion);
       setDestination(details);
       placesService.resetSessionToken();
       navigate({ to: "/inicio" });
