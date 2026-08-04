@@ -26,6 +26,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = useCallback(async () => {
     try {
       await supabase.auth.signOut();
+      setSession(null);
+      setUser(null);
+      setAuthState("unauthenticated");
     } catch (err) {
       console.error("[AuthProvider] Sign out error:", err);
     }
@@ -51,18 +54,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
-    let timeoutId: number | null = null;
 
     const initAuth = async () => {
-      // Security timeout to prevent hang
-      timeoutId = window.setTimeout(() => {
-        if (mounted && authState === "initializing") {
-          console.warn("[AuthProvider] Initialization timeout.");
-          setIsLoading(false);
-          // Don't change authState to unauthenticated here, just stop blocking UI
-        }
-      }, 15000);
-
       try {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
@@ -87,7 +80,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } finally {
         if (mounted) {
           setIsLoading(false);
-          if (timeoutId) clearTimeout(timeoutId);
         }
       }
     };
@@ -99,15 +91,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log(`[AuthProvider] Auth event: ${event}`);
       
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-      setAuthState(newSession ? "authenticated" : "unauthenticated");
+      if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        // Handle explicit sign out or user deletion/update
+        if (!newSession) {
+          setSession(null);
+          setUser(null);
+          setAuthState("unauthenticated");
+        }
+      }
+
+      if (newSession) {
+        setSession(newSession);
+        setUser(newSession.user);
+        setAuthState("authenticated");
+      } else if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN') {
+        setSession(null);
+        setUser(null);
+        setAuthState("unauthenticated");
+      }
+      
       setIsLoading(false);
     });
 
     return () => {
       mounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
   }, []);
