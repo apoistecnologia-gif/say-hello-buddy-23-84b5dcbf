@@ -57,7 +57,11 @@ class GoogleMapsLoader {
         var d = b.maps || (b.maps = {}), r = new Set(), e = new URLSearchParams(), u = () => h || (h = new Promise(async (f, n) => {
           await (a = m.createElement("script"));
           e.set("libraries", [...r] + "");
-          for (k in g) e.set(k.replace(/[A-Z]/g, (t: string) => "_" + t[0].toLowerCase()), g[k]);
+          for (k in g) {
+            if (Object.prototype.hasOwnProperty.call(g, k)) {
+              e.set(k.replace(/[A-Z]/g, (t: string) => "_" + t[0].toLowerCase()), g[k]);
+            }
+          }
           e.set("callback", c + ".maps." + q);
           a.src = `https://maps.googleapis.com/maps/api/js?` + e;
           // @ts-ignore
