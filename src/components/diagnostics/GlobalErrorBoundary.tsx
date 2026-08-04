@@ -32,7 +32,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     window.location.href = "/";
   };
 
-  public render() {
+  public override render() {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-black p-8 text-center text-white">
@@ -57,7 +57,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
           </div>
 
           <Button 
-            onClick={handleReset}
+            onClick={this.handleReset}
             className="bg-apois-yellow text-black font-black w-full h-14 rounded-2xl flex items-center justify-center gap-2"
           >
             <RefreshCcw size={18} />
