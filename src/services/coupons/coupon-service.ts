@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
-import { CouponValidationResult, RideCategoryKey } from "@/types/payments";
+import { CouponValidationResult } from "@/types/payments";
+import { RideCategoryKey } from "@/types/pricing";
 
 class CouponService {
   async validateCoupon(
@@ -8,8 +9,6 @@ class CouponService {
     categoryKey: RideCategoryKey,
     estimatedFare: number
   ): Promise<CouponValidationResult> {
-    // O backend APOIS utiliza uma RPC ou tabela 'coupons' para validação
-    // Tentamos buscar na tabela 'coupons' que é o padrão atual
     const { data, error } = await (supabase as any)
       .from("coupons")
       .select("*")
@@ -21,7 +20,6 @@ class CouponService {
       return { valid: false, code, discount_type: "fixed", discount_value: 0, message: "Cupom inválido ou expirado" };
     }
 
-    // Validações básicas no frontend (autoridade final é o backend)
     const now = new Date();
     if (data.expires_at && new Date(data.expires_at) < now) {
       return { valid: false, code, discount_type: "fixed", discount_value: 0, message: "Cupom expirado" };
@@ -32,8 +30,8 @@ class CouponService {
       code: data.code,
       discount_type: data.discount_type as "percentage" | "fixed",
       discount_value: Number(data.discount_value),
-      max_discount: data.max_discount ? Number(data.max_discount) : undefined,
-      min_fare: data.min_fare ? Number(data.min_fare) : undefined
+      max_discount: data.max_discount ? Number(data.max_discount) : null,
+      min_fare: data.min_fare ? Number(data.min_fare) : null
     };
   }
 }

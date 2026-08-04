@@ -22,8 +22,8 @@ export interface CouponValidationResult {
   code: string;
   discount_type: "percentage" | "fixed";
   discount_value: number;
-  max_discount?: number;
-  min_fare?: number;
+  max_discount?: number | null;
+  min_fare?: number | null;
   message?: string;
   error_code?: string;
 }

@@ -45,7 +45,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "wallets", filter: `user_id=eq.${user.id}` },
-          () => loadWallet()
+          () => {
+            loadWallet();
+          }
         )
         .subscribe();
 
@@ -53,6 +55,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         supabase.removeChannel(channel);
       };
     }
+    return undefined;
   }, [user, loadWallet]);
 
   return (
