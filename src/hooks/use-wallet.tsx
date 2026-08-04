@@ -71,6 +71,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .subscribe();
 
       return () => {
+        if (channel) 
         supabase.removeChannel(channel);
       };
     }
