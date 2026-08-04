@@ -57,14 +57,18 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const status = await Geolocation.checkPermissions();
         if (mounted) setPermissionStatus(status);
 
-        // Don't auto-start watch on web if it blocks UI
-        // In the future, we can add a check for isNativePlatform()
-        watchId = await Geolocation.watchPosition({ enableHighAccuracy: true }, (position, err) => {
+        // Don't auto-start watch if it might block, but allow it to run in background
+        // The isLoading should be false by default or set quickly
+        setIsLoading(false);
+        
+        watchId = await Geolocation.watchPosition({ 
+          enableHighAccuracy: true,
+          timeout: 10000 
+        }, (position, err) => {
           if (!mounted) return;
           if (err) {
             console.warn("[useLocation] Watch error:", err);
-            setError(err.message);
-            setIsLoading(false);
+            // Don't let watch errors block the whole app
             return;
           }
           if (position) {
@@ -73,7 +77,6 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               longitude: position.coords.longitude,
               accuracy: position.coords.accuracy
             });
-            setIsLoading(false);
           }
         });
       } catch (e) {

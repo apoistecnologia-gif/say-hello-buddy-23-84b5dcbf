@@ -15,7 +15,7 @@ const PUBLIC_PATHS = [
 ];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, authState, isLoading } = useAuth();
+  const { authState } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -26,38 +26,32 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (authState === "initializing") return;
 
     if (authState === "unauthenticated" && !isPublicPath) {
-      console.log("[AuthGuard] Not authenticated, redirecting to /login from:", location.pathname);
+      console.log("[AuthGuard] Private route access without auth, redirecting to /login");
       navigate({ to: "/login" });
     } else if (authState === "authenticated" && isPublicPath) {
-      console.log("[AuthGuard] Authenticated, redirecting to /inicio from public route:", location.pathname);
+      console.log("[AuthGuard] Public route access with auth, redirecting to /inicio");
       navigate({ to: "/inicio" });
     }
   }, [authState, isPublicPath, navigate, location.pathname]);
 
-  // Root level AuthGuard should not block public routes EVER
-  // It only handles the global state synchronization
+  // Public routes always render immediately
   if (isPublicPath) {
     return <>{children}</>;
   }
 
-  // For non-public routes, show a localized loading if initializing
+  // Private routes: wait for initialization
   if (authState === "initializing") {
-    return null;
-  }
-
-  // If not authenticated and not on a public path, we show an escape button while waiting for the useEffect redirect
-  if (authState === "unauthenticated") {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6 text-center">
-        <p className="text-zinc-500 mb-4">Acesso restrito.</p>
-        <button 
-          onClick={() => navigate({ to: "/login" })}
-          className="text-apois-yellow font-bold uppercase text-[10px] tracking-widest border border-apois-yellow/20 px-4 py-2 rounded-lg"
-        >
-          Ir para Login
-        </button>
+        <Loader2 className="animate-spin text-apois-yellow mb-4" size={32} />
+        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Verificando autenticação...</p>
       </div>
     );
+  }
+
+  // If not authenticated, we show nothing (useEffect will redirect)
+  if (authState !== "authenticated") {
+    return null;
   }
 
   return <>{children}</>;
