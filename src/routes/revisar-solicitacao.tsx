@@ -3,6 +3,7 @@ import { useRideRequest } from "@/hooks/rides/use-ride-request";
 import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { useDestination } from "@/hooks/use-destination";
 import { useRoute } from "@/hooks/use-route";
+import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 import { usePricing } from "@/hooks/use-pricing";
 import { usePaymentMethods } from "@/hooks/use-payment-methods";
@@ -33,6 +34,7 @@ function RideRequestReviewPage() {
   const { address: pickupAddress } = usePickupAddress();
   const { destination } = useDestination();
   const { route } = useRoute();
+  const { orderedStops } = useRideStops();
   const { selectedCategory } = useRideCategories();
   const { checkout } = useCheckoutPreparation();
   const { selectedMethod } = usePaymentMethods();

@@ -1,0 +1,33 @@
+        <div className="space-y-4">
+          <div className="flex gap-4">
+            <div className="flex flex-col items-center py-1">
+              <div className="w-2.5 h-2.5 rounded-full bg-apois-yellow" />
+              <div className="w-px flex-1 bg-zinc-800 my-1" />
+              {orderedStops.map((_, i) => (
+                <React.Fragment key={i}>
+                  <div className="w-2.5 h-2.5 rounded-full border border-zinc-700 bg-zinc-900" />
+                  <div className="w-px flex-1 bg-zinc-800 my-1" />
+                </React.Fragment>
+              ))}
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+            </div>
+            <div className="flex-1 space-y-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Origem</p>
+                <p className="text-sm font-medium line-clamp-1">{pickupAddress || "Carregando..."}</p>
+              </div>
+              
+              {orderedStops.map((stop, i) => (
+                <div key={stop.id}>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Parada {i + 1}</p>
+                  <p className="text-sm font-medium line-clamp-1">{stop.label}</p>
+                </div>
+              ))}
+
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Destino</p>
+                <p className="text-sm font-medium line-clamp-1">{destination?.formattedAddress || destination?.label}</p>
+              </div>
+            </div>
+          </div>
+        </div>
