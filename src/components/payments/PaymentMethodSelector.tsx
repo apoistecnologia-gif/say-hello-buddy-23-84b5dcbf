@@ -3,7 +3,7 @@ import { usePaymentMethods } from "@/hooks/use-payment-methods";
 import { useWallet } from "@/hooks/use-wallet";
 import { PRICING_CONFIG } from "@/services/pricing/pricing-config";
 import { cn } from "@/lib/utils";
-import { Wallet, ChevronRight } from "lucide-react";
+import { Wallet, ChevronRight, Check } from "lucide-react";
 import { PaymentMethodCode } from "@/types/payments";
 import { PAYMENT_ICONS } from "@/services/payments/payment-config";
 

@@ -17,13 +17,17 @@ class WalletService {
     if (!data) return null;
 
     return {
+      id: data.id || "",
       passengerId: data.passenger_id,
       balance: Number(data.balance || 0),
       available_balance: Number(data.balance || 0),
       isBlocked: !!data.is_blocked,
       blockedReason: data.blocked_reason || null,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      currency: "BRL",
+      status: data.is_blocked ? "blocked" : "active"
     };
+
 
   }
 }
