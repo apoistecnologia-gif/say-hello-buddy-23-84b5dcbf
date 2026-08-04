@@ -30,7 +30,9 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsLoading(true);
     setStatus("identifying");
     try {
+      console.log(`[usePickupAddress] Requesting geocoding for: ${location.latitude}, ${location.longitude}`);
       const formattedAddress = await getReverseGeocoding(location);
+      console.log(`[usePickupAddress] Geocoding result: ${formattedAddress}`);
       setAddress(formattedAddress);
       
       // Basic parsing for label/short label
