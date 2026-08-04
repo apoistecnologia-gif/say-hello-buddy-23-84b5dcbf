@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [passenger, setPassenger] = useState<any | null>(null);
+  const [passenger, setPassenger] = useState<PassengerProfile | null>(null);
   const [isPassengerLoading, setIsPassengerLoading] = useState(false);
 
   const fetchPassenger = async (userId: string) => {
