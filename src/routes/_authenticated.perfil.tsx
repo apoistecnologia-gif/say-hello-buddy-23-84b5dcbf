@@ -15,13 +15,21 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+interface UserProfile {
+  name?: string;
+  avatar_url?: string;
+  phone?: string;
+  average_rating?: number;
+  completed_rides?: number;
+}
+
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilPage,
 });
 
 function PerfilPage() {
   const { user, signOut } = useAuth();
-  const profile = null; // Assuming profile is not directly in useAuth
+  const profile = null as UserProfile | null;
   const role = 'passenger';
   const navigate = useNavigate();
 

@@ -57,7 +57,7 @@ function InicioPage() {
           <LocationStatus />
           
           <div 
-            onClick={() => navigate({ to: "/buscar-destino" })}
+            onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
             className="bg-black/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-2xl flex items-center gap-4 active:scale-[0.98] transition-all"
           >
             <div className="w-10 h-10 bg-apois-yellow rounded-xl flex items-center justify-center shrink-0">
