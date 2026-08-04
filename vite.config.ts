@@ -25,12 +25,7 @@ export default defineConfig({
     emptyOutDir: true,
     assetsDir: 'assets',
     sourcemap: false,
-    minify: 'terser',
-    rollupOptions: {
-      output: {
-        manualChunks: undefined,
-      },
-    },
+    minify: 'esbuild', // Use esbuild which is faster and included
   },
   server: {
     port: 8080,
