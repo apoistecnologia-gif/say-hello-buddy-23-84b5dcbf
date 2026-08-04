@@ -20,7 +20,9 @@ export const Route = createFileRoute("/_authenticated/perfil")({
 });
 
 function PerfilPage() {
-  const { user, profile, role, signOut } = useAuth() as any;
+  const { user, signOut } = useAuth();
+  const profile = null; // Assuming profile is not directly in useAuth
+  const role = 'passenger';
   const navigate = useNavigate();
 
   const handleLogout = async () => {

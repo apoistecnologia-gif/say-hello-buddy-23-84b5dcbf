@@ -20,7 +20,7 @@ export const BottomNavigation = () => {
         return (
           <Link
             key={item.path}
-            to={item.path as any}
+            to={item.path}
             className={`flex flex-col items-center gap-1 transition-all active:scale-90 ${
               isActive ? "text-apois-yellow" : "text-zinc-600"
             }`}

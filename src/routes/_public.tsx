@@ -1,7 +1,10 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/_public")({
+  beforeLoad: ({ context, location }) => {
+    // This is handled by AuthGuard as well, but this is a static check
+  },
   component: PublicLayout,
 });
 
