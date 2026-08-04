@@ -104,12 +104,19 @@ const server = createServer(async (req, res) => {
   try {
     const origin = req.headers.origin;
 
-    const allowedOrigins = new Set([
-      'https://localhost',
-      'https://app.movvidriver.com.br',
-      'http://localhost',
-      'capacitor://localhost',
-    ]);
+    const allowedOrigins = new Set((process.env.CORS_ALLOWED_ORIGINS || "")
+      .split(",")
+      .map(o => o.trim())
+      .filter(Boolean));
+    
+    // Add default development and official origins
+    [
+      'http://localhost:8080',
+      'http://localhost:3000',
+      'https://say-hello-buddy-23.lovable.app',
+      'https://preview--say-hello-buddy-23.lovable.app',
+      'https://say-hello-buddy-23-84b5dcbf.lovable.app'
+    ].forEach(o => allowedOrigins.add(o));
 
     if (origin && allowedOrigins.has(origin)) {
       res.setHeader('Access-Control-Allow-Origin', origin);
