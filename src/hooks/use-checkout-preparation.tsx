@@ -20,7 +20,7 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
   const { selectedCategory } = useRideCategories();
   const { estimate, status: pricingStatus } = usePricing();
   const { selectedMethod } = usePaymentMethods();
-  const { state: walletState } = useWallet();
+  const { state: walletState, wallet } = useWallet();
 
   const checkout = useMemo(() => {
     const blockingReasons: string[] = [];
@@ -58,7 +58,7 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
       readiness: blockingReasons.length === 0,
       blockingReasons
     };
-  }, [user, route, selectedCategory, estimate, pricingStatus, selectedMethod, walletState]);
+  }, [user, route, selectedCategory, estimate, pricingStatus, selectedMethod, walletState, wallet]);
 
   return (
     <CheckoutPreparationContext.Provider value={{ 
