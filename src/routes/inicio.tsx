@@ -6,13 +6,19 @@ import { useDestination } from "@/hooks/use-destination";
 import { useRoute } from "@/hooks/use-route";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 import { usePricing } from "@/hooks/use-pricing";
+import { usePaymentMethods } from "@/hooks/use-payment-methods";
+import { useCoupon } from "@/hooks/use-coupon";
+import { useCheckoutPreparation } from "@/hooks/use-checkout-preparation";
 import { LocationStatus } from "@/components/location/LocationStatus";
 import PassengerMap from "@/components/map/PassengerMap";
 import { RouteSummary } from "@/components/route/RouteSummary";
 import { CategorySelector } from "@/components/pricing/CategorySelector";
 import { FareDetails } from "@/components/pricing/FareDetails";
 import { ServiceDetailsForm } from "@/components/pricing/ServiceDetailsForm";
-import { MapPin, Shield, AlertCircle, Loader2, X, ChevronRight, Settings2 } from "lucide-react";
+import { PaymentMethodSelector, PaymentMethodList } from "@/components/payments/PaymentMethodSelector";
+import { CouponInput } from "@/components/coupons/CouponInput";
+import { CheckoutSummary } from "@/components/pricing/CheckoutSummary";
+import { MapPin, Shield, AlertCircle, Loader2, X, ChevronRight, Settings2, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/inicio")({
   component: InicioPage,
@@ -26,7 +32,9 @@ function InicioPage() {
   const { route, status: routeStatus, clearRoute } = useRoute();
   const { selectedCategory } = useRideCategories();
   const { estimate, status: pricingStatus } = usePricing();
+  const { checkout } = useCheckoutPreparation();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isPaymentListOpen, setIsPaymentListOpen] = useState(false);
 
   const handleOpenSearch = () => {
     navigate({ to: '/buscar-destino' });
