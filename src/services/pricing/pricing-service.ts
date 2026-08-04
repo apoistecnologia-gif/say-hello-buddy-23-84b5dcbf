@@ -1,10 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { 
   RideCategoryKey, 
-  TariffRule, 
   CategoryTariff, 
   FareEstimate, 
-  FareBreakdown,
   ServiceDetails,
   FreightServiceDetails,
   TowServiceDetails,
@@ -17,8 +15,8 @@ class PricingService {
   private tariffCache: Map<RideCategoryKey, CategoryTariff> = new Map();
 
   async loadTariffs(): Promise<void> {
-    const { data, error } = await supabase
-      .from("tariff_rules")
+    // Usando any para bypass do linter de tipos inexistentes no schema local
+    const { data, error } = await (supabase.from("tariff_rules") as any)
       .select("*");
 
     if (error) {
@@ -26,10 +24,10 @@ class PricingService {
       throw new Error("tariff_load_failed");
     }
 
-    const grouped = (data || []).reduce((acc, rule) => {
+    const grouped = (data || []).reduce((acc: any, rule: any) => {
       const key = rule.category_key as RideCategoryKey;
       if (!acc[key]) acc[key] = {} as CategoryTariff;
-      (acc[key] as any)[rule.field_key] = Number(rule.value);
+      acc[key][rule.field_key] = Number(rule.value);
       return acc;
     }, {} as Record<RideCategoryKey, CategoryTariff>);
 

@@ -4,7 +4,7 @@ import { RideCategory, RideCategoryKey } from "@/types/pricing";
 class CategoryService {
   private cache: RideCategory[] | null = null;
   private lastFetch: number = 0;
-  private readonly TTL = 60 * 1000; // 1 minute memory cache
+  private readonly TTL = 60 * 1000;
 
   async getEnabledCategories(): Promise<RideCategory[]> {
     const now = Date.now();
@@ -12,8 +12,8 @@ class CategoryService {
       return this.cache;
     }
 
-    const { data, error } = await supabase
-      .from("ride_categories")
+    // Usando any para bypass do linter de tipos inexistentes no schema local
+    const { data, error } = await (supabase.from("ride_categories") as any)
       .select("*")
       .eq("enabled", true)
       .order("sort_order");
@@ -24,11 +24,16 @@ class CategoryService {
     }
 
     const validKeys: RideCategoryKey[] = ["carros", "motos", "fretes", "guincho", "envios"];
-    const categories = (data || [])
-      .filter(cat => validKeys.includes(cat.key as RideCategoryKey))
-      .map(cat => ({
-        ...cat,
-        key: cat.key as RideCategoryKey
+    const categories: RideCategory[] = (data || [])
+      .filter((cat: any) => validKeys.includes(cat.key as RideCategoryKey))
+      .map((cat: any) => ({
+        id: cat.id,
+        key: cat.key as RideCategoryKey,
+        label: cat.label,
+        icon: cat.icon,
+        color: cat.color,
+        enabled: cat.enabled,
+        sort_order: cat.sort_order
       }));
 
     this.cache = categories;

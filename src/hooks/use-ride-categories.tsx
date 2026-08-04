@@ -28,10 +28,12 @@ export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = (
       const data = await categoryService.getEnabledCategories();
       setCategories(data);
       
-      // Auto-select "carros" if available, or first habilitated
+      // Auto-select "carros" if available, or first enabled
       if (!selectedKey && data.length > 0) {
         const defaultCat = data.find(c => c.key === "carros") || data[0];
-        setSelectedKey(defaultCat.key);
+        if (defaultCat) {
+          setSelectedKey(defaultCat.key);
+        }
       }
     } catch (err: any) {
       setError(err.message || "categories_load_failed");
@@ -43,8 +45,8 @@ export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     loadCategories();
 
-    // Realtime subscription
-    const channel = supabase
+    // Realtime subscription - usando any para tabelas não tipadas
+    const channel = (supabase as any)
       .channel("ride_categories_changes")
       .on(
         "postgres_changes",
