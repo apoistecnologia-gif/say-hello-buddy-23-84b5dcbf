@@ -36,10 +36,10 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
       blockingReasons.push("passenger_debt_block");
     }
 
-    // Wallet selection rule: Backend must support it
-    if (selectedMethod === "wallet") {
-      const balance = useWallet.getState?.().wallet?.balance || 0;
-      if (balance < (estimate?.estimatedPrice || 0)) {
+    // Wallet selection rule: Check balance
+    if (selectedMethod === "wallet" && estimate) {
+      const balance = wallet?.balance || 0;
+      if (balance < estimate.estimatedPrice) {
         blockingReasons.push("insufficient_balance");
       }
     }
