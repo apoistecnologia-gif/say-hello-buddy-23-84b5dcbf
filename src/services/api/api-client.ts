@@ -12,7 +12,6 @@ export class ApiClient {
   private constructor() {
     this.baseUrl = import.meta.env['VITE_APOIS_API_URL'] || '';
     if (import.meta.env.DEV && !this.baseUrl) {
-      // Auto-fallback for development if not in .env
       this.baseUrl = 'http://localhost:3000';
     }
   }
@@ -67,11 +66,12 @@ export class ApiClient {
         throw new Error('geocode_rate_limited');
       }
 
+      const result = await response.json();
+
       if (!response.ok) {
-        throw new Error('geocode_service_unavailable');
+        throw new Error(result?.error || 'service_unavailable');
       }
 
-      const result = await response.json();
       return result as T;
     } catch (error: any) {
       clearTimeout(timeoutId);
