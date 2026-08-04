@@ -53,6 +53,11 @@ function LoginPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white px-6 py-8 sm:py-12 items-center justify-center safe-top safe-bottom">
+      {import.meta.env.DEV && (
+        <div className="fixed top-2 left-2 text-[8px] font-black text-green-500 z-50">
+          APOIS LOGIN — VERSÃO ATUAL
+        </div>
+      )}
       <div className="w-full max-w-[400px] flex flex-col items-center">
         {/* LOGOMARCA OFICIAL */}
         <div className="mb-8 flex justify-center w-full">

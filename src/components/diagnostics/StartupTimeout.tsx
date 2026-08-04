@@ -40,9 +40,9 @@ export const StartupTimeout: React.FC<StartupTimeoutProps> = ({
           <AlertCircle className="text-apois-yellow" size={40} />
         </div>
         
-        <h1 className="text-2xl font-black mb-2 text-apois-yellow">Não foi possível concluir a inicialização.</h1>
+        <h1 className="text-2xl font-black mb-2 text-apois-yellow">Carregamento Lento</h1>
         <p className="text-zinc-400 text-sm font-medium mb-8 max-w-xs">
-          O aplicativo está demorando mais que o esperado para carregar.
+          Isso pode ser devido à conexão ou GPS.
         </p>
 
         <div className="flex flex-col gap-3 w-full max-w-xs">
