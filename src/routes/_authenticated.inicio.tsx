@@ -35,7 +35,7 @@ function InicioPage() {
   const { selectedCategory } = useRideCategories();
   const { checkout } = useCheckoutPreparation();
   const { initiateReview } = useRideRequest();
-  const { refreshLocation, isLoading: isLocating } = useLocation();
+  const { location, refreshLocation, isLoading: isLocating } = useLocation();
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPaymentListOpen, setIsPaymentListOpen] = useState(false);
