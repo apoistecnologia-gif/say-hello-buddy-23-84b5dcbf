@@ -48,11 +48,12 @@ function InicioPage() {
   return (
     <div className="flex flex-col h-[100dvh] bg-black text-white relative overflow-hidden">
       {/* Debug Overlay - Somente em Dev */}
-      {process.env['NODE_ENV'] === 'development' && (
+      {import.meta.env.DEV && (
         <div className="fixed top-0 left-0 z-[9999] bg-black/80 p-1 text-[8px] pointer-events-none">
           Auth: {authState} | Loc: {location ? 'Sim' : 'Não'} | Addr: {addressStatus}
         </div>
       )}
+
 
       {/* Mapa como fundo principal */}
       <div className="absolute inset-0 z-0">
@@ -71,8 +72,9 @@ function InicioPage() {
           <div className="flex flex-col min-w-0">
             <h1 className="text-sm font-black text-white">Olá, {profile?.full_name?.split(' ')[0] || 'Passageiro'}</h1>
             <p className="text-[11px] font-medium text-gray-300 truncate max-w-[200px]">
-              {addressStatus === "identifying" ? "Identificando..." : (address || "Definindo localização...")}
+              {addressStatus === "identifying" ? "Identificando..." : (address || "Sua localização atual")}
             </p>
+
           </div>
           <div className="w-10 h-10 bg-apois-yellow rounded-2xl flex items-center justify-center shadow-lg shadow-apois-yellow/20 cursor-pointer active:scale-95 transition-all">
             <Settings2 size={20} className="text-black" />

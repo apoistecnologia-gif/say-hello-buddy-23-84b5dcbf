@@ -23,16 +23,24 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
   const [pickupPlaceId, setPickupPlaceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState("idle");
+  const [error, setError] = useState<string | null>(null);
 
   const refreshAddress = useCallback(async () => {
-    if (!location) return;
+    if (!location || !location.latitude || !location.longitude) return;
     
     setIsLoading(true);
     setStatus("identifying");
+    setError(null);
     try {
-      console.log(`[usePickupAddress] Requesting geocoding for: ${location.latitude}, ${location.longitude}`);
+      if (import.meta.env.DEV) {
+        console.log(`[usePickupAddress] Requesting geocoding...`);
+      }
       const formattedAddress = await getReverseGeocoding(location);
-      console.log(`[usePickupAddress] Geocoding result: ${formattedAddress}`);
+      
+      if (import.meta.env.DEV) {
+        console.log(`[usePickupAddress] Geocoding success`);
+      }
+      
       setAddress(formattedAddress);
       
       // Basic parsing for label/short label
@@ -45,14 +53,16 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
         setPickupShortLabel("Localização atual");
       }
       setStatus("success");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to refresh address:", err);
-      setAddress("Sua localização atual");
+      setError(err.message || "Erro ao identificar endereço");
+      setAddress(null); // Clear address on real error
       setStatus("error");
     } finally {
       setIsLoading(false);
     }
   }, [location]);
+
 
   useEffect(() => {
     if (location) {
@@ -68,9 +78,10 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
       pickupPlaceId, 
       isLoading, 
       status, 
-      error: null,
+      error,
       refreshAddress
     }}>
+
       {children}
     </PickupAddressContext.Provider>
   );
