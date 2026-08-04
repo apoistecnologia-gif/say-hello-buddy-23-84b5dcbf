@@ -1,5 +1,5 @@
 import { activeRideService } from "@/services/rides/active-ride-service";
-import { RideCategory } from "@/types/rides/ride-categories";
+import { RideCategory } from "@/types/pricing";
 import { supabase } from "@/integrations/supabase/client";
 import { PRICING_CONFIG } from "./pricing-config";
 
