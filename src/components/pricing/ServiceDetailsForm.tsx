@@ -2,7 +2,8 @@ import React from "react";
 import { usePricing } from "@/hooks/use-pricing";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 
-export const ServiceDetailsForm: React.FC = () => {
+export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
   const { selectedCategory } = useRideCategories();
   const { serviceDetails, setServiceDetails } = usePricing();
 
