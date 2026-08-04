@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { StartupTimeout } from "@/components/diagnostics/StartupTimeout";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Toaster } from "@/components/ui/sonner";
 import { LocationProvider } from "@/hooks/use-location";
@@ -22,7 +23,8 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
   return (
-    <LocationProvider>
+    <StartupTimeout>
+      <LocationProvider>
       <PickupAddressProvider>
         <DestinationProvider>
           <RideStopsProvider>
@@ -54,6 +56,7 @@ function AuthenticatedLayout() {
           </RideStopsProvider>
         </DestinationProvider>
       </PickupAddressProvider>
-    </LocationProvider>
+      </LocationProvider>
+    </StartupTimeout>
   );
 }
