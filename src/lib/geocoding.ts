@@ -16,7 +16,9 @@ export const getReverseGeocoding = async (location: LocationData): Promise<strin
     // We assume the backend handles the Google Maps API internally to avoid exposing keys
     // Use a geocodificação do geocodingService que já está mais completa
     const { geocodingService } = await import('../services/geocoding/geocoding-service');
+    console.log("[geocoding] Calling geocodingService.resolvePickupAddress...");
     const result = await geocodingService.resolvePickupAddress({ lat: location.latitude, lng: location.longitude });
+    console.log("[geocoding] Full result from service:", JSON.stringify(result));
     
     // Constrói o endereço completo (Rua, Bairro, Cidade) conforme solicitado
     const addr = result.address || result.label;

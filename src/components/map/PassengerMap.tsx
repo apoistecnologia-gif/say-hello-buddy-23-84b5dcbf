@@ -35,64 +35,75 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   const targetDest = customDestination || globalDestination;
 
   useEffect(() => {
+    let mounted = true;
     const initMap = async () => {
       if (!mapRef.current) return;
       
-      const mapsLib = await googleMapsLoader.importLibrary('maps') as any;
-      
-      if (!googleMapRef.current) {
-        googleMapRef.current = new mapsLib.Map(mapRef.current, {
-          center: { lat: currentLat || -23.5505, lng: currentLng || -46.6333 },
-          zoom: 15,
-          disableDefaultUI: true,
-          styles: [
-            {
-              "elementType": "geometry",
-              "stylers": [{ "color": "#212121" }]
-            },
-            {
-              "elementType": "labels.icon",
-              "stylers": [{ "visibility": "off" }]
-            },
-            {
-              "elementType": "labels.text.fill",
-              "stylers": [{ "color": "#757575" }]
-            },
-            {
-              "elementType": "labels.text.stroke",
-              "stylers": [{ "color": "#212121" }]
-            },
-            {
-              "featureType": "administrative",
-              "elementType": "geometry",
-              "stylers": [{ "color": "#757575" }]
-            },
-            {
-              "featureType": "poi",
-              "elementType": "labels.text.fill",
-              "stylers": [{ "color": "#757575" }]
-            },
-            {
-              "featureType": "road",
-              "elementType": "geometry.fill",
-              "stylers": [{ "color": "#2c2c2c" }]
-            },
-            {
-              "featureType": "road",
-              "elementType": "labels.text.fill",
-              "stylers": [{ "color": "#8a8a8a" }]
-            },
-            {
-              "featureType": "water",
-              "elementType": "geometry",
-              "stylers": [{ "color": "#000000" }]
-            }
-          ]
-        });
+      try {
+        console.log("[PassengerMap] Initializing Google Maps JS API...");
+        const mapsLib = await googleMapsLoader.importLibrary('maps') as any;
+        
+        if (!mounted) return;
+
+        if (!googleMapRef.current) {
+          googleMapRef.current = new mapsLib.Map(mapRef.current, {
+            center: { lat: currentLat || -23.5505, lng: currentLng || -46.6333 },
+            zoom: 15,
+            disableDefaultUI: true,
+            backgroundColor: '#000000',
+            styles: [
+              {
+                "elementType": "geometry",
+                "stylers": [{ "color": "#1a1a1a" }]
+              },
+              {
+                "elementType": "labels.icon",
+                "stylers": [{ "visibility": "off" }]
+              },
+              {
+                "elementType": "labels.text.fill",
+                "stylers": [{ "color": "#757575" }]
+              },
+              {
+                "elementType": "labels.text.stroke",
+                "stylers": [{ "color": "#212121" }]
+              },
+              {
+                "featureType": "administrative",
+                "elementType": "geometry",
+                "stylers": [{ "color": "#757575" }]
+              },
+              {
+                "featureType": "poi",
+                "elementType": "labels.text.fill",
+                "stylers": [{ "color": "#757575" }]
+              },
+              {
+                "featureType": "road",
+                "elementType": "geometry.fill",
+                "stylers": [{ "color": "#2c2c2c" }]
+              },
+              {
+                "featureType": "road",
+                "elementType": "labels.text.fill",
+                "stylers": [{ "color": "#8a8a8a" }]
+              },
+              {
+                "featureType": "water",
+                "elementType": "geometry",
+                "stylers": [{ "color": "#000000" }]
+              }
+            ]
+          });
+          console.log("[PassengerMap] Map instance created successfully");
+        }
+      } catch (err) {
+        console.error("[PassengerMap] Error loading Google Maps:", err);
       }
     };
 
     initMap();
+    return () => { mounted = false; };
   }, []);
 
   useEffect(() => {

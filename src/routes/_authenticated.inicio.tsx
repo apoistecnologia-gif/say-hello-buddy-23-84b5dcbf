@@ -50,7 +50,7 @@ function InicioPage() {
       {/* Mapa como fundo principal */}
       <div className="absolute inset-0 z-0">
         <PassengerMap 
-          origin={undefined}
+          origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
           destination={undefined}
           encodedPolyline={route?.encodedPolyline}
           driverLocation={undefined}
