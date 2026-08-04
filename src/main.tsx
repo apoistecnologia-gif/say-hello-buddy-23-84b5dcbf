@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import './styles.css'
 
 console.info("APOIS_MAIN_INICIADO");
 
@@ -10,17 +11,10 @@ if (!rootElement) {
 }
 
 ReactDOM.createRoot(rootElement).render(
-  <div style={{ 
-    height: '100vh', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    background: 'black', 
-    color: '#FFB800',
-    fontSize: '24px',
-    fontWeight: 'bold',
-    fontFamily: 'sans-serif'
-  }}>
-    APOIS REACT MONTOU
+  <div className="min-h-screen flex items-center justify-center bg-black">
+    <div className="text-[#FFB800] text-2xl font-bold uppercase tracking-widest animate-pulse">
+      APOIS REACT MONTOU + CSS
+    </div>
   </div>
 );
+
