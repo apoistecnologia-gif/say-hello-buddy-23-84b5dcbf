@@ -52,69 +52,93 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-black text-white p-6 pt-12">
-      <div className="mb-12 flex justify-center">
-        {/* Placeholder para o logo real */}
-        <div className="w-24 h-24 bg-yellow-500 rounded-full flex items-center justify-center">
-          <span className="text-black font-bold text-4xl">A</span>
-        </div>
-      </div>
-
-      <h1 className="text-3xl font-bold mb-2">Bem-vindo ao APOIS</h1>
-      <p className="text-gray-400 mb-8">Faça login para continuar sua jornada.</p>
-
-      <form onSubmit={handleLogin} className="space-y-4">
-        <div className="space-y-2">
-          <Input
-            type="email"
-            placeholder="E-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={loading}
-            className="w-full bg-[#1e1e1e] border-gray-800 text-white h-14 rounded-xl"
-            autoComplete="email"
+    <div className="flex flex-col min-h-screen bg-black text-white px-6 py-8 sm:py-12 items-center justify-center safe-top safe-bottom">
+      <div className="w-full max-w-[400px] flex flex-col items-center">
+        {/* LOGOMARCA OFICIAL */}
+        <div className="mb-8 flex justify-center w-full">
+          <img 
+            src={logo} 
+            alt="APOIS" 
+            className="w-32 h-auto object-contain max-w-[180px]"
+            loading="eager"
           />
         </div>
 
-        <div className="relative space-y-2">
-          <Input
-            type={showPassword ? "text" : "password"}
-            placeholder="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+        {/* TÍTULO E SUBTÍTULO */}
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold mb-2">Bem-vindo ao APOIS</h1>
+          <p className="text-zinc-400">Faça login para continuar sua jornada.</p>
+        </div>
+
+        {/* FORMULÁRIO */}
+        <form onSubmit={handleLogin} className="w-full space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">E-mail</label>
+            <Input
+              type="email"
+              placeholder="seu@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+              className="w-full bg-[#121212] border-zinc-800 text-white h-14 rounded-xl focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow"
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Senha</label>
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="w-full bg-[#121212] border-zinc-800 text-white h-14 rounded-xl pr-12 focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow"
+                autoComplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white p-2"
+                aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Link 
+              to="/recuperar-senha" 
+              className="text-sm font-semibold text-apois-yellow hover:text-apois-yellow/80 active:opacity-70 transition-colors"
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
+
+          {/* BOTÃO ENTRAR */}
+          <Button
+            type="submit"
             disabled={loading}
-            className="w-full bg-[#1e1e1e] border-gray-800 text-white h-14 rounded-xl pr-12"
-            autoComplete="current-password"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400"
+            className="w-full bg-apois-yellow hover:bg-apois-yellow/90 text-black h-14 rounded-xl font-black text-base uppercase tracking-widest mt-6 shadow-lg shadow-apois-yellow/10"
           >
-            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-          </button>
-        </div>
+            {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
+          </Button>
+        </form>
 
-        <div className="flex justify-end">
-          <Link to="/recuperar-senha" className="text-sm text-yellow-500 hover:underline">
-            Esqueci minha senha
+        {/* CRIAR CONTA */}
+        <div className="mt-10 text-center flex flex-col gap-1">
+          <span className="text-zinc-500 text-sm">Ainda não tem uma conta?</span>
+          <Link 
+            to="/cadastro" 
+            className="text-apois-yellow font-black uppercase text-sm tracking-widest hover:text-apois-yellow/80 active:opacity-70 transition-colors"
+          >
+            Criar minha conta
           </Link>
         </div>
-
-        <Button
-          type="submit"
-          disabled={loading}
-          className="w-full bg-yellow-500 hover:bg-yellow-600 text-black h-14 rounded-xl font-bold text-lg mt-4"
-        >
-          {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
-        </Button>
-      </form>
-
-      <div className="mt-8 text-center text-gray-400">
-        Não tem uma conta?{" "}
-        <Link to="/cadastro" className="text-yellow-500 font-bold hover:underline">
-          Criar minha conta
-        </Link>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_public/")({
   beforeLoad: async ({ context }) => {
     // Basic auth check logic here if needed, or just redirect to start logic
     // But since we want the login screen if no session, and /index logic should be explicit:
