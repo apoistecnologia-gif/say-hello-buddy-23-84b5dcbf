@@ -44,7 +44,13 @@ function InicioPage() {
   return (
     <div className="flex flex-col min-h-screen bg-black text-white relative">
       <div className="flex-1 relative">
-        <PassengerMap />
+        <PassengerMap 
+          origin={undefined}
+          destination={undefined}
+          encodedPolyline={undefined}
+          driverLocation={undefined}
+          isStatic={false}
+        />
         
         {/* Overlay superior */}
         <div className="absolute top-safe left-5 right-5 z-20 space-y-3">
