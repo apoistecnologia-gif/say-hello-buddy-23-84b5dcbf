@@ -1,66 +1,50 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { PaymentMethod, PaymentMethodKey } from "@/types/payments";
-import { PAYMENT_CONFIG } from "@/services/payments/payment-config";
 import { useAuth } from "@/hooks/use-auth";
 
 interface PaymentMethodsContextType {
   methods: PaymentMethod[];
   selectedMethod: PaymentMethodKey | null;
+  setSelectedMethod: (key: PaymentMethodKey) => void;
   isLoading: boolean;
-  selectMethod: (key: PaymentMethodKey) => void;
-  clearSelection: () => void;
 }
 
 const PaymentMethodsContext = createContext<PaymentMethodsContextType | undefined>(undefined);
 
+const DEFAULT_METHODS: PaymentMethod[] = [
+  { key: "pix", label: "PIX", icon: "qr-code", description: "Pagamento instantâneo", enabled: true },
+  { key: "credit_card", label: "Cartão de Crédito", icon: "credit-card", description: "Pague no app", enabled: true },
+  { key: "debit_card", label: "Cartão de Débito", icon: "credit-card", description: "Débito online", enabled: true },
+  { key: "cash", label: "Dinheiro", icon: "banknote", description: "Pague ao motorista", enabled: true },
+  { key: "wallet", label: "Carteira APOIS", icon: "wallet", description: "Saldo em conta", enabled: false }, // Disabled for STO-011
+  { key: "corporate", label: "Corporativo", icon: "building", description: "Conta empresa", enabled: false },
+];
+
 export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodKey | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const getStorageKey = () => {
-    if (!user) return null;
-    return `${PAYMENT_CONFIG.PREFERENCE_KEY_PREFIX}${user.id}${PAYMENT_CONFIG.PREFERENCE_KEY_SUFFIX}`;
-  };
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodKey | null>("cash");
 
   useEffect(() => {
-    const key = getStorageKey();
-    if (key) {
-      const saved = localStorage.getItem(key) as PaymentMethodKey;
-      const validMethod = PAYMENT_CONFIG.METHODS.find(m => m.key === saved && m.enabled);
-      if (validMethod) {
-        setSelectedMethod(validMethod.key);
-      } else {
-        setSelectedMethod("pix"); // Default fallback
-      }
-    } else {
-      setSelectedMethod(null);
+    if (user) {
+      const saved = localStorage.getItem(`apois:passageiro:${user.id}:payment_method`);
+      if (saved) setSelectedMethod(saved as PaymentMethodKey);
     }
   }, [user]);
 
-  const selectMethod = (key: PaymentMethodKey) => {
-    const method = PAYMENT_CONFIG.METHODS.find(m => m.key === key);
-    if (method && method.enabled) {
-      setSelectedMethod(key);
-      const storageKey = getStorageKey();
-      if (storageKey) {
-        localStorage.setItem(storageKey, key);
-      }
+  const handleSelect = (key: PaymentMethodKey) => {
+    setSelectedMethod(key);
+    if (user) {
+      localStorage.setItem(`apois:passageiro:${user.id}:payment_method`, key);
     }
   };
 
-  const clearSelection = () => setSelectedMethod(null);
-
   return (
-    <PaymentMethodsContext.Provider
-      value={{
-        methods: [...PAYMENT_CONFIG.METHODS],
-        selectedMethod,
-        isLoading,
-        selectMethod,
-        clearSelection,
-      }}
-    >
+    <PaymentMethodsContext.Provider value={{ 
+      methods: DEFAULT_METHODS, 
+      selectedMethod, 
+      setSelectedMethod: handleSelect, 
+      isLoading: false 
+    }}>
       {children}
     </PaymentMethodsContext.Provider>
   );

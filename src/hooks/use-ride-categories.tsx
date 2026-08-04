@@ -1,91 +1,29 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { RideCategory, RideCategoryKey } from "@/types/pricing";
-import { categoryService } from "@/services/categories/category-service";
-import { supabase } from "@/integrations/supabase/client";
 
 interface RideCategoriesContextType {
   categories: RideCategory[];
-  isLoading: boolean;
-  error: string | null;
   selectedCategory: RideCategory | null;
-  selectCategory: (key: RideCategoryKey) => void;
-  clearSelection: () => void;
-  refresh: () => Promise<void>;
+  setSelectedCategory: (category: RideCategory | null) => void;
+  isLoading: boolean;
 }
 
 const RideCategoriesContext = createContext<RideCategoriesContextType | undefined>(undefined);
 
+const DEFAULT_CATEGORIES: RideCategory[] = [
+  { key: "carros", label: "Carros", icon: "car", description: "Viagens confortáveis", enabled: true, order: 1 },
+  { key: "motos", label: "Motos", icon: "bike", description: "Mais rápido no trânsito", enabled: true, order: 2 },
+  { key: "fretes", label: "Fretes", icon: "truck", description: "Mudanças e transportes", enabled: true, order: 3 },
+  { key: "guincho", label: "Guincho", icon: "tow", description: "Resgate de veículos", enabled: true, order: 4 },
+  { key: "envios", label: "Envios", icon: "package", description: "Entregas rápidas", enabled: true, order: 5 },
+];
+
 export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [categories, setCategories] = useState<RideCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedKey, setSelectedKey] = useState<RideCategoryKey | null>(null);
-
-  const loadCategories = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const data = await categoryService.getEnabledCategories();
-      setCategories(data);
-      
-      // Auto-select "carros" if available, or first enabled
-      if (!selectedKey && data.length > 0) {
-        const defaultCat = data.find(c => c.key === "carros") || data[0];
-        if (defaultCat) {
-          setSelectedKey(defaultCat.key);
-        }
-      }
-    } catch (err: any) {
-      setError(err.message || "categories_load_failed");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedKey]);
-
-  useEffect(() => {
-    loadCategories();
-
-    // Realtime subscription - usando any para tabelas não tipadas
-    const channel = (supabase as any)
-      .channel("ride_categories_changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "ride_categories" },
-        () => {
-          categoryService.clearCache();
-          loadCategories();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [loadCategories]);
-
-  const selectCategory = (key: RideCategoryKey) => {
-    const cat = categories.find(c => c.key === key);
-    if (cat && cat.enabled) {
-      setSelectedKey(key);
-    }
-  };
-
-  const clearSelection = () => setSelectedKey(null);
-
-  const selectedCategory = categories.find(c => c.key === selectedKey) || null;
+  const [categories] = useState<RideCategory[]>(DEFAULT_CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState<RideCategory | null>(DEFAULT_CATEGORIES[0]);
 
   return (
-    <RideCategoriesContext.Provider
-      value={{
-        categories,
-        isLoading,
-        error,
-        selectedCategory,
-        selectCategory,
-        clearSelection,
-        refresh: loadCategories,
-      }}
-    >
+    <RideCategoriesContext.Provider value={{ categories, selectedCategory, setSelectedCategory, isLoading: false }}>
       {children}
     </RideCategoriesContext.Provider>
   );

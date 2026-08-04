@@ -1,58 +1,68 @@
 import React, { createContext, useContext, useMemo } from "react";
-import { CheckoutEstimate } from "@/types/payments";
 import { useRoute } from "@/hooks/use-route";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 import { usePricing } from "@/hooks/use-pricing";
 import { usePaymentMethods } from "@/hooks/use-payment-methods";
 import { useWallet } from "@/hooks/use-wallet";
-import { useCoupon } from "@/hooks/use-coupon";
 import { useAuth } from "@/hooks/use-auth";
+import { CheckoutEstimate } from "@/types/payments";
 
 interface CheckoutPreparationContextType {
   checkout: CheckoutEstimate;
+  canProceed: boolean;
 }
 
 const CheckoutPreparationContext = createContext<CheckoutPreparationContextType | undefined>(undefined);
 
 export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { route, status: routeStatus } = useRoute();
+  const { route } = useRoute();
   const { selectedCategory } = useRideCategories();
-  const { estimate, status: pricingStatus, serviceDetails } = usePricing();
+  const { estimate, status: pricingStatus } = usePricing();
   const { selectedMethod } = usePaymentMethods();
-  const { wallet } = useWallet();
-  const { discount, status: couponStatus } = useCoupon();
+  const { state: walletState } = useWallet();
 
-  const checkout = useMemo((): CheckoutEstimate => {
+  const checkout = useMemo(() => {
     const blockingReasons: string[] = [];
     
-    if (!user) blockingReasons.push("auth_required");
-    if (routeStatus !== "success") blockingReasons.push("route_missing");
+    if (!user) blockingReasons.push("user_not_authenticated");
+    if (!route) blockingReasons.push("route_missing");
     if (!selectedCategory) blockingReasons.push("category_missing");
-    if (pricingStatus !== "success" || !estimate) blockingReasons.push("pricing_unavailable");
-    if (!selectedMethod) blockingReasons.push("payment_missing");
+    if (pricingStatus !== "success" || !estimate) blockingReasons.push("pricing_invalid");
+    if (!selectedMethod) blockingReasons.push("payment_method_missing");
     
-    if (selectedMethod === "wallet") {
-      const balance = wallet?.available_balance || 0;
-      const total = (estimate?.total || 0) - discount;
-      if (balance < total) blockingReasons.push("insufficient_wallet_balance");
-      if (wallet?.status !== "active") blockingReasons.push("wallet_unavailable");
+    // Wallet block rule
+    if (walletState === "blocked") {
+      blockingReasons.push("passenger_debt_block");
     }
 
-    if (couponStatus === "validating") blockingReasons.push("coupon_validating");
+    // Wallet selection rule: Backend must support it
+    if (selectedMethod === "wallet") {
+       // Temporarily disabled if no real debt flow is confirmed
+       blockingReasons.push("payment_method_unavailable");
+    }
+
+    const baseFare = estimate?.baseFare || 0;
+    const extrasTotal = estimate?.extrasTotal || 0;
+    
+    // AUTHORITY: No coupon discount applied here
+    const finalTotal = baseFare + extrasTotal;
 
     return {
-      baseFare: estimate?.total || 0,
-      extrasTotal: estimate?.breakdown.extras.reduce((sum, e) => sum + e.value, 0) || 0,
-      discountTotal: discount,
-      finalTotal: Math.max((estimate?.total || 0) - discount, 0),
+      baseFare,
+      extrasTotal,
+      discountTotal: 0,
+      finalTotal,
       readiness: blockingReasons.length === 0,
       blockingReasons
     };
-  }, [user, routeStatus, selectedCategory, pricingStatus, estimate, selectedMethod, wallet, discount, couponStatus]);
+  }, [user, route, selectedCategory, estimate, pricingStatus, selectedMethod, walletState]);
 
   return (
-    <CheckoutPreparationContext.Provider value={{ checkout }}>
+    <CheckoutPreparationContext.Provider value={{ 
+      checkout, 
+      canProceed: checkout.readiness 
+    }}>
       {children}
     </CheckoutPreparationContext.Provider>
   );
