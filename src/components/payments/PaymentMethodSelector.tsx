@@ -3,24 +3,22 @@ import { usePaymentMethods } from "@/hooks/use-payment-methods";
 import { useWallet } from "@/hooks/use-wallet";
 import { PRICING_CONFIG } from "@/services/pricing/pricing-config";
 import { cn } from "@/lib/utils";
-import { QrCode, CreditCard, Banknote, Wallet, Building2, ChevronRight, Check } from "lucide-react";
-import { PaymentMethodKey } from "@/types/payments";
-
-const IconMap: Record<PaymentMethodKey, React.ElementType> = {
-  pix: QrCode,
-  credit_card: CreditCard,
-  debit_card: CreditCard,
-  cash: Banknote,
-  wallet: Wallet,
-  corporate: Building2,
-};
+import { Wallet, ChevronRight } from "lucide-react";
+import { PaymentMethodCode } from "@/types/payments";
+import { PAYMENT_ICONS } from "@/services/payments/payment-config";
 
 export const PaymentMethodSelector: React.FC<{ onOpenList: () => void }> = ({ onOpenList }) => {
-  const { selectedMethod, methods } = usePaymentMethods();
+  const { selectedMethod, methods, isLoading } = usePaymentMethods();
   const { wallet } = useWallet();
   
-  const current = methods.find(m => m.key === selectedMethod);
-  const Icon = current ? IconMap[current.key] : Wallet;
+  const current = methods.find(m => m.code === selectedMethod);
+  const Icon = current ? PAYMENT_ICONS[current.code] || Wallet : Wallet;
+
+  if (isLoading) {
+    return (
+      <div className="w-full h-[72px] bg-zinc-900/50 border border-white/5 rounded-2xl animate-pulse" />
+    );
+  }
 
   return (
     <button 
@@ -35,7 +33,7 @@ export const PaymentMethodSelector: React.FC<{ onOpenList: () => void }> = ({ on
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">Forma de Pagamento</p>
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-bold text-white">
-              {current?.label || "Selecione o pagamento"}
+              {current?.name || current?.label || "Selecione o pagamento"}
             </h4>
             {selectedMethod === "wallet" && wallet && (
               <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">
@@ -49,6 +47,7 @@ export const PaymentMethodSelector: React.FC<{ onOpenList: () => void }> = ({ on
     </button>
   );
 };
+
 
 export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const { methods, selectedMethod, selectMethod } = usePaymentMethods();
@@ -66,17 +65,17 @@ export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void 
 
         <div className="space-y-2 mb-6">
           {methods.map((method) => {
-            const Icon = IconMap[method.key];
-            const isSelected = selectedMethod === method.key;
-            const isWallet = method.key === "wallet";
-            const isDisabled = !method.enabled || (isWallet && (!wallet || wallet.status !== "active"));
+            const Icon = PAYMENT_ICONS[method.code] || Wallet;
+            const isSelected = selectedMethod === method.code;
+            const isWallet = method.code === "wallet";
+            const isDisabled = !method.isActive || (isWallet && (!wallet || wallet.status !== "active"));
 
             return (
               <button
-                key={method.key}
+                key={method.code}
                 disabled={isDisabled}
                 onClick={() => {
-                  selectMethod(method.key);
+                  selectMethod(method.code);
                   onClose();
                 }}
                 className={cn(
@@ -95,7 +94,7 @@ export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void 
                     <Icon size={24} />
                   </div>
                   <div className="text-left">
-                    <h4 className="font-bold text-white text-sm">{method.label}</h4>
+                    <h4 className="font-bold text-white text-sm">{method.name || method.label}</h4>
                     <p className="text-[11px] text-zinc-500 font-medium">{method.description}</p>
                     {isWallet && wallet && (
                       <p className="text-[11px] text-emerald-500 font-bold mt-0.5">
@@ -108,6 +107,7 @@ export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void 
               </button>
             );
           })}
+
         </div>
       </div>
     </div>

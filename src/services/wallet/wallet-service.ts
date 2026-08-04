@@ -17,12 +17,14 @@ class WalletService {
     if (!data) return null;
 
     return {
-      passenger_id: data.passenger_id,
+      passengerId: data.passenger_id,
       balance: Number(data.balance || 0),
       available_balance: Number(data.balance || 0),
-      is_blocked: !!data.is_blocked,
-      blocked_reason: data.blocked_reason || null
+      isBlocked: !!data.is_blocked,
+      blockedReason: data.blocked_reason || null,
+      updatedAt: new Date().toISOString()
     };
+
   }
 }
 

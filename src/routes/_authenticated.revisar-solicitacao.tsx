@@ -153,7 +153,7 @@ function RideRequestReviewPage() {
             <div>
               <h3 className="text-sm font-black text-red-500 uppercase tracking-tight">Carteira Bloqueada</h3>
               <p className="text-xs text-red-400/80 mt-1">
-                {wallet?.blocked_reason || "Existe uma pendência na sua carteira. Regularize para solicitar uma corrida."}
+                {wallet?.blockedReason || "Existe uma pendência na sua carteira. Regularize para solicitar uma corrida."}
               </p>
             </div>
           </div>
