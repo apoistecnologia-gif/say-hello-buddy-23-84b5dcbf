@@ -28,7 +28,7 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
     if (!user) blockingReasons.push("user_not_authenticated");
     if (!route) blockingReasons.push("route_missing");
     if (!selectedCategory) blockingReasons.push("category_missing");
-    if (pricingStatus !== "success" || !estimate) blockingReasons.push("pricing_invalid");
+    if (pricingStatus !== "success" || !estimate || !estimate.available) blockingReasons.push("pricing_invalid");
     if (!selectedMethod) blockingReasons.push("payment_method_missing");
     
     // Wallet block rule
@@ -42,11 +42,11 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
        blockingReasons.push("payment_method_unavailable");
     }
 
-    const baseFare = estimate?.base_fare || 0;
-    const extrasTotal = estimate?.extrasTotal || 0;
+    const baseFare = estimate?.estimatedPrice || 0;
+    const extrasTotal = 0;
     
     // AUTHORITY: No coupon discount applied here
-    const finalTotal = baseFare + extrasTotal;
+    const finalTotal = baseFare;
 
     return {
       baseFare,

@@ -17,6 +17,7 @@ import { ServiceDetailsForm } from "@/components/pricing/ServiceDetailsForm";
 import { PaymentMethodSelector, PaymentMethodList } from "@/components/payments/PaymentMethodSelector";
 import { CouponInput } from "@/components/coupons/CouponInput";
 import { CheckoutSummary } from "@/components/pricing/CheckoutSummary";
+import { FareDetails } from "@/components/pricing/FareDetails";
 import { MapPin, ChevronRight, Settings2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -94,7 +95,7 @@ function InicioPage() {
             <div className="animate-in fade-in slide-in-from-bottom duration-500 space-y-4">
               <div className="px-5 flex items-center justify-between">
                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Escolha a Categoria</p>
-                 {selectedCategory && (selectedCategory.key === 'fretes' || selectedCategory.key === 'guincho' || selectedCategory.key === 'envios') && (
+                 {selectedCategory && (selectedCategory.code === 'fretes' || selectedCategory.code === 'guincho' || selectedCategory.code === 'envios') && (
                    <button 
                      type="button"
                      onClick={() => setIsFormOpen(true)}
@@ -114,6 +115,7 @@ function InicioPage() {
                 <CouponInput />
                 
                 <div className="pt-2">
+                  <FareDetails />
                   <CheckoutSummary />
                 </div>
               </div>

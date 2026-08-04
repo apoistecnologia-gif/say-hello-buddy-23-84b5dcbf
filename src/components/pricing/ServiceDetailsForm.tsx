@@ -16,7 +16,7 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
       <p className="text-xs font-black uppercase tracking-widest text-zinc-500">Detalhes do Serviço</p>
       {/* Form implementation for each category would go here */}
       <div className="bg-zinc-900/50 rounded-2xl p-4 border border-white/5">
-        <p className="text-sm text-zinc-400">Configure as opções para sua categoria: {selectedCategory.label}</p>
+        <p className="text-sm text-zinc-400">Configure as opções para sua categoria: {selectedCategory.name}</p>
       </div>
     </div>
   );
