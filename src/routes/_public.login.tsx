@@ -130,13 +130,13 @@ function LoginPage() {
           </div>
 
           {/* BOTÃO ENTRAR */}
-          <Button
+          <button
             type="submit"
             disabled={loading}
-            className="w-full bg-apois-yellow hover:bg-apois-yellow/90 text-black h-14 rounded-xl font-black text-base uppercase tracking-widest mt-6 shadow-lg shadow-apois-yellow/10"
+            className="w-full bg-[#ffb800] hover:bg-[#ffb800]/90 text-black h-14 rounded-xl font-black text-base uppercase tracking-widest mt-6 shadow-lg shadow-[#ffb800]/10 flex items-center justify-center transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
-          </Button>
+          </button>
         </form>
 
         {/* CRIAR CONTA */}
