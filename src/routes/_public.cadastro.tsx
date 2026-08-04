@@ -1,11 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_public/cadastro")({
   component: CadastroPage,
@@ -21,6 +22,13 @@ function CadastroPage() {
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { authState } = useAuth();
+
+  useEffect(() => {
+    if (authState === "authenticated") {
+      navigate({ to: "/inicio" });
+    }
+  }, [authState, navigate]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +56,7 @@ function CadastroPage() {
     setLoading(true);
     try {
       const { error } = await supabase.auth.signUp({
-        email,
+        email: email.trim().toLowerCase(),
         password,
         options: {
           data: {

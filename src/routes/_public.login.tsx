@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 import logo from "@/assets/logo.jpg";
 
 export const Route = createFileRoute("/_public/login")({
@@ -17,10 +18,19 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { authState } = useAuth();
+
+  useEffect(() => {
+    if (authState === "authenticated") {
+      navigate({ to: "/inicio" });
+    }
+  }, [authState, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    if (!normalizedEmail || !password) {
       toast.error("Por favor, preencha todos os campos.");
       return;
     }
@@ -28,7 +38,7 @@ function LoginPage() {
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
 

@@ -1,7 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -22,7 +22,7 @@ function RedefinirSenhaPage() {
     // Verificar se o usuário está em um fluxo de recuperação de senha
     // O Supabase coloca tokens na URL que se transformam em sessão
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+      if (session || window.location.hash.includes('access_token=')) {
         setIsValidSession(true);
       } else {
         toast.error("Link de recuperação inválido ou expirado.");
@@ -40,6 +40,11 @@ function RedefinirSenhaPage() {
 
     if (password !== confirmPassword) {
       toast.error("As senhas não coincidem.");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
@@ -72,6 +77,10 @@ function RedefinirSenhaPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white p-6 pt-12">
+      <Link to="/login" className="mb-8 inline-flex items-center text-gray-400">
+        <ArrowLeft size={20} className="mr-2" />
+        Voltar para o login
+      </Link>
       <h1 className="text-3xl font-bold mb-2">Nova senha</h1>
       <p className="text-gray-400 mb-8">Crie uma nova senha segura para sua conta.</p>
 
