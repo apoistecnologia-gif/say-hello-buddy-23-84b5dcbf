@@ -2,11 +2,19 @@ import { useState, useEffect, createContext, useContext, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
+interface PassengerProfile {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  passenger: any | null;
+  passenger: PassengerProfile | null;
   isPassengerLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
