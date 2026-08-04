@@ -58,23 +58,22 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     loadWallet();
 
-    if (user) {
-      const channel = (supabase as any)
-        .channel("wallet_changes")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "passenger_wallets", filter: `passenger_id=eq.${user.id}` },
-          () => {
-            loadWallet();
-          }
-        )
-        .subscribe();
+    if (!user) return;
 
-      return () => {
-        if (channel) 
-        supabase.removeChannel(channel);
-      };
-    }
+    const channel = (supabase as any)
+      .channel("wallet_changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "passenger_wallets", filter: `passenger_id=eq.${user.id}` },
+        () => {
+          loadWallet();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [user, loadWallet]);
 
   return (
