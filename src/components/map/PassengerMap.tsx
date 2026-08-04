@@ -29,10 +29,15 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   const googleMapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const polylineRef = useRef<any>(null);
+  const [mapStatus, setMapStatus] = React.useState<'loading' | 'ready' | 'configuration-error' | 'api-error'>('loading');
+
+  const hasValidCoordinate = (val: any) => typeof val === 'number' && Number.isFinite(val);
 
   const currentLat = customOrigin?.lat || location?.latitude;
   const currentLng = customOrigin?.lng || location?.longitude;
+  const hasValidOrigin = hasValidCoordinate(currentLat) && hasValidCoordinate(currentLng);
   const targetDest = customDestination || globalDestination;
+
 
   useEffect(() => {
     let mounted = true;
@@ -40,6 +45,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       if (!mapRef.current) return;
       
       try {
+        setMapStatus('loading');
         console.log("[PassengerMap] Initializing Google Maps JS API...");
         const mapsLib = await googleMapsLoader.importLibrary('maps') as any;
         
@@ -47,14 +53,14 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
 
         if (!googleMapRef.current) {
           googleMapRef.current = new mapsLib.Map(mapRef.current, {
-            center: { lat: currentLat || -23.5505, lng: currentLng || -46.6333 },
+            center: { lat: hasValidOrigin ? currentLat! : -23.5505, lng: hasValidOrigin ? currentLng! : -46.6333 },
             zoom: 15,
             disableDefaultUI: true,
-            backgroundColor: '#000000',
+            backgroundColor: 'transparent',
             styles: [
               {
                 "elementType": "geometry",
-                "stylers": [{ "color": "#1a1a1a" }]
+                "stylers": [{ "color": "#121212" }]
               },
               {
                 "elementType": "labels.icon",
@@ -62,16 +68,16 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
               },
               {
                 "elementType": "labels.text.fill",
-                "stylers": [{ "color": "#757575" }]
+                "stylers": [{ "color": "#9e9e9e" }]
               },
               {
                 "elementType": "labels.text.stroke",
-                "stylers": [{ "color": "#212121" }]
+                "stylers": [{ "color": "#121212" }]
               },
               {
                 "featureType": "administrative",
                 "elementType": "geometry",
-                "stylers": [{ "color": "#757575" }]
+                "stylers": [{ "color": "#424242" }]
               },
               {
                 "featureType": "poi",
@@ -91,23 +97,30 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
               {
                 "featureType": "water",
                 "elementType": "geometry",
-                "stylers": [{ "color": "#000000" }]
+                "stylers": [{ "color": "#0a0a0a" }]
               }
             ]
           });
+          setMapStatus('ready');
           console.log("[PassengerMap] Map instance created successfully");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("[PassengerMap] Error loading Google Maps:", err);
+        if (err.message === 'places_configuration_missing') {
+          setMapStatus('configuration-error');
+        } else {
+          setMapStatus('api-error');
+        }
       }
     };
 
     initMap();
     return () => { mounted = false; };
-  }, []);
+  }, [hasValidOrigin]); // Recria se a validade da origem mudar inicialmente
+
 
   useEffect(() => {
-    if (!googleMapRef.current) return;
+    if (!googleMapRef.current || mapStatus !== 'ready') return;
 
     // Clear old markers
     markersRef.current.forEach(m => m.setMap(null));
@@ -123,15 +136,15 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     let hasPoints = false;
 
     // Origin
-    if (currentLat && currentLng) {
-      const pos = { lat: currentLat, lng: currentLng };
+    if (hasValidOrigin) {
+      const pos = { lat: currentLat!, lng: currentLng! };
       const marker = new (window as any).google.maps.Marker({
         position: pos,
         map: googleMapRef.current,
         icon: {
           path: (window as any).google.maps.SymbolPath.CIRCLE,
           scale: 7,
-          fillColor: '#3B82F6',
+          fillColor: '#FFB800', // Amarelo APOIS
           fillOpacity: 1,
           strokeColor: 'white',
           strokeWeight: 2
@@ -145,19 +158,22 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
 
     // Stops
     orderedStops.forEach((stop, index) => {
+      const hasValidStop = hasValidCoordinate(stop.latitude) && hasValidCoordinate(stop.longitude);
+      if (!hasValidStop) return;
+
       const pos = { lat: stop.latitude, lng: stop.longitude };
       const marker = new (window as any).google.maps.Marker({
         position: pos,
         map: googleMapRef.current,
         label: {
           text: (index + 1).toString(),
-          color: 'white',
+          color: 'black',
           fontWeight: 'bold'
         },
         icon: {
           path: (window as any).google.maps.SymbolPath.CIRCLE,
           scale: 10,
-          fillColor: '#4B5563',
+          fillColor: '#FFB800',
           fillOpacity: 1,
           strokeColor: 'white',
           strokeWeight: 2
@@ -173,19 +189,22 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     if (targetDest) {
       const destLat = 'latitude' in targetDest ? targetDest.latitude : targetDest.lat;
       const destLng = 'longitude' in targetDest ? targetDest.longitude : targetDest.lng;
-      const pos = { lat: destLat, lng: destLng };
       
-      const marker = new (window as any).google.maps.Marker({
-        position: pos,
-        map: googleMapRef.current,
-        icon: {
-          url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
-        },
-        title: 'Destino'
-      });
-      markersRef.current.push(marker);
-      bounds.extend(pos);
-      hasPoints = true;
+      if (hasValidCoordinate(destLat) && hasValidCoordinate(destLng)) {
+        const pos = { lat: destLat as number, lng: destLng as number };
+        
+        const marker = new (window as any).google.maps.Marker({
+          position: pos,
+          map: googleMapRef.current,
+          icon: {
+            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+          },
+          title: 'Destino'
+        });
+        markersRef.current.push(marker);
+        bounds.extend(pos);
+        hasPoints = true;
+      }
     }
 
     // Polyline
@@ -194,9 +213,9 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       polylineRef.current = new (window as any).google.maps.Polyline({
         path,
         geodesic: true,
-        strokeColor: '#FACC15',
+        strokeColor: '#FFB800', // Amarelo APOIS
         strokeOpacity: 1.0,
-        strokeWeight: 4,
+        strokeWeight: 5,
         map: googleMapRef.current
       });
       
@@ -205,33 +224,49 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     }
 
     if (hasPoints) {
-      // Padding para o painel inferior (bottom panel tem aprox 200-300px)
       googleMapRef.current.fitBounds(bounds, {
-        top: 100,
+        top: 150,
         right: 50,
-        bottom: 350,
+        bottom: 400,
         left: 50
       });
     }
-  }, [currentLat, currentLng, targetDest, orderedStops, route]);
+  }, [currentLat, currentLng, targetDest, orderedStops, route, mapStatus, hasValidOrigin]);
+
 
   return (
     <div className="w-full h-full bg-zinc-950 overflow-hidden relative flex items-center justify-center" style={{ minHeight: '100%' }}>
       <div ref={mapRef} className="w-full h-full absolute inset-0 z-0" style={{ background: 'transparent' }} />
 
-      
-      {!currentLat && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-          <div className="bg-[#1e1e1e] p-6 rounded-3xl border border-white/5 text-center space-y-4 max-w-[80%]">
-            <p className="text-sm font-medium text-gray-300">
-              Precisamos identificar sua localização antes de calcular a rota.
+      {mapStatus === 'configuration-error' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20 p-6 text-center">
+          <div className="max-w-xs space-y-4">
+            <p className="text-apois-yellow font-black uppercase tracking-tighter text-sm">Erro de Configuração</p>
+            <p className="text-zinc-400 text-xs">
+              {import.meta.env.DEV 
+                ? "Google Maps não configurado neste ambiente (VITE_GOOGLE_MAPS_API_KEY ausente)." 
+                : "Não foi possível carregar o mapa agora."}
             </p>
-            <button 
-              onClick={() => window.location.reload()}
-              className="w-full py-3 bg-apois-yellow text-black font-black rounded-xl active:scale-95 transition-all"
-            >
-              Tentar novamente
-            </button>
+          </div>
+        </div>
+      )}
+
+      {mapStatus === 'api-error' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20 p-6 text-center">
+          <div className="max-w-xs space-y-4">
+            <p className="text-red-500 font-black uppercase tracking-tighter text-sm">Falha na API</p>
+            <p className="text-zinc-400 text-xs">Erro ao carregar os serviços do Google Maps.</p>
+          </div>
+        </div>
+      )}
+
+      {mapStatus === 'loading' && !hasValidOrigin && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+          <div className="bg-[#1e1e1e] p-6 rounded-3xl border border-white/5 text-center space-y-4 max-w-[80%] animate-in fade-in duration-500">
+            <p className="text-sm font-medium text-gray-300">
+              Identificando sua localização...
+            </p>
+            <div className="w-8 h-8 border-4 border-apois-yellow border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
         </div>
       )}
