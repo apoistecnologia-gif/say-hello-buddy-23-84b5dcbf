@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { useNavigate, useLocation } from "@tanstack/react-router";
+import { initializeNativePlatform, hideSplashScreen, setupBackButton } from "@/lib/platform/native";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -124,6 +125,21 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    initializeNativePlatform();
+    
+    const removeBackButtonListener = setupBackButton(() => {
+      // Estratégia simples de botão voltar: se puder voltar, volta.
+      // Em implementações futuras, podemos verificar modais abertos.
+      window.history.back();
+    });
+
+    return () => {
+      removeBackButtonListener();
+    };
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -155,7 +171,10 @@ function AuthGuard({ children }: { children: ReactNode }) {
         navigate({ to: "/inicio" });
       }
     }
-  }, [user, isLoading, isPublicRoute, navigate]);
+    if (!isLoading && !isProfileLoading) {
+      hideSplashScreen();
+    }
+  }, [user, isLoading, isProfileLoading, isPublicRoute, navigate]);
 
   if (isLoading) {
     return (
