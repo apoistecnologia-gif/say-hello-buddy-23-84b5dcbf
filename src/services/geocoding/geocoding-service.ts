@@ -1,4 +1,4 @@
-import { apiClient } from '../api/api-client';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   GeocodeCoordinates, 
   PickupAddress, 
@@ -54,12 +54,13 @@ class GeocodingService {
 
     try {
       // 1. Primary Reverse Geocoding
-      const response = await apiClient.post<any>('/api/passenger/geocode/reverse', coords, {
-        signal: controller.signal
+      const { data: response, error } = await supabase.functions.invoke('passenger-geocode-reverse', {
+        body: coords,
+        abortSignal: controller.signal
       });
 
-      if (!response || !response.ok) {
-        throw new Error('geocode_empty_result');
+      if (error) {
+        throw new Error(error.message || 'geocode_empty_result');
       }
 
       const geo = response.geo || response;

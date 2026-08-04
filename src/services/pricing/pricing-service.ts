@@ -1,4 +1,4 @@
-import { apiClient } from "../api/api-client";
+import { supabase } from "@/integrations/supabase/client";
 import { PricingRequest, PricingResponse, FareEstimate } from "@/types/pricing";
 
 class PricingService {
@@ -23,11 +23,12 @@ class PricingService {
     }
 
     try {
-      // Redireciona para o endpoint de precificação do backend standalone
-      const response = await apiClient.post<any>('/api/passenger/pricing/estimate', request);
+      const { data: response, error } = await supabase.functions.invoke('passenger-pricing-estimate', {
+        body: request
+      });
 
-      if (!response || !response.ok) {
-        throw new Error(response?.error || 'Erro ao obter estimativa');
+      if (error || !response || !response.ok) {
+        throw new Error(error?.message || response?.error || 'Erro ao obter estimativa');
       }
 
       const pricingResponse: PricingResponse = {
