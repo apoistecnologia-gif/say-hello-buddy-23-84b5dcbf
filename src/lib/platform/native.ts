@@ -18,7 +18,7 @@ export const initializeNativePlatform = async () => {
     }
 
     // Keyboard configuration
-    await Keyboard.setAccessoryBarVisible({ visible: false });
+    await Keyboard.setAccessoryBarVisible({ isVisible: false });
 
     // Initial lifecycle listeners
     App.addListener('appStateChange', ({ isActive }) => {
