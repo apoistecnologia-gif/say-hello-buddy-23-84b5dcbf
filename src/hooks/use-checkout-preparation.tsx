@@ -42,11 +42,11 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
        blockingReasons.push("payment_method_unavailable");
     }
 
-    const baseFare = estimate?.base_fare || 0;
-    const extrasTotal = estimate?.extrasTotal || 0;
+    const baseFare = estimate?.estimatedPrice || 0;
+    const extrasTotal = 0;
     
     // AUTHORITY: No coupon discount applied here
-    const finalTotal = baseFare + extrasTotal;
+    const finalTotal = baseFare;
 
     return {
       baseFare,
