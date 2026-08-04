@@ -1,10 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Geolocation, PermissionStatus } from "@capacitor/geolocation";
 
+export type LocationPermissionState =
+  | "unknown"
+  | "prompt"
+  | "granted"
+  | "denied"
+  | "blocked"
+  | "unavailable";
+
 export interface LocationData {
   latitude: number;
   longitude: number;
   accuracy: number;
+  timestamp?: number;
 }
 
 interface LocationContextType {
@@ -12,80 +21,137 @@ interface LocationContextType {
   currentPosition: LocationData | null;
   isLoading: boolean;
   error: string | null;
-  accuracyQuality: "high" | "medium" | "low" | "none";
-  permissionStatus: PermissionStatus | null;
+  permissionState: LocationPermissionState;
   requestPermission: () => Promise<void>;
-  refreshPosition: () => Promise<void>;
+  refreshLocation: () => Promise<void>;
+  refreshPosition: () => Promise<void>; // Alias for backward compatibility
+  openSettings: () => Promise<void>;
+  clearLocationError: () => void;
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [location, setLocation] = useState<LocationData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [permissionStatus, setPermissionStatus] = useState<PermissionStatus | null>(null);
+  const [permissionState, setPermissionState] = useState<LocationPermissionState>("unknown");
 
-  const refreshPosition = useCallback(async () => {
+  const clearLocationError = useCallback(() => setError(null), []);
+
+  const openSettings = useCallback(async () => {
+    // In Capacitor, we use NativeSettings or similar if needed, 
+    // but Geolocation doesn't provide a direct openSettings.
+    // We'll leave it as a placeholder for platform-specific implementation.
+    console.log("Open settings requested");
+  }, []);
+
+  const validateCoords = (lat: number, lng: number) => {
+    return Number.isFinite(lat) && Number.isFinite(lng) && 
+           lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  };
+
+  const updateLocationState = (pos: any) => {
+    if (pos && pos.coords) {
+      const { latitude, longitude, accuracy } = pos.coords;
+      if (validateCoords(latitude, longitude)) {
+        const newData = {
+          latitude,
+          longitude,
+          accuracy,
+          timestamp: pos.timestamp
+        };
+        setLocation(newData);
+        setError(null);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const refreshLocation = useCallback(async () => {
     try {
       setIsLoading(true);
-      const position = await Geolocation.getCurrentPosition();
-      setLocation({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy
-      });
       setError(null);
+
+      // Attempt high accuracy first
+      try {
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 10000,
+        });
+        updateLocationState(position);
+      } catch (highAccError) {
+        console.warn("High accuracy failed, trying fallback:", highAccError);
+        // Fallback to lower accuracy
+        const position = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: false,
+          timeout: 10000,
+        });
+        updateLocationState(position);
+      }
     } catch (err: any) {
-      setError(err.message || "Failed to get position");
+      console.error("Failed to get position:", err);
+      // DISTINGUISH ERRORS
+      if (err.message?.includes("denied") || err.code === 1) {
+        setPermissionState("denied");
+        setError("Permissão de localização negada.");
+      } else {
+        setError("Não conseguimos obter sua localização agora. Verifique se o GPS está ativado.");
+      }
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const requestPermission = useCallback(async () => {
-    const status = await Geolocation.requestPermissions();
-    setPermissionStatus(status);
+  const checkPermissions = useCallback(async () => {
+    try {
+      const status = await Geolocation.checkPermissions();
+      setPermissionState(status.location as LocationPermissionState);
+      return status;
+    } catch (e) {
+      console.error("Error checking permissions:", e);
+      return null;
+    }
   }, []);
+
+  const requestPermission = useCallback(async () => {
+    try {
+      const status = await Geolocation.requestPermissions();
+      setPermissionState(status.location as LocationPermissionState);
+      if (status.location === "granted") {
+        refreshLocation();
+      }
+    } catch (e) {
+      console.error("Error requesting permissions:", e);
+    }
+  }, [refreshLocation]);
 
   useEffect(() => {
     let mounted = true;
     let watchId: string;
     
-    const initLocation = async () => {
-      try {
-        const status = await Geolocation.checkPermissions();
-        if (mounted) setPermissionStatus(status);
+    const init = async () => {
+      const status = await checkPermissions();
+      if (!mounted) return;
 
-        // Don't auto-start watch if it might block, but allow it to run in background
-        // The isLoading should be false by default or set quickly
-        setIsLoading(false);
+      if (status?.location === "granted") {
+        refreshLocation();
         
         watchId = await Geolocation.watchPosition({ 
           enableHighAccuracy: true,
-          timeout: 10000 
+          timeout: 15000 
         }, (position, err) => {
           if (!mounted) return;
-          if (err) {
-            console.warn("[useLocation] Watch error:", err);
-            // Don't let watch errors block the whole app
-            return;
-          }
           if (position) {
-            setLocation({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy
-            });
+            updateLocationState(position);
           }
         });
-      } catch (e) {
-        console.error("[useLocation] Failed to initialize location:", e);
-        if (mounted) setIsLoading(false);
       }
     };
 
-    initLocation();
+    init();
 
     return () => {
       mounted = false;
@@ -93,9 +159,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         Geolocation.clearWatch({ id: watchId });
       }
     };
-  }, []);
-
-  const accuracyQuality = !location ? "none" : location.accuracy < 20 ? "high" : location.accuracy < 100 ? "medium" : "low";
+  }, [checkPermissions, refreshLocation]);
 
   return (
     <LocationContext.Provider value={{ 
@@ -103,10 +167,12 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       currentPosition: location,
       isLoading, 
       error, 
-      accuracyQuality, 
-      permissionStatus,
+      permissionState,
       requestPermission,
-      refreshPosition
+      refreshLocation,
+      refreshPosition: refreshLocation,
+      openSettings,
+      clearLocationError
     }}>
       {children}
     </LocationContext.Provider>

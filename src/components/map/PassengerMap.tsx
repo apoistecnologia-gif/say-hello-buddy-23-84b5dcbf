@@ -19,7 +19,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   driverLocation,
   isStatic 
 }) => {
-  const { location, permissionStatus } = useLocation();
+  const { location, permissionState } = useLocation();
   const { route } = useRoute();
   const { orderedStops } = useRideStops();
   const { destination: globalDestination } = useDestination();
@@ -34,7 +34,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       <div className="z-10 text-center p-8">
         <p className="font-bold text-lg mb-2 text-white">Mapa Interativo APOIS</p>
         <p className="text-sm">
-          Foco: {currentLat ? `${currentLat.toFixed(4)}, ${currentLng?.toFixed(4)}` : "Aguardando GPS..."}
+          Foco: {currentLat ? `${currentLat.toFixed(6)}, ${currentLng?.toFixed(6)}` : "Aguardando GPS..."}
         </p>
         <p className="text-[10px] text-zinc-600 uppercase mt-2">
           {isStatic ? "Visão Estática de Trajeto" : "Acompanhamento em Tempo Real"}
