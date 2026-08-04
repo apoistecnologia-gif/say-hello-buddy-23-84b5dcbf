@@ -34,9 +34,9 @@ function CadastroPage() {
     e.preventDefault();
 
     // 1. CONFIRMAR O SUPABASE USADO EM RUNTIME
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+    const supabaseUrl = import.meta.env["VITE_SUPABASE_URL"] || "";
     const projectRef = supabaseUrl.split(".")[0]?.split("//")[1] || "unknown";
-    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+    const key = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || "";
     const keyHash = key ? `${key.substring(0, 5)}...${key.substring(key.length - 5)}` : "missing";
 
     console.log("[DEBUG] Supabase Runtime Config:", {
