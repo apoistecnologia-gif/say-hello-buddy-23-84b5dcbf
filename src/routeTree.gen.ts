@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BuscarDestinoRouteImport } from './routes/buscar-destino'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as CarteiraRouteImport } from './routes/carteira'
 import { Route as CorridasRouteImport } from './routes/corridas'
@@ -23,6 +24,11 @@ import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BuscarDestinoRoute = BuscarDestinoRouteImport.update({
+  id: '/buscar-destino',
+  path: '/buscar-destino',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CadastroRoute = CadastroRouteImport.update({
@@ -73,6 +79,7 @@ const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/buscar-destino': typeof BuscarDestinoRoute
   '/cadastro': typeof CadastroRoute
   '/carteira': typeof CarteiraRoute
   '/corridas': typeof CorridasRoute
@@ -85,6 +92,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/buscar-destino': typeof BuscarDestinoRoute
   '/cadastro': typeof CadastroRoute
   '/carteira': typeof CarteiraRoute
   '/corridas': typeof CorridasRoute
@@ -98,6 +106,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/buscar-destino': typeof BuscarDestinoRoute
   '/cadastro': typeof CadastroRoute
   '/carteira': typeof CarteiraRoute
   '/corridas': typeof CorridasRoute
@@ -112,6 +121,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/buscar-destino'
     | '/cadastro'
     | '/carteira'
     | '/corridas'
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/buscar-destino'
     | '/cadastro'
     | '/carteira'
     | '/corridas'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/buscar-destino'
     | '/cadastro'
     | '/carteira'
     | '/corridas'
@@ -149,6 +161,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BuscarDestinoRoute: typeof BuscarDestinoRoute
   CadastroRoute: typeof CadastroRoute
   CarteiraRoute: typeof CarteiraRoute
   CorridasRoute: typeof CorridasRoute
@@ -167,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/buscar-destino': {
+      id: '/buscar-destino'
+      path: '/buscar-destino'
+      fullPath: '/buscar-destino'
+      preLoaderRoute: typeof BuscarDestinoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cadastro': {
@@ -237,6 +257,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BuscarDestinoRoute: BuscarDestinoRoute,
   CadastroRoute: CadastroRoute,
   CarteiraRoute: CarteiraRoute,
   CorridasRoute: CorridasRoute,
