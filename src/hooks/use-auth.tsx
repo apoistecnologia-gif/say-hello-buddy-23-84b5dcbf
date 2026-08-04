@@ -1,6 +1,6 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
+import { useState, useEffect, createContext, useContext, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { User, Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
   user: User | null;
@@ -25,19 +25,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsPassengerLoading(true);
     try {
       const { data, error } = await supabase
-        .from('passengers')
-        .select('*')
-        .eq('id', userId)
+        .from("passengers")
+        .select("*")
+        .eq("id", userId)
         .single();
-      
+
       if (error) {
-        console.error('Error fetching passenger:', error);
+        console.error("Error fetching passenger:", error);
         setPassenger(null);
       } else {
         setPassenger(data);
       }
     } catch (err) {
-      console.error('Passenger fetch error:', err);
+      console.error("Passenger fetch error:", err);
       setPassenger(null);
     } finally {
       setIsPassengerLoading(false);
@@ -56,17 +56,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // 2. Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth event:", event);
       setSession(session);
       setUser(session?.user ?? null);
-      
-      if (event === 'SIGNED_IN' && session?.user) {
+
+      if (event === "SIGNED_IN" && session?.user) {
         fetchPassenger(session.user.id);
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === "SIGNED_OUT") {
         setPassenger(null);
       }
-      
+
       setIsLoading(false);
     });
 
@@ -94,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         passenger,
         isPassengerLoading,
         signOut,
-        refreshProfile
+        refreshProfile,
       }}
     >
       {children}
@@ -105,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

@@ -1,15 +1,15 @@
-import { Home, History, CreditCard, Bell, User } from 'lucide-react';
-import { Link, useLocation } from '@tanstack/react-router';
+import { Home, History, CreditCard, Bell, User } from "lucide-react";
+import { Link, useLocation } from "@tanstack/react-router";
 
 export const BottomNavigation = () => {
   const location = useLocation();
-  
+
   const navItems = [
-    { label: 'Início', icon: Home, path: '/inicio' },
-    { label: 'Corridas', icon: History, path: '/corridas' },
-    { label: 'Carteira', icon: CreditCard, path: '/carteira' },
-    { label: 'Notificações', icon: Bell, path: '/notificacoes' },
-    { label: 'Perfil', icon: User, path: '/perfil' },
+    { label: "Início", icon: Home, path: "/inicio" },
+    { label: "Corridas", icon: History, path: "/corridas" },
+    { label: "Carteira", icon: CreditCard, path: "/carteira" },
+    { label: "Notificações", icon: Bell, path: "/notificacoes" },
+    { label: "Perfil", icon: User, path: "/perfil" },
   ];
 
   return (
@@ -21,7 +21,7 @@ export const BottomNavigation = () => {
             key={item.path}
             to={item.path}
             className={`flex flex-col items-center gap-1 transition-colors ${
-              isActive ? 'text-yellow-500' : 'text-gray-500'
+              isActive ? "text-yellow-500" : "text-gray-500"
             }`}
           >
             <item.icon size={24} />

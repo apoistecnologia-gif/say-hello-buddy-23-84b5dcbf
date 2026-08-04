@@ -1,10 +1,10 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useAuth } from '@/hooks/use-auth';
-import { Button } from '@/components/ui/button';
-import { LogOut, User, Phone, Mail, ChevronRight, Bell, Shield, CreditCard } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
+import { LogOut, User, Phone, Mail, ChevronRight, Bell, Shield, CreditCard } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-export const Route = createFileRoute('/perfil')({
+export const Route = createFileRoute("/perfil")({
   component: PerfilPage,
 });
 
@@ -14,7 +14,7 @@ function PerfilPage() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate({ to: '/login' });
+    navigate({ to: "/login" });
   };
 
   return (
@@ -26,22 +26,30 @@ function PerfilPage() {
             {passenger?.full_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <h2 className="text-2xl font-bold">{passenger?.full_name || 'Passageiro'}</h2>
+        <h2 className="text-2xl font-bold">{passenger?.full_name || "Passageiro"}</h2>
         <p className="text-gray-400 text-sm">{user?.email}</p>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-4 space-y-2">
-          <p className="text-xs font-bold text-gray-500 px-2 pt-4 pb-2 uppercase tracking-wider">Conta</p>
-          
+          <p className="text-xs font-bold text-gray-500 px-2 pt-4 pb-2 uppercase tracking-wider">
+            Conta
+          </p>
+
           <div className="space-y-1">
-            <MenuLink icon={<User size={20} />} label="Dados Pessoais" value={passenger?.full_name} />
+            <MenuLink
+              icon={<User size={20} />}
+              label="Dados Pessoais"
+              value={passenger?.full_name}
+            />
             <MenuLink icon={<Phone size={20} />} label="Telefone" value={passenger?.phone} />
             <MenuLink icon={<Mail size={20} />} label="E-mail" value={user?.email} />
           </div>
 
-          <p className="text-xs font-bold text-gray-500 px-2 pt-6 pb-2 uppercase tracking-wider">Preferências</p>
-          
+          <p className="text-xs font-bold text-gray-500 px-2 pt-6 pb-2 uppercase tracking-wider">
+            Preferências
+          </p>
+
           <div className="space-y-1">
             <MenuLink icon={<Bell size={20} />} label="Notificações" />
             <MenuLink icon={<CreditCard size={20} />} label="Pagamentos" />
@@ -50,7 +58,7 @@ function PerfilPage() {
         </div>
 
         <div className="p-6 mt-4">
-          <Button 
+          <Button
             onClick={handleLogout}
             variant="outline"
             className="w-full border-red-900/50 text-red-500 bg-red-500/5 hover:bg-red-500/10 hover:text-red-400 h-14 rounded-xl flex items-center justify-center gap-2"
@@ -58,17 +66,23 @@ function PerfilPage() {
             <LogOut size={20} />
             Sair do aplicativo
           </Button>
-          
-          <p className="text-center text-gray-600 text-xs mt-8">
-            Versão 1.0.0 (Beta)
-          </p>
+
+          <p className="text-center text-gray-600 text-xs mt-8">Versão 1.0.0 (Beta)</p>
         </div>
       </div>
     </div>
   );
 }
 
-function MenuLink({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string | null | undefined }) {
+function MenuLink({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value?: string | null | undefined;
+}) {
   return (
     <button className="w-full flex items-center justify-between p-4 bg-[#121212] hover:bg-[#1a1a1a] rounded-xl transition-colors text-left group">
       <div className="flex items-center gap-4">
@@ -78,7 +92,10 @@ function MenuLink({ icon, label, value }: { icon: React.ReactNode, label: string
           {value && <p className="text-xs text-gray-500 truncate max-w-[200px]">{value}</p>}
         </div>
       </div>
-      <ChevronRight size={18} className="text-gray-700 group-hover:text-yellow-500 transition-colors" />
+      <ChevronRight
+        size={18}
+        className="text-gray-700 group-hover:text-yellow-500 transition-colors"
+      />
     </button>
   );
 }

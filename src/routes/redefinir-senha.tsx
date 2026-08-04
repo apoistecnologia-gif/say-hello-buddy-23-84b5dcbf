@@ -1,18 +1,18 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
-export const Route = createFileRoute('/redefinir-senha')({
+export const Route = createFileRoute("/redefinir-senha")({
   component: RedefinirSenhaPage,
 });
 
 function RedefinirSenhaPage() {
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
@@ -25,8 +25,8 @@ function RedefinirSenhaPage() {
       if (session) {
         setIsValidSession(true);
       } else {
-        toast.error('Link de recuperação inválido ou expirado.');
-        navigate({ to: '/login' });
+        toast.error("Link de recuperação inválido ou expirado.");
+        navigate({ to: "/login" });
       }
     });
   }, [navigate]);
@@ -34,12 +34,12 @@ function RedefinirSenhaPage() {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password || !confirmPassword) {
-      toast.error('Preencha as novas senhas.');
+      toast.error("Preencha as novas senhas.");
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error('As senhas não coincidem.');
+      toast.error("As senhas não coincidem.");
       return;
     }
 
@@ -52,11 +52,11 @@ function RedefinirSenhaPage() {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success('Senha atualizada com sucesso!');
-        navigate({ to: '/inicio' });
+        toast.success("Senha atualizada com sucesso!");
+        navigate({ to: "/inicio" });
       }
     } catch (err) {
-      toast.error('Erro ao redefinir senha.');
+      toast.error("Erro ao redefinir senha.");
     } finally {
       setLoading(false);
     }
@@ -73,17 +73,15 @@ function RedefinirSenhaPage() {
   return (
     <div className="flex flex-col min-h-screen bg-black text-white p-6 pt-12">
       <h1 className="text-3xl font-bold mb-2">Nova senha</h1>
-      <p className="text-gray-400 mb-8">
-        Crie uma nova senha segura para sua conta.
-      </p>
+      <p className="text-gray-400 mb-8">Crie uma nova senha segura para sua conta.</p>
 
       <form onSubmit={handleReset} className="space-y-6">
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-300">Nova senha</label>
           <div className="relative">
-            <Input 
-              type={showPassword ? "text" : "password"} 
-              placeholder="Digite a nova senha" 
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="Digite a nova senha"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
@@ -101,9 +99,9 @@ function RedefinirSenhaPage() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-300">Confirmar nova senha</label>
-          <Input 
-            type="password" 
-            placeholder="Repita a nova senha" 
+          <Input
+            type="password"
+            placeholder="Repita a nova senha"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             disabled={loading}
@@ -111,12 +109,12 @@ function RedefinirSenhaPage() {
           />
         </div>
 
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={loading}
           className="w-full bg-yellow-500 hover:bg-yellow-600 text-black h-14 rounded-xl font-bold text-lg mt-4"
         >
-          {loading ? <Loader2 className="animate-spin" /> : 'Salvar nova senha'}
+          {loading ? <Loader2 className="animate-spin" /> : "Salvar nova senha"}
         </Button>
       </form>
     </div>

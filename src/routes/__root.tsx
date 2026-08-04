@@ -12,8 +12,6 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 
-
-
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -81,7 +79,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" },
+      {
+        name: "viewport",
+        content:
+          "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover",
+      },
       { title: "APOIS Passageiro" },
       { name: "description", content: "O aplicativo oficial para passageiros APOIS." },
       { name: "author", content: "APOIS" },
@@ -142,15 +144,15 @@ function AuthGuard({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const publicRoutes = ['/login', '/cadastro', '/recuperar-senha', '/redefinir-senha'];
+  const publicRoutes = ["/login", "/cadastro", "/recuperar-senha", "/redefinir-senha"];
   const isPublicRoute = publicRoutes.includes(location.pathname);
 
   useEffect(() => {
     if (!isLoading) {
       if (!user && !isPublicRoute) {
-        navigate({ to: '/login' });
+        navigate({ to: "/login" });
       } else if (user && isPublicRoute) {
-        navigate({ to: '/inicio' });
+        navigate({ to: "/inicio" });
       }
     }
   }, [user, isLoading, isPublicRoute, navigate]);
@@ -165,12 +167,17 @@ function AuthGuard({ children }: { children: ReactNode }) {
 
   // Se estiver logado, mas não tiver perfil (e não for rota pública)
   // No Android, o trigger deve ter criado o perfil, então se não existe, talvez algo falhou ou é incompleto
-  if (user && !passenger && !isPassengerLoading && !isPublicRoute && location.pathname !== '/cadastro') {
-     // Poderia redirecionar para uma tela de "Concluir Cadastro"
-     // Por agora, vamos permitir passar ou logar o erro
-     console.warn("User logged in but passenger profile missing");
+  if (
+    user &&
+    !passenger &&
+    !isPassengerLoading &&
+    !isPublicRoute &&
+    location.pathname !== "/cadastro"
+  ) {
+    // Poderia redirecionar para uma tela de "Concluir Cadastro"
+    // Por agora, vamos permitir passar ou logar o erro
+    console.warn("User logged in but passenger profile missing");
   }
 
   return <>{children}</>;
 }
-

@@ -1,31 +1,31 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
-import tailwindcss from '@tailwindcss/vite';
-import path from 'path';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
+import tailwindcss from "@tailwindcss/vite";
+import path from "path";
 
 export default defineConfig({
   plugins: [
     TanStackRouterVite({
-      routesDirectory: './src/routes',
-      generatedRouteTree: './src/routeTree.gen.ts',
+      routesDirectory: "./src/routes",
+      generatedRouteTree: "./src/routeTree.gen.ts",
     }),
     react(),
     tailwindcss(),
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
     tsconfigPaths: true,
   },
-  base: './', // CRITICAL for Capacitor/Android WebView
+  base: "./", // CRITICAL for Capacitor/Android WebView
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     emptyOutDir: true,
-    assetsDir: 'assets',
+    assetsDir: "assets",
     sourcemap: false,
-    minify: 'terser',
+    minify: "terser",
   },
   server: {
     port: 8080,

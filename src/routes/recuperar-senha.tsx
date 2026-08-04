@@ -1,24 +1,24 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Loader2, ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
-export const Route = createFileRoute('/recuperar-senha')({
+export const Route = createFileRoute("/recuperar-senha")({
   component: RecuperarSenhaPage,
 });
 
 function RecuperarSenhaPage() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
   const handleRecover = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      toast.error('Por favor, informe seu e-mail.');
+      toast.error("Por favor, informe seu e-mail.");
       return;
     }
 
@@ -34,10 +34,10 @@ function RecuperarSenhaPage() {
         toast.error(error.message);
       } else {
         setSent(true);
-        toast.success('Instruções enviadas para o seu e-mail.');
+        toast.success("Instruções enviadas para o seu e-mail.");
       }
     } catch (err) {
-      toast.error('Erro ao solicitar recuperação de senha.');
+      toast.error("Erro ao solicitar recuperação de senha.");
     } finally {
       setLoading(false);
     }
@@ -60,9 +60,9 @@ function RecuperarSenhaPage() {
           <form onSubmit={handleRecover} className="space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-300">E-mail</label>
-              <Input 
-                type="email" 
-                placeholder="seu@email.com" 
+              <Input
+                type="email"
+                placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
@@ -70,12 +70,12 @@ function RecuperarSenhaPage() {
               />
             </div>
 
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={loading}
               className="w-full bg-yellow-500 hover:bg-yellow-600 text-black h-14 rounded-xl font-bold text-lg"
             >
-              {loading ? <Loader2 className="animate-spin" /> : 'Enviar instruções'}
+              {loading ? <Loader2 className="animate-spin" /> : "Enviar instruções"}
             </Button>
           </form>
         </>
