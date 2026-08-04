@@ -1,14 +1,14 @@
-import { RideCategoryKey } from "@/types/pricing";
+import { RideCategoryCode } from "@/types/pricing";
 
 export const PRICING_CONFIG = {
   CACHE_TTL_MS: 5 * 60 * 1000, // 5 minutes
   LABELS: {
-    carros: "Carro",
-    motos: "Moto",
+    carro: "Carro",
+    moto: "Moto",
     fretes: "Fretes e Mudanças",
     guincho: "Guincho",
     envios: "Envios",
-  } as Record<RideCategoryKey, string>,
+  } as Record<RideCategoryCode, string>,
   CURRENCY_FORMAT: new Intl.NumberFormat("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -20,3 +20,4 @@ export const PRICING_CONFIG = {
     min_fare: 8.0,
   },
 };
+
