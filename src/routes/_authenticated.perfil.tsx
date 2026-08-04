@@ -38,11 +38,6 @@ function PerfilPage() {
     navigate({ to: "/login" });
   };
 
-  // Se não for passageiro, mas estiver logado, algo está errado no acesso
-  if (user && role !== "passenger" && role !== null) {
-    // Silenciosamente tratamos, mas em produção redirecionaríamos
-  }
-
   return (
     <div className="flex flex-col min-h-screen bg-black text-white pb-24">
       <div className="p-6 pt-12 flex flex-col items-center border-b border-gray-900">
@@ -59,13 +54,13 @@ function PerfilPage() {
           <div className="flex items-center gap-4 mt-4 bg-[#121212] px-4 py-2 rounded-full">
             <div className="flex items-center gap-1 text-yellow-500">
               <Star size={16} fill="currentColor" />
-              <span className="text-sm font-bold text-white">{profile?.average_rating}</span>
+              <span className="text-sm font-bold text-white">{profile.average_rating}</span>
             </div>
             <div className="w-px h-4 bg-gray-800" />
             <div className="flex items-center gap-1 text-green-500">
               <CheckCircle size={16} />
               <span className="text-sm font-bold text-white">
-                {profile?.completed_rides} corridas
+                {profile.completed_rides || 0} corridas
               </span>
             </div>
           </div>
