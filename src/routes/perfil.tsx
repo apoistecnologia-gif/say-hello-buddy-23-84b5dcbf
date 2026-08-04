@@ -1,7 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Phone, Mail, ChevronRight, Bell, Shield, CreditCard, Star, CheckCircle } from "lucide-react";
+import {
+  LogOut,
+  User,
+  Phone,
+  Mail,
+  ChevronRight,
+  Bell,
+  Shield,
+  CreditCard,
+  Star,
+  CheckCircle,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Route = createFileRoute("/perfil")({
@@ -33,7 +44,7 @@ function PerfilPage() {
         </Avatar>
         <h2 className="text-2xl font-bold">{profile?.name || "Passageiro"}</h2>
         <p className="text-gray-400 text-sm">{user?.email}</p>
-        
+
         {profile?.average_rating !== null && (
           <div className="flex items-center gap-4 mt-4 bg-[#121212] px-4 py-2 rounded-full">
             <div className="flex items-center gap-1 text-yellow-500">
@@ -43,7 +54,9 @@ function PerfilPage() {
             <div className="w-px h-4 bg-gray-800" />
             <div className="flex items-center gap-1 text-green-500">
               <CheckCircle size={16} />
-              <span className="text-sm font-bold text-white">{profile?.completed_rides} corridas</span>
+              <span className="text-sm font-bold text-white">
+                {profile?.completed_rides} corridas
+              </span>
             </div>
           </div>
         )}
@@ -56,11 +69,7 @@ function PerfilPage() {
           </p>
 
           <div className="space-y-1">
-            <MenuLink
-              icon={<User size={20} />}
-              label="Dados Pessoais"
-              value={profile?.name}
-            />
+            <MenuLink icon={<User size={20} />} label="Dados Pessoais" value={profile?.name} />
             <MenuLink icon={<Phone size={20} />} label="Telefone" value={profile?.phone} />
             <MenuLink icon={<Mail size={20} />} label="E-mail" value={user?.email} />
           </div>
