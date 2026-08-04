@@ -140,7 +140,7 @@ function RootComponent() {
 }
 
 function AuthGuard({ children }: { children: ReactNode }) {
-  const { user, isLoading, passenger, isPassengerLoading } = useAuth();
+  const { user, isLoading, profile, isProfileLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -166,17 +166,14 @@ function AuthGuard({ children }: { children: ReactNode }) {
   }
 
   // Se estiver logado, mas não tiver perfil (e não for rota pública)
-  // No Android, o trigger deve ter criado o perfil, então se não existe, talvez algo falhou ou é incompleto
   if (
     user &&
-    !passenger &&
-    !isPassengerLoading &&
+    !profile &&
+    !isProfileLoading &&
     !isPublicRoute &&
     location.pathname !== "/cadastro"
   ) {
-    // Poderia redirecionar para uma tela de "Concluir Cadastro"
-    // Por agora, vamos permitir passar ou logar o erro
-    console.warn("User logged in but passenger profile missing");
+    console.warn("User logged in but profile missing from public.users");
   }
 
   return <>{children}</>;

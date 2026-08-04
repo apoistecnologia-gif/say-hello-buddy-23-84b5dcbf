@@ -12,7 +12,7 @@ export const Route = createFileRoute("/cadastro")({
 });
 
 function CadastroPage() {
-  const [fullName, setFullName] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +25,7 @@ function CadastroPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!fullName || !email || !phone || !password || !confirmPassword) {
+    if (!name || !email || !phone || !password || !confirmPassword) {
       toast.error("Por favor, preencha todos os campos.");
       return;
     }
@@ -52,8 +52,9 @@ function CadastroPage() {
         password,
         options: {
           data: {
-            full_name: fullName,
+            name: name,
             phone: phone,
+            role: "passenger",
           },
         },
       });
@@ -75,16 +76,6 @@ function CadastroPage() {
     }
   };
 
-  const formatPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, "");
-    if (numbers.length <= 11) {
-      return numbers
-        .replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3")
-        .replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-    }
-    return numbers.slice(0, 11);
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-black text-white p-6 pt-8 pb-24 overflow-y-auto">
       <Link to="/login" className="mb-6 inline-flex items-center text-gray-400">
@@ -100,8 +91,8 @@ function CadastroPage() {
           <label className="text-sm font-medium text-gray-300">Nome completo</label>
           <Input
             placeholder="Seu nome completo"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             disabled={loading}
             className="w-full bg-[#1e1e1e] border-gray-800 text-white h-14 rounded-xl"
           />

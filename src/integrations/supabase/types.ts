@@ -8,26 +8,85 @@ export type Database = {
   };
   public: {
     Tables: {
-      passengers: {
+      user_roles: {
         Row: {
-          created_at: string | null;
-          full_name: string;
           id: string;
+          role: Database["public"]["Enums"]["app_role"];
+          user_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          role: Database["public"]["Enums"]["app_role"];
+          user_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          role?: Database["public"]["Enums"]["app_role"];
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      users: {
+        Row: {
+          auth_user_id: string | null;
+          avatar_url: string | null;
+          average_rating: number | null;
+          block_reason: string | null;
+          blocked_at: string | null;
+          city: string | null;
+          completed_rides: number | null;
+          created_at: string | null;
+          email: string | null;
+          id: string;
+          last_login_at: string | null;
+          name: string | null;
           phone: string | null;
+          suspended_at: string | null;
+          total_ratings: number | null;
           updated_at: string | null;
         };
         Insert: {
+          auth_user_id?: string | null;
+          avatar_url?: string | null;
+          average_rating?: number | null;
+          block_reason?: string | null;
+          blocked_at?: string | null;
+          city?: string | null;
+          completed_rides?: number | null;
           created_at?: string | null;
-          full_name: string;
-          id: string;
+          email?: string | null;
+          id?: string;
+          last_login_at?: string | null;
+          name?: string | null;
           phone?: string | null;
+          suspended_at?: string | null;
+          total_ratings?: number | null;
           updated_at?: string | null;
         };
         Update: {
+          auth_user_id?: string | null;
+          avatar_url?: string | null;
+          average_rating?: number | null;
+          block_reason?: string | null;
+          blocked_at?: string | null;
+          city?: string | null;
+          completed_rides?: number | null;
           created_at?: string | null;
-          full_name?: string;
+          email?: string | null;
           id?: string;
+          last_login_at?: string | null;
+          name?: string | null;
           phone?: string | null;
+          suspended_at?: string | null;
+          total_ratings?: number | null;
           updated_at?: string | null;
         };
         Relationships: [];
@@ -40,7 +99,7 @@ export type Database = {
       [_ in never]: never;
     };
     Enums: {
-      [_ in never]: never;
+      app_role: "admin" | "moderator" | "user" | "passenger" | "driver";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -161,6 +220,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user", "passenger", "driver"],
+    },
   },
 } as const;
