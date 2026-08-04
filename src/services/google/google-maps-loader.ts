@@ -41,7 +41,7 @@ class GoogleMapsLoader {
       }, PLACES_CONFIG.TIMEOUT_MS);
 
       // Verificação de script já existente (prevenção contra duplicados)
-      if ((window as any).google?.maps?.importLibrary) {
+      if ((window as { google: any }).google?.maps?.importLibrary) {
         this.clearTimer();
         resolve();
         return;
@@ -55,7 +55,7 @@ class GoogleMapsLoader {
       }, apiKey);
 
       const checkInterval = setInterval(() => {
-        const maps = (window as any).google?.maps;
+        const maps = (window as { google: any }).google?.maps;
         if (maps && typeof maps.importLibrary === 'function') {
           clearInterval(checkInterval);
           this.clearTimer();
@@ -79,7 +79,7 @@ class GoogleMapsLoader {
    */
   public async importLibrary(name: string): Promise<any> {
     await this.load();
-    return (window as any).google.maps.importLibrary(name);
+    return (window as { google: any }).google.maps.importLibrary(name);
   }
 }
 
