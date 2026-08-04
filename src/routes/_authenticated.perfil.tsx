@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/perfil")({
 
 function PerfilPage() {
   const { user, signOut } = useAuth();
-  const profile = null as UserProfile | null;
+  const profile: UserProfile | null = null;
   const role = 'passenger';
   const navigate = useNavigate();
 
@@ -55,7 +55,7 @@ function PerfilPage() {
         <h2 className="text-2xl font-bold">{profile?.name || "Passageiro"}</h2>
         <p className="text-gray-400 text-sm">{user?.email}</p>
 
-        {profile?.average_rating !== null && (
+        {profile && profile.average_rating !== undefined && profile.average_rating !== null && (
           <div className="flex items-center gap-4 mt-4 bg-[#121212] px-4 py-2 rounded-full">
             <div className="flex items-center gap-1 text-yellow-500">
               <Star size={16} fill="currentColor" />
