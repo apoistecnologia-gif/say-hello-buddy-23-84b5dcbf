@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { Geolocation } from "@capacitor/geolocation";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { Geolocation, PermissionStatus } from "@capacitor/geolocation";
 
 export interface LocationData {
   latitude: number;
@@ -9,9 +9,13 @@ export interface LocationData {
 
 interface LocationContextType {
   location: LocationData | null;
+  currentPosition: LocationData | null;
   isLoading: boolean;
   error: string | null;
   accuracyQuality: "high" | "medium" | "low" | "none";
+  permissionStatus: PermissionStatus | null;
+  requestPermission: () => Promise<void>;
+  refreshPosition: () => Promise<void>;
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
@@ -20,8 +24,33 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [location, setLocation] = useState<LocationData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [permissionStatus, setPermissionStatus] = useState<PermissionStatus | null>(null);
+
+  const refreshPosition = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const position = await Geolocation.getCurrentPosition();
+      setLocation({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy
+      });
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to get position");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const requestPermission = useCallback(async () => {
+    const status = await Geolocation.requestPermissions();
+    setPermissionStatus(status);
+  }, []);
 
   useEffect(() => {
+    Geolocation.checkPermissions().then(setPermissionStatus);
+
     const watchId = Geolocation.watchPosition({ enableHighAccuracy: true }, (position, err) => {
       if (err) {
         setError(err.message);
@@ -46,7 +75,16 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const accuracyQuality = !location ? "none" : location.accuracy < 20 ? "high" : location.accuracy < 100 ? "medium" : "low";
 
   return (
-    <LocationContext.Provider value={{ location, isLoading, error, accuracyQuality }}>
+    <LocationContext.Provider value={{ 
+      location, 
+      currentPosition: location,
+      isLoading, 
+      error, 
+      accuracyQuality, 
+      permissionStatus,
+      requestPermission,
+      refreshPosition
+    }}>
       {children}
     </LocationContext.Provider>
   );

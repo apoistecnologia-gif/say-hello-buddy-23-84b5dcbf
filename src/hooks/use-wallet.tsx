@@ -37,12 +37,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!data) {
         setWallet(null);
         setState("not_found");
-      } else if (data.is_blocked) {
-        setWallet(data);
-        setState("blocked");
       } else {
-        setWallet(data);
-        setState("available");
+        const normalizedWallet: WalletSummary = {
+          ...data,
+          available_balance: data.balance,
+          status: data.is_blocked ? "blocked" : "active"
+        };
+        setWallet(normalizedWallet);
+        setState(data.is_blocked ? "blocked" : "available");
       }
       setError(null);
     } catch (err) {

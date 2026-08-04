@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { RideCategory, RideCategoryKey } from "@/types/pricing";
+import { RideCategory } from "@/types/pricing";
 
 interface RideCategoriesContextType {
   categories: RideCategory[];
   selectedCategory: RideCategory | null;
   setSelectedCategory: (category: RideCategory | null) => void;
+  selectCategory: (key: string) => void;
   isLoading: boolean;
 }
 
@@ -22,8 +23,19 @@ export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = (
   const [categories] = useState<RideCategory[]>(DEFAULT_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState<RideCategory | null>(DEFAULT_CATEGORIES[0]);
 
+  const selectCategory = (key: string) => {
+    const cat = categories.find(c => c.key === key) || null;
+    setSelectedCategory(cat);
+  };
+
   return (
-    <RideCategoriesContext.Provider value={{ categories, selectedCategory, setSelectedCategory, isLoading: false }}>
+    <RideCategoriesContext.Provider value={{ 
+      categories, 
+      selectedCategory, 
+      setSelectedCategory, 
+      selectCategory,
+      isLoading: false 
+    }}>
       {children}
     </RideCategoriesContext.Provider>
   );

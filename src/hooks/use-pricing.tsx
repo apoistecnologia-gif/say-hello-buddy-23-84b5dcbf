@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRoute } from "@/hooks/use-route";
 import { useRideCategories } from "@/hooks/use-ride-categories";
-import { FareEstimate } from "@/types/pricing";
+import { FareEstimate, ServiceDetails } from "@/types/pricing";
 
 interface PricingContextType {
   estimate: FareEstimate | null;
   status: "idle" | "loading" | "success" | "error";
+  error: string | null;
+  serviceDetails: ServiceDetails;
+  setServiceDetails: (details: ServiceDetails) => void;
 }
 
 const PricingContext = createContext<PricingContextType | undefined>(undefined);
@@ -15,36 +18,41 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { selectedCategory } = useRideCategories();
   const [estimate, setEstimate] = useState<FareEstimate | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [serviceDetails, setServiceDetails] = useState<ServiceDetails>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (route && selectedCategory) {
       setStatus("loading");
-      // Simulated pricing logic (matches STO-009)
       const baseFare = 5.0;
       const distKm = route.distanceMeters / 1000;
       const durMin = route.durationSeconds / 60;
       const total = baseFare + (distKm * 2.5) + (durMin * 0.5);
       
       setEstimate({
-        category: selectedCategory.key,
-        baseFare,
-        perKm: 2.5,
-        perMin: 0.5,
-        distanceKm: distKm,
-        durationMin: durMin,
-        extrasTotal: 0,
-        minFare: 7.0,
-        estimatedTotal: Math.max(total, 7.0)
+        category_key: selectedCategory.key,
+        total: Math.max(total, 7.0),
+        base_fare: baseFare,
+        distance_fare: distKm * 2.5,
+        duration_fare: durMin * 0.5,
+        min_fare: 7.0
       });
       setStatus("success");
+      setError(null);
     } else {
       setEstimate(null);
       setStatus("idle");
     }
-  }, [route, selectedCategory]);
+  }, [route, selectedCategory, serviceDetails]);
 
   return (
-    <PricingContext.Provider value={{ estimate, status }}>
+    <PricingContext.Provider value={{ 
+      estimate, 
+      status, 
+      error,
+      serviceDetails,
+      setServiceDetails
+    }}>
       {children}
     </PricingContext.Provider>
   );

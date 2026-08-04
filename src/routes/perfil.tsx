@@ -20,7 +20,7 @@ export const Route = createFileRoute("/perfil")({
 });
 
 function PerfilPage() {
-  const { user, profile, role, signOut } = useAuth();
+  const { user, profile, role, signOut } = useAuth() as any;
   const navigate = useNavigate();
 
   const handleLogout = async () => {
