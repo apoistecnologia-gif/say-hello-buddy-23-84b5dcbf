@@ -1,14 +1,14 @@
-import { AppLocation } from './location';
+import { AppLocation } from "./location";
 
 export type MapErrorCode =
-  | 'maps_configuration_missing'
-  | 'maps_initialization_failed'
-  | 'maps_element_unavailable'
-  | 'maps_location_unavailable'
-  | 'maps_permission_required'
-  | 'maps_plugin_unavailable'
-  | 'maps_key_rejected'
-  | 'maps_unknown_error';
+  | "maps_configuration_missing"
+  | "maps_initialization_failed"
+  | "maps_element_unavailable"
+  | "maps_location_unavailable"
+  | "maps_permission_required"
+  | "maps_plugin_unavailable"
+  | "maps_key_rejected"
+  | "maps_unknown_error";
 
 export interface MapError {
   code: MapErrorCode;
@@ -16,13 +16,13 @@ export interface MapError {
 }
 
 export type MapState =
-  | 'idle'
-  | 'loading'
-  | 'ready'
-  | 'location_unavailable'
-  | 'permission_required'
-  | 'configuration_missing'
-  | 'failed';
+  | "idle"
+  | "loading"
+  | "ready"
+  | "location_unavailable"
+  | "permission_required"
+  | "configuration_missing"
+  | "failed";
 
 export interface MapCoordinates {
   lat: number;
@@ -36,7 +36,7 @@ export interface MapCameraPosition {
   pitch?: number;
 }
 
-export type MapMarkerRole = 'passenger' | 'pickup' | 'destination';
+export type MapMarkerRole = "passenger" | "pickup" | "destination";
 
 export interface MapPoint {
   latitude: number;
@@ -47,11 +47,11 @@ export interface MapPoint {
 }
 
 export interface PickupMapPoint extends MapPoint {
-  role: 'pickup';
+  role: "pickup";
 }
 
 export interface DestinationMapPoint extends MapPoint {
-  role: 'destination';
+  role: "destination";
 }
 
 export interface MapBounds {
@@ -65,12 +65,12 @@ export interface CameraFitOptions {
 }
 
 export const MAP_MESSAGES_PT: Record<MapErrorCode, string> = {
-  maps_configuration_missing: 'O mapa ainda não está configurado neste ambiente.',
-  maps_initialization_failed: 'Não conseguimos carregar o mapa. Tente novamente.',
-  maps_element_unavailable: 'Elemento visual do mapa não encontrado.',
-  maps_location_unavailable: 'Não foi possível localizar você no mapa agora.',
-  maps_permission_required: 'Permissão de localização é necessária para exibir o mapa.',
-  maps_plugin_unavailable: 'Plugin de mapas não disponível.',
-  maps_key_rejected: 'Chave do Google Maps inválida ou rejeitada.',
-  maps_unknown_error: 'Ocorreu um erro inesperado ao carregar o mapa.',
+  maps_configuration_missing: "O mapa ainda não está configurado neste ambiente.",
+  maps_initialization_failed: "Não conseguimos carregar o mapa. Tente novamente.",
+  maps_element_unavailable: "Elemento visual do mapa não encontrado.",
+  maps_location_unavailable: "Não foi possível localizar você no mapa agora.",
+  maps_permission_required: "Permissão de localização é necessária para exibir o mapa.",
+  maps_plugin_unavailable: "Plugin de mapas não disponível.",
+  maps_key_rejected: "Chave do Google Maps inválida ou rejeitada.",
+  maps_unknown_error: "Ocorreu um erro inesperado ao carregar o mapa.",
 };

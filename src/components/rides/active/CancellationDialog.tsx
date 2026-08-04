@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogDescription,
-  DialogFooter
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { XCircle, AlertTriangle, Loader2 } from "lucide-react";
@@ -18,11 +18,11 @@ interface CancellationDialogProps {
   onSuccess: () => void;
 }
 
-export const CancellationDialog: React.FC<CancellationDialogProps> = ({ 
-  isOpen, 
-  onClose, 
+export const CancellationDialog: React.FC<CancellationDialogProps> = ({
+  isOpen,
+  onClose,
   rideId,
-  onSuccess 
+  onSuccess,
 }) => {
   const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,8 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
           </div>
           <DialogTitle className="text-xl font-black">Cancelar corrida?</DialogTitle>
           <DialogDescription className="text-zinc-400 text-sm font-medium">
-            Se você cancelar agora, poderá ser aplicada uma taxa de cancelamento caso o motorista já esteja próximo.
+            Se você cancelar agora, poderá ser aplicada uma taxa de cancelamento caso o motorista já
+            esteja próximo.
           </DialogDescription>
         </DialogHeader>
 
@@ -63,8 +64,8 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
         </div>
 
         <DialogFooter className="flex flex-col gap-2 mt-2">
-          <Button 
-            variant="destructive" 
+          <Button
+            variant="destructive"
             className="w-full h-12 rounded-2xl font-black text-sm"
             onClick={handleCancel}
             disabled={isCancelling}
@@ -72,8 +73,8 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
             {isCancelling ? <Loader2 className="animate-spin mr-2" size={18} /> : null}
             Confirmar Cancelamento
           </Button>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="w-full h-12 rounded-2xl font-black text-sm text-zinc-400"
             onClick={onClose}
             disabled={isCancelling}

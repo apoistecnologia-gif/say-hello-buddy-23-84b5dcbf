@@ -15,10 +15,10 @@ export default defineConfig({
       spa: {
         enabled: false,
       },
-     router: {
-  routesDirectory: "routes",
-  generatedRouteTree: "routeTree.gen.ts",
-},
+      router: {
+        routesDirectory: "routes",
+        generatedRouteTree: "routeTree.gen.ts",
+      },
     }),
 
     viteReact(),

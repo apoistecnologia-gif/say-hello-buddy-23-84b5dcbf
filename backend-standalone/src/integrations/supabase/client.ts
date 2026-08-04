@@ -8,7 +8,8 @@ function isNewSupabaseApiKey(v: string) {
 function shim(key: string): typeof fetch {
   return (input, init) => {
     const h = new Headers(init?.headers ?? {});
-    if (isNewSupabaseApiKey(key) && h.get("Authorization") === `Bearer ${key}`) h.delete("Authorization");
+    if (isNewSupabaseApiKey(key) && h.get("Authorization") === `Bearer ${key}`)
+      h.delete("Authorization");
     h.set("apikey", key);
     return fetch(input, { ...init, headers: h });
   };
@@ -24,5 +25,8 @@ function make() {
 }
 let _c: ReturnType<typeof make> | undefined;
 export const supabase = new Proxy({} as ReturnType<typeof make>, {
-  get(_, p, r) { if (!_c) _c = make(); return Reflect.get(_c, p, r); }
+  get(_, p, r) {
+    if (!_c) _c = make();
+    return Reflect.get(_c, p, r);
+  },
 });

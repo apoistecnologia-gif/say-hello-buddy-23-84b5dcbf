@@ -5,24 +5,20 @@
 export type PaymentProviderId = "asaas" | "pagarme" | "mercadopago" | "iugu";
 
 export type SubscriptionUiStatus =
-  | "active"
-  | "pending_payment"
-  | "expired"
-  | "blocked"
-  | "cancelled";
+  "active" | "pending_payment" | "expired" | "blocked" | "cancelled";
 
 export type SubscriptionPaymentMethod = "pix" | "credit_card";
 
 export interface SubscriptionChargeResult {
   provider: PaymentProviderId;
-  providerReference: string;      // e.g. Asaas payment id
+  providerReference: string; // e.g. Asaas payment id
   status: "pending" | "paid" | "failed";
   amount: number;
   currency: string;
   method: SubscriptionPaymentMethod;
   invoiceUrl?: string | null;
-  pixQrCode?: string | null;      // base64 image payload
-  pixCopyPaste?: string | null;   // "copia e cola" string
+  pixQrCode?: string | null; // base64 image payload
+  pixCopyPaste?: string | null; // "copia e cola" string
   dueDate?: string | null;
 }
 

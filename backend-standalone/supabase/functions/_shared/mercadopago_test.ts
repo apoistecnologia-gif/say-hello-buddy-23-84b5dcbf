@@ -7,11 +7,7 @@ function assertEquals(actual: unknown, expected: unknown) {
 }
 
 Deno.test("starts the first paid period at approval time", () => {
-  const period = calculatePaidPeriod(
-    new Date("2026-07-25T12:00:00.000Z"),
-    null,
-    30,
-  );
+  const period = calculatePaidPeriod(new Date("2026-07-25T12:00:00.000Z"), null, 30);
   assertEquals(period.periodStart, "2026-07-25T12:00:00.000Z");
   assertEquals(period.periodEnd, "2026-08-24T12:00:00.000Z");
 });

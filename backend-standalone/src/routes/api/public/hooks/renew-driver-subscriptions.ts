@@ -86,15 +86,13 @@ export const Route = createFileRoute("/api/public/hooks/renew-driver-subscriptio
       POST: async ({ request }) => {
         const cronSecret = process.env.CRON_SECRET?.trim() ?? "";
         if (!cronSecret) {
-          return new Response(
-            JSON.stringify({ error: "cron_secret_not_configured" }),
-            { status: 503, headers: { "content-type": "application/json" } },
-          );
+          return new Response(JSON.stringify({ error: "cron_secret_not_configured" }), {
+            status: 503,
+            headers: { "content-type": "application/json" },
+          });
         }
         const auth = request.headers.get("authorization") ?? "";
-        const provided = auth.toLowerCase().startsWith("bearer ")
-          ? auth.slice(7).trim()
-          : "";
+        const provided = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7).trim() : "";
         if (!provided || !safeEqual(provided, cronSecret)) {
           return new Response(JSON.stringify({ error: "unauthorized" }), {
             status: 401,
@@ -141,10 +139,7 @@ export const Route = createFileRoute("/api/public/hooks/renew-driver-subscriptio
         // oficial `subscriptions`.
         const overdueRun = await admin.rpc("auto_suspend_overdue_subscriptions");
         if (overdueRun.error) {
-          console.error(
-            "[renew-cron] overdue update failed",
-            overdueRun.error,
-          );
+          console.error("[renew-cron] overdue update failed", overdueRun.error);
         }
 
         // 2) Busca períodos pagos próximos do vencimento e períodos já vencidos
@@ -177,16 +172,13 @@ export const Route = createFileRoute("/api/public/hooks/renew-driver-subscriptio
         const { data: candidateRows, error: fetchErr } = dueDriverIds.length
           ? await admin
               .from("drivers")
-              .select(
-                "id,user_id,next_due_date,financial_status,mercadopago_preapproval_id",
-              )
+              .select("id,user_id,next_due_date,financial_status,mercadopago_preapproval_id")
               .in("user_id", dueDriverIds)
               .eq("approval_status", "aprovado")
           : { data: [], error: null };
         const candidates = (candidateRows ?? []).map((driver) => ({
           ...driver,
-          current_period_end:
-            dueByDriver.get(String(driver.user_id)) ?? null,
+          current_period_end: dueByDriver.get(String(driver.user_id)) ?? null,
         }));
 
         if (fetchErr) {
@@ -230,8 +222,7 @@ export const Route = createFileRoute("/api/public/hooks/renew-driver-subscriptio
             ).toISOString();
             const hasCurrentPaidPeriod =
               Boolean(driver.current_period_end) &&
-              new Date(driver.current_period_end as string).getTime() >
-                Date.now();
+              new Date(driver.current_period_end as string).getTime() > Date.now();
 
             await admin
               .from("drivers")

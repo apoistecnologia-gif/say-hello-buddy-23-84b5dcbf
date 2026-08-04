@@ -47,7 +47,13 @@ export const getDriverDocumentUrls = createServerFn({ method: "POST" })
         async ([field, bucket]) => {
           const path = driver.data?.[field];
           if (!path) return;
-          if (import.meta.env.DEV) console.log("[MOVVI DOCS] gerando URL assinada:", { driverId: data.driverId, field, bucket, path });
+          if (import.meta.env.DEV)
+            console.log("[MOVVI DOCS] gerando URL assinada:", {
+              driverId: data.driverId,
+              field,
+              bucket,
+              path,
+            });
           const signed = await supabaseAdmin.storage.from(bucket).createSignedUrl(path, 600);
           if (signed.error) {
             console.error(`[MOVVI DOCS] erro signed url ${field}:`, signed.error.message);

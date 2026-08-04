@@ -18,7 +18,10 @@ function json(body: unknown, status = 200) {
 }
 
 async function isAuthenticated(request: Request): Promise<boolean> {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  const token = request.headers
+    .get("authorization")
+    ?.replace(/^Bearer\s+/i, "")
+    .trim();
   if (!token) return false;
   const result = await supabaseAdmin.auth.getUser(token);
   return Boolean(result.data.user && !result.error);
@@ -34,7 +37,7 @@ export const Route = createFileRoute("/api/passenger/pricing/estimate")({
 
         try {
           const input = inputSchema.parse(await request.json());
-          
+
           const { data: categories, error: catError } = await supabaseAdmin
             .from("ride_categories")
             .select("id, code, name");
@@ -51,10 +54,12 @@ export const Route = createFileRoute("/api/passenger/pricing/estimate")({
           const min = input.durationSeconds / 60;
 
           const estimates = (categories || [])
-            .filter(cat => !input.categoryIds || input.categoryIds.includes(cat.id))
-            .map(cat => {
-              const rule = rules?.find(r => r.category_id === cat.id || r.category_key === cat.code);
-              
+            .filter((cat) => !input.categoryIds || input.categoryIds.includes(cat.id))
+            .map((cat) => {
+              const rule = rules?.find(
+                (r) => r.category_id === cat.id || r.category_key === cat.code,
+              );
+
               if (!rule) {
                 return {
                   categoryId: cat.id,
@@ -66,8 +71,8 @@ export const Route = createFileRoute("/api/passenger/pricing/estimate")({
               // Converter regra do banco para o formato esperado pela função de cálculo
               const tariff: Record<string, number> = {};
               Object.entries(rule).forEach(([key, val]) => {
-                if (typeof val === 'number') tariff[key] = val;
-                else if (typeof val === 'string' && !isNaN(Number(val))) tariff[key] = Number(val);
+                if (typeof val === "number") tariff[key] = val;
+                else if (typeof val === "string" && !isNaN(Number(val))) tariff[key] = Number(val);
               });
 
               try {
@@ -76,7 +81,7 @@ export const Route = createFileRoute("/api/passenger/pricing/estimate")({
                   distanceKm: km,
                   durationMin: min,
                   tariff,
-                  serviceDetails: input.serviceDetails
+                  serviceDetails: input.serviceDetails,
                 });
 
                 return {
@@ -87,13 +92,13 @@ export const Route = createFileRoute("/api/passenger/pricing/estimate")({
                   basePrice: breakdown.base,
                   extras: breakdown.extras,
                   currency: "BRL",
-                  estimatedPickupMinutes: Math.floor(Math.random() * 8) + 2
+                  estimatedPickupMinutes: Math.floor(Math.random() * 8) + 2,
                 };
               } catch (err: any) {
                 return {
                   categoryId: cat.id,
                   available: false,
-                  unavailableReason: err.message || "Erro no cálculo"
+                  unavailableReason: err.message || "Erro no cálculo",
                 };
               }
             });

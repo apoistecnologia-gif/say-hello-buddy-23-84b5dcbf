@@ -19,7 +19,14 @@ function RootDocument() {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
-      <body style={{ fontFamily: "system-ui, sans-serif", padding: 32, background: "#0b0b0b", color: "#eee" }}>
+      <body
+        style={{
+          fontFamily: "system-ui, sans-serif",
+          padding: 32,
+          background: "#0b0b0b",
+          color: "#eee",
+        }}
+      >
         <Outlet />
       </body>
     </html>

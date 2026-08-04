@@ -25,10 +25,8 @@ class WalletService {
       blockedReason: data.blocked_reason || null,
       updatedAt: new Date().toISOString(),
       currency: "BRL",
-      status: data.is_blocked ? "blocked" : "active"
+      status: data.is_blocked ? "blocked" : "active",
     };
-
-
   }
 }
 

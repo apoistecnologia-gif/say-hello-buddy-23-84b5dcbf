@@ -13,12 +13,16 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
     <div className="bg-zinc-900/50 rounded-2xl p-4 border border-white/5 flex items-center gap-4 animate-in fade-in slide-in-from-bottom duration-500">
       <div className="w-14 h-14 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
         {ride.driver_photo ? (
-          <img src={ride.driver_photo} alt={ride.driver_name} className="w-full h-full object-cover" />
+          <img
+            src={ride.driver_photo}
+            alt={ride.driver_name}
+            className="w-full h-full object-cover"
+          />
         ) : (
           <User className="text-zinc-600" size={24} />
         )}
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <h4 className="font-bold text-white truncate">{ride.driver_name || "Motorista"}</h4>
         <div className="flex items-center gap-2 mt-0.5">
@@ -34,7 +38,7 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
       </div>
 
       {ride.driver_phone && (
-        <a 
+        <a
           href={`tel:${ride.driver_phone}`}
           className="w-12 h-12 rounded-full bg-apois-yellow flex items-center justify-center active:scale-90 transition-transform"
         >

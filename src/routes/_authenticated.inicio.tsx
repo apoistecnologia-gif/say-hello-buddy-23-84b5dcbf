@@ -15,7 +15,10 @@ import PassengerMap from "@/components/map/PassengerMap";
 import { CategorySelector } from "@/components/pricing/CategorySelector";
 import { RideStopsInput } from "@/components/rides/RideStopsInput";
 import { ServiceDetailsForm } from "@/components/pricing/ServiceDetailsForm";
-import { PaymentMethodSelector, PaymentMethodList } from "@/components/payments/PaymentMethodSelector";
+import {
+  PaymentMethodSelector,
+  PaymentMethodList,
+} from "@/components/payments/PaymentMethodSelector";
 import { CouponInput } from "@/components/coupons/CouponInput";
 import { CheckoutSummary } from "@/components/pricing/CheckoutSummary";
 import { FareDetails } from "@/components/pricing/FareDetails";
@@ -36,7 +39,7 @@ function InicioPage() {
   const { checkout } = useCheckoutPreparation();
   const { initiateReview } = useRideRequest();
   const { location, refreshLocation, isLoading: isLocating } = useLocation();
-  
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPaymentListOpen, setIsPaymentListOpen] = useState(false);
 
@@ -50,14 +53,13 @@ function InicioPage() {
       {/* Debug Overlay - Somente em Dev */}
       {import.meta.env.DEV && (
         <div className="fixed top-0 left-0 z-[9999] bg-black/80 p-1 text-[8px] pointer-events-none">
-          Auth: {authState} | Loc: {location ? 'Sim' : 'Não'} | Addr: {addressStatus}
+          Auth: {authState} | Loc: {location ? "Sim" : "Não"} | Addr: {addressStatus}
         </div>
       )}
 
-
       {/* Mapa como fundo principal */}
       <div className="absolute inset-0 z-0">
-        <PassengerMap 
+        <PassengerMap
           origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
           destination={undefined}
           encodedPolyline={route?.encodedPolyline}
@@ -70,11 +72,14 @@ function InicioPage() {
       <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
         <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl flex items-center justify-between">
           <div className="flex flex-col min-w-0">
-            <h1 className="text-sm font-black text-white">Olá, {profile?.full_name?.split(' ')[0] || 'Passageiro'}</h1>
+            <h1 className="text-sm font-black text-white">
+              Olá, {profile?.full_name?.split(" ")[0] || "Passageiro"}
+            </h1>
             <p className="text-[11px] font-medium text-gray-300 truncate max-w-[200px]">
-              {addressStatus === "identifying" ? "Identificando..." : (address || "Sua localização atual")}
+              {addressStatus === "identifying"
+                ? "Identificando..."
+                : address || "Sua localização atual"}
             </p>
-
           </div>
           <div className="w-10 h-10 bg-apois-yellow rounded-2xl flex items-center justify-center shadow-lg shadow-apois-yellow/20 cursor-pointer active:scale-95 transition-all">
             <Settings2 size={20} className="text-black" />
@@ -84,7 +89,7 @@ function InicioPage() {
 
       {/* Campo de Destino Flutuante */}
       <div className="absolute top-[calc(env(safe-area-inset-top)+84px)] left-0 right-0 z-20 px-4">
-        <div 
+        <div
           onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
           role="button"
           tabIndex={0}
@@ -94,8 +99,12 @@ function InicioPage() {
             <MapPin className="text-apois-yellow" size={20} />
           </div>
           <div className="flex-1">
-            <p className="text-black font-black text-sm uppercase tracking-tight group-active:text-zinc-700">Para onde vamos?</p>
-            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Informe seu destino</p>
+            <p className="text-black font-black text-sm uppercase tracking-tight group-active:text-zinc-700">
+              Para onde vamos?
+            </p>
+            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
+              Informe seu destino
+            </p>
           </div>
           <ChevronRight size={20} className="text-zinc-300" />
         </div>
@@ -122,29 +131,34 @@ function InicioPage() {
           </div>
 
           <div className="max-h-[50vh] overflow-y-auto no-scrollbar pb-6">
-            {(hasDestination || route) ? (
+            {hasDestination || route ? (
               <div className="animate-in fade-in slide-in-from-bottom duration-300 space-y-4">
                 <div className="px-5 flex items-center justify-between">
-                   <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Categorias disponíveis</p>
-                   {selectedCategory && (selectedCategory.code === 'fretes' || selectedCategory.code === 'guincho' || selectedCategory.code === 'envios') && (
-                     <button 
-                       type="button"
-                       onClick={() => setIsFormOpen(true)}
-                       className="flex items-center gap-1.5 text-apois-yellow font-bold text-xs"
-                     >
-                       <Settings2 size={14} />
-                       Detalhes
-                     </button>
-                   )}
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                    Categorias disponíveis
+                  </p>
+                  {selectedCategory &&
+                    (selectedCategory.code === "fretes" ||
+                      selectedCategory.code === "guincho" ||
+                      selectedCategory.code === "envios") && (
+                      <button
+                        type="button"
+                        onClick={() => setIsFormOpen(true)}
+                        className="flex items-center gap-1.5 text-apois-yellow font-bold text-xs"
+                      >
+                        <Settings2 size={14} />
+                        Detalhes
+                      </button>
+                    )}
                 </div>
-                
+
                 <RideStopsInput />
                 <CategorySelector />
-                
+
                 <div className="px-5 space-y-4">
                   <PaymentMethodSelector onOpenList={() => setIsPaymentListOpen(true)} />
                   <CouponInput />
-                  
+
                   <div className="pt-2">
                     <FareDetails />
                     <CheckoutSummary />
@@ -152,15 +166,15 @@ function InicioPage() {
                 </div>
 
                 <div className="px-5 pt-4">
-                  <button 
+                  <button
                     type="button"
                     onClick={handleReview}
                     disabled={!checkout.readiness}
                     className={cn(
                       "w-full flex items-center justify-center gap-2 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
                       checkout.readiness
-                        ? "bg-apois-yellow text-black shadow-apois-yellow/20" 
-                        : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+                        ? "bg-apois-yellow text-black shadow-apois-yellow/20"
+                        : "bg-zinc-800 text-zinc-600 cursor-not-allowed",
                     )}
                   >
                     Revisar Solicitação
@@ -172,7 +186,9 @@ function InicioPage() {
               <div className="px-5 space-y-6">
                 <div className="flex flex-col gap-1">
                   <h2 className="text-lg font-black text-white">Para onde vamos hoje?</h2>
-                  <p className="text-xs text-zinc-500 font-medium">Escolha um destino ou use um atalho</p>
+                  <p className="text-xs text-zinc-500 font-medium">
+                    Escolha um destino ou use um atalho
+                  </p>
                 </div>
 
                 {/* Favoritos / Atalhos */}
@@ -192,7 +208,7 @@ function InicioPage() {
                 </div>
 
                 {/* Ação Principal no Painel */}
-                <button 
+                <button
                   onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
                   className="w-full py-4 bg-apois-yellow text-black font-black rounded-2xl active:scale-95 shadow-lg shadow-apois-yellow/10 uppercase tracking-widest text-xs"
                 >
@@ -204,16 +220,9 @@ function InicioPage() {
         </div>
       </div>
 
+      <ServiceDetailsForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
 
-      <ServiceDetailsForm 
-        isOpen={isFormOpen} 
-        onClose={() => setIsFormOpen(false)} 
-      />
-      
-      <PaymentMethodList 
-        isOpen={isPaymentListOpen}
-        onClose={() => setIsPaymentListOpen(false)}
-      />
+      <PaymentMethodList isOpen={isPaymentListOpen} onClose={() => setIsPaymentListOpen(false)} />
     </div>
   );
 }

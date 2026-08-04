@@ -13,7 +13,9 @@ export const FareDetails: React.FC = () => {
     <div className="px-6 py-4">
       <div className="flex justify-between items-center bg-zinc-900/50 p-4 rounded-2xl border border-white/5">
         <span className="text-sm font-bold text-zinc-400">Valor Estimado</span>
-        <span className="text-xl font-black text-apois-yellow">{formatCurrency(selectedEstimate.estimatedPrice)}</span>
+        <span className="text-xl font-black text-apois-yellow">
+          {formatCurrency(selectedEstimate.estimatedPrice)}
+        </span>
       </div>
     </div>
   );

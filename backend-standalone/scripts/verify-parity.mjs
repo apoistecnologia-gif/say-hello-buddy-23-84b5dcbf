@@ -74,12 +74,8 @@ async function main() {
   // Tables
   console.log("\n== Tabelas ==");
   for (const t of REQUIRED_TABLES) {
-    const { error } = await sb
-      .from(t)
-      .select("*", { count: "exact", head: true });
-    console.log(
-      error ? `  [FALTA]  ${t} (${error.message})` : `  [OK]    ${t}`,
-    );
+    const { error } = await sb.from(t).select("*", { count: "exact", head: true });
+    console.log(error ? `  [FALTA]  ${t} (${error.message})` : `  [OK]    ${t}`);
   }
 
   // RPCs
@@ -99,9 +95,7 @@ async function main() {
   }
 
   console.log("\n== Edge Functions ==");
-  console.log(
-    "(Verifique via CLI: supabase functions list --project-ref wqbtnfbvqtkyywfcqjwa)",
-  );
+  console.log("(Verifique via CLI: supabase functions list --project-ref wqbtnfbvqtkyywfcqjwa)");
   for (const f of REQUIRED_EDGE_FUNCTIONS) console.log(`  esperado: ${f}`);
 
   console.log("\nOK.");

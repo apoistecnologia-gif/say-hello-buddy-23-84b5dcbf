@@ -14,7 +14,7 @@ class PaymentService {
       throw error;
     }
 
-    return (data || []).map(m => ({
+    return (data || []).map((m) => ({
       id: m.id,
       code: m.code as any,
       name: m.name,
@@ -24,7 +24,7 @@ class PaymentService {
       isActive: !!m.is_active,
       enabled: !!m.is_active,
       sortOrder: m.sort_order || 0,
-      requiresBalance: !!m.requires_balance
+      requiresBalance: !!m.requires_balance,
     }));
   }
 

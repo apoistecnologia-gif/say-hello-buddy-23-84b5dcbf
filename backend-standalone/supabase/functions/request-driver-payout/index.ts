@@ -26,8 +26,7 @@ const MP_BASE_URL = (
 
 const cors: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (b: unknown, s = 200) =>
@@ -48,12 +47,10 @@ type Withdrawal = {
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response(null, { headers: cors });
-    if (req.method !== "POST")
-      return json({ error: "method_not_allowed" }, 405);
+    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const auth = req.headers.get("Authorization") ?? "";
-    if (!auth.startsWith("Bearer "))
-      return json({ error: "unauthorized" }, 401);
+    if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
 
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: auth } },
@@ -95,16 +92,12 @@ Deno.serve(async (req) => {
     }
     const amount = Number(payload.amount ?? 0);
     if (!amount || amount < 20)
-      return json(
-        { error: "min_withdrawal_amount", detail: "Valor mínimo R$ 20,00" },
-        422,
-      );
+      return json({ error: "min_withdrawal_amount", detail: "Valor mínimo R$ 20,00" }, 422);
 
     // 1. Cria pedido + debita saldo (RPC valida chave e saldo)
-    const { data: wid, error: rpcErr } = await userClient.rpc(
-      "request_driver_withdrawal",
-      { _amount: amount },
-    );
+    const { data: wid, error: rpcErr } = await userClient.rpc("request_driver_withdrawal", {
+      _amount: amount,
+    });
     if (rpcErr || !wid) {
       return json(
         {
@@ -214,10 +207,7 @@ Deno.serve(async (req) => {
       _reason: mpErrText || "Falha ao enviar Pix",
       _response: mpJson as never,
     });
-    return json(
-      { error: "mp_transfer_failed", withdrawalId: w.id, detail: mpErrText },
-      502,
-    );
+    return json({ error: "mp_transfer_failed", withdrawalId: w.id, detail: mpErrText }, 502);
   } catch (e) {
     console.error("[request-driver-payout] unexpected", e);
     return json({ error: "unexpected", detail: String(e).slice(0, 300) }, 500);

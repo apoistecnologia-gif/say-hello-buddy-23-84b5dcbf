@@ -13,117 +13,122 @@ interface PassengerMapProps {
   isStatic: boolean | undefined;
 }
 
-const PassengerMap: React.FC<PassengerMapProps> = ({ 
-  origin: customOrigin, 
+const PassengerMap: React.FC<PassengerMapProps> = ({
+  origin: customOrigin,
   destination: customDestination,
   encodedPolyline,
   driverLocation,
-  isStatic 
+  isStatic,
 }) => {
   const { location } = useLocation();
   const { route } = useRoute();
   const { orderedStops } = useRideStops();
   const { destination: globalDestination } = useDestination();
-  
+
   const mapRef = useRef<HTMLDivElement>(null);
   const googleMapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const polylineRef = useRef<any>(null);
-  const [mapStatus, setMapStatus] = React.useState<'loading' | 'ready' | 'configuration-error' | 'api-error'>('loading');
+  const [mapStatus, setMapStatus] = React.useState<
+    "loading" | "ready" | "configuration-error" | "api-error"
+  >("loading");
 
-  const hasValidCoordinate = (val: any) => typeof val === 'number' && Number.isFinite(val);
+  const hasValidCoordinate = (val: any) => typeof val === "number" && Number.isFinite(val);
 
   const currentLat = customOrigin?.lat || location?.latitude;
   const currentLng = customOrigin?.lng || location?.longitude;
   const hasValidOrigin = hasValidCoordinate(currentLat) && hasValidCoordinate(currentLng);
   const targetDest = customDestination || globalDestination;
 
-
   useEffect(() => {
     let mounted = true;
     const initMap = async () => {
       if (!mapRef.current) return;
-      
+
       try {
-        setMapStatus('loading');
+        setMapStatus("loading");
         console.log("[PassengerMap] Initializing Google Maps JS API...");
-        const mapsLib = await googleMapsLoader.importLibrary('maps') as any;
-        
+        const mapsLib = (await googleMapsLoader.importLibrary("maps")) as any;
+
         if (!mounted) return;
 
         if (!googleMapRef.current) {
           googleMapRef.current = new mapsLib.Map(mapRef.current, {
-            center: { lat: hasValidOrigin ? currentLat! : -23.5505, lng: hasValidOrigin ? currentLng! : -46.6333 },
+            center: {
+              lat: hasValidOrigin ? currentLat! : -23.5505,
+              lng: hasValidOrigin ? currentLng! : -46.6333,
+            },
             zoom: 15,
             disableDefaultUI: true,
-            backgroundColor: 'transparent',
+            backgroundColor: "transparent",
             styles: [
               {
-                "elementType": "geometry",
-                "stylers": [{ "color": "#121212" }]
+                elementType: "geometry",
+                stylers: [{ color: "#121212" }],
               },
               {
-                "elementType": "labels.icon",
-                "stylers": [{ "visibility": "off" }]
+                elementType: "labels.icon",
+                stylers: [{ visibility: "off" }],
               },
               {
-                "elementType": "labels.text.fill",
-                "stylers": [{ "color": "#9e9e9e" }]
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#9e9e9e" }],
               },
               {
-                "elementType": "labels.text.stroke",
-                "stylers": [{ "color": "#121212" }]
+                elementType: "labels.text.stroke",
+                stylers: [{ color: "#121212" }],
               },
               {
-                "featureType": "administrative",
-                "elementType": "geometry",
-                "stylers": [{ "color": "#424242" }]
+                featureType: "administrative",
+                elementType: "geometry",
+                stylers: [{ color: "#424242" }],
               },
               {
-                "featureType": "poi",
-                "elementType": "labels.text.fill",
-                "stylers": [{ "color": "#757575" }]
+                featureType: "poi",
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#757575" }],
               },
               {
-                "featureType": "road",
-                "elementType": "geometry.fill",
-                "stylers": [{ "color": "#2c2c2c" }]
+                featureType: "road",
+                elementType: "geometry.fill",
+                stylers: [{ color: "#2c2c2c" }],
               },
               {
-                "featureType": "road",
-                "elementType": "labels.text.fill",
-                "stylers": [{ "color": "#8a8a8a" }]
+                featureType: "road",
+                elementType: "labels.text.fill",
+                stylers: [{ color: "#8a8a8a" }],
               },
               {
-                "featureType": "water",
-                "elementType": "geometry",
-                "stylers": [{ "color": "#0a0a0a" }]
-              }
-            ]
+                featureType: "water",
+                elementType: "geometry",
+                stylers: [{ color: "#0a0a0a" }],
+              },
+            ],
           });
-          setMapStatus('ready');
+          setMapStatus("ready");
           console.log("[PassengerMap] Map instance created successfully");
         }
       } catch (err: any) {
         console.error("[PassengerMap] Error loading Google Maps:", err);
-        if (err.message === 'places_configuration_missing') {
-          setMapStatus('configuration-error');
+        if (err.message === "places_configuration_missing") {
+          setMapStatus("configuration-error");
         } else {
-          setMapStatus('api-error');
+          setMapStatus("api-error");
         }
       }
     };
 
     initMap();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [hasValidOrigin]); // Recria se a validade da origem mudar inicialmente
 
-
   useEffect(() => {
-    if (!googleMapRef.current || mapStatus !== 'ready') return;
+    if (!googleMapRef.current || mapStatus !== "ready") return;
 
     // Clear old markers
-    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
 
     // Clear old polyline
@@ -144,12 +149,12 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
         icon: {
           path: (window as any).google.maps.SymbolPath.CIRCLE,
           scale: 7,
-          fillColor: '#FFB800', // Amarelo APOIS
+          fillColor: "#FFB800", // Amarelo APOIS
           fillOpacity: 1,
-          strokeColor: 'white',
-          strokeWeight: 2
+          strokeColor: "white",
+          strokeWeight: 2,
         },
-        title: 'Origem'
+        title: "Origem",
       });
       markersRef.current.push(marker);
       bounds.extend(pos);
@@ -167,18 +172,18 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
         map: googleMapRef.current,
         label: {
           text: (index + 1).toString(),
-          color: 'black',
-          fontWeight: 'bold'
+          color: "black",
+          fontWeight: "bold",
         },
         icon: {
           path: (window as any).google.maps.SymbolPath.CIRCLE,
           scale: 10,
-          fillColor: '#FFB800',
+          fillColor: "#FFB800",
           fillOpacity: 1,
-          strokeColor: 'white',
-          strokeWeight: 2
+          strokeColor: "white",
+          strokeWeight: 2,
         },
-        title: stop.label
+        title: stop.label,
       });
       markersRef.current.push(marker);
       bounds.extend(pos);
@@ -187,19 +192,19 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
 
     // Destination
     if (targetDest) {
-      const destLat = 'latitude' in targetDest ? targetDest.latitude : targetDest.lat;
-      const destLng = 'longitude' in targetDest ? targetDest.longitude : targetDest.lng;
-      
+      const destLat = "latitude" in targetDest ? targetDest.latitude : targetDest.lat;
+      const destLng = "longitude" in targetDest ? targetDest.longitude : targetDest.lng;
+
       if (hasValidCoordinate(destLat) && hasValidCoordinate(destLng)) {
         const pos = { lat: destLat as number, lng: destLng as number };
-        
+
         const marker = new (window as any).google.maps.Marker({
           position: pos,
           map: googleMapRef.current,
           icon: {
-            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+            url: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
           },
-          title: 'Destino'
+          title: "Destino",
         });
         markersRef.current.push(marker);
         bounds.extend(pos);
@@ -209,17 +214,17 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
 
     // Polyline
     if (route?.decodedPoints && route.decodedPoints.length > 1) {
-      const path = route.decodedPoints.map(p => ({ lat: p.lat, lng: p.lng }));
+      const path = route.decodedPoints.map((p) => ({ lat: p.lat, lng: p.lng }));
       polylineRef.current = new (window as any).google.maps.Polyline({
         path,
         geodesic: true,
-        strokeColor: '#FFB800', // Amarelo APOIS
+        strokeColor: "#FFB800", // Amarelo APOIS
         strokeOpacity: 1.0,
         strokeWeight: 5,
-        map: googleMapRef.current
+        map: googleMapRef.current,
       });
-      
-      path.forEach(p => bounds.extend(p));
+
+      path.forEach((p) => bounds.extend(p));
       hasPoints = true;
     }
 
@@ -228,44 +233,52 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
         top: 150,
         right: 50,
         bottom: 400,
-        left: 50
+        left: 50,
       });
     }
   }, [currentLat, currentLng, targetDest, orderedStops, route, mapStatus, hasValidOrigin]);
 
-
   return (
-    <div className="w-full h-full bg-zinc-950 overflow-hidden relative flex items-center justify-center" style={{ minHeight: '100%' }}>
-      <div ref={mapRef} className="w-full h-full absolute inset-0 z-0" style={{ background: 'transparent' }} />
+    <div
+      className="w-full h-full bg-zinc-950 overflow-hidden relative flex items-center justify-center"
+      style={{ minHeight: "100%" }}
+    >
+      <div
+        ref={mapRef}
+        className="w-full h-full absolute inset-0 z-0"
+        style={{ background: "transparent" }}
+      />
 
-      {mapStatus === 'configuration-error' && (
+      {mapStatus === "configuration-error" && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20 p-6 text-center">
           <div className="max-w-xs space-y-4">
-            <p className="text-apois-yellow font-black uppercase tracking-tighter text-sm">Erro de Configuração</p>
+            <p className="text-apois-yellow font-black uppercase tracking-tighter text-sm">
+              Erro de Configuração
+            </p>
             <p className="text-zinc-400 text-xs">
-              {import.meta.env.DEV 
-                ? "Google Maps não configurado neste ambiente (VITE_GOOGLE_MAPS_API_KEY ausente)." 
+              {import.meta.env.DEV
+                ? "Google Maps não configurado neste ambiente (VITE_GOOGLE_MAPS_API_KEY ausente)."
                 : "Não foi possível carregar o mapa agora."}
             </p>
           </div>
         </div>
       )}
 
-      {mapStatus === 'api-error' && (
+      {mapStatus === "api-error" && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20 p-6 text-center">
           <div className="max-w-xs space-y-4">
-            <p className="text-red-500 font-black uppercase tracking-tighter text-sm">Falha na API</p>
+            <p className="text-red-500 font-black uppercase tracking-tighter text-sm">
+              Falha na API
+            </p>
             <p className="text-zinc-400 text-xs">Erro ao carregar os serviços do Google Maps.</p>
           </div>
         </div>
       )}
 
-      {mapStatus === 'loading' && !hasValidOrigin && (
+      {mapStatus === "loading" && !hasValidOrigin && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
           <div className="bg-[#1e1e1e] p-6 rounded-3xl border border-white/5 text-center space-y-4 max-w-[80%] animate-in fade-in duration-500">
-            <p className="text-sm font-medium text-gray-300">
-              Identificando sua localização...
-            </p>
+            <p className="text-sm font-medium text-gray-300">Identificando sua localização...</p>
             <div className="w-8 h-8 border-4 border-apois-yellow border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
         </div>

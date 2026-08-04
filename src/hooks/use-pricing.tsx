@@ -26,7 +26,7 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [serviceDetails, setServiceDetails] = useState<ServiceDetails>({});
-  
+
   const lastRequestRef = useRef<string>("");
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -41,10 +41,10 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       routeId: route.requestKey, // useRoute uses requestKey
       origin: { latitude: route.origin.lat, longitude: route.origin.lng },
       destination: { latitude: route.destination.lat, longitude: route.destination.lng },
-      stops: orderedStops.map(s => ({ latitude: s.latitude, longitude: s.longitude })),
+      stops: orderedStops.map((s) => ({ latitude: s.latitude, longitude: s.longitude })),
       distanceMeters: route.distanceMeters,
       durationSeconds: route.durationSeconds,
-      categoryIds: categories.map(c => c.id)
+      categoryIds: categories.map((c) => c.id),
     };
 
     const requestStr = JSON.stringify(request);
@@ -67,7 +67,7 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    
+
     debounceTimerRef.current = setTimeout(() => {
       calculatePricing();
     }, 500);
@@ -77,19 +77,21 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [calculatePricing]);
 
-  const selectedEstimate = estimates.find(e => e.categoryId === selectedCategory?.id) || null;
+  const selectedEstimate = estimates.find((e) => e.categoryId === selectedCategory?.id) || null;
 
   return (
-    <PricingContext.Provider value={{ 
-      estimates, 
-      selectedEstimate,
-      estimate: selectedEstimate,
-      status, 
-      error,
-      serviceDetails,
-      setServiceDetails,
-      calculatePricing
-    }}>
+    <PricingContext.Provider
+      value={{
+        estimates,
+        selectedEstimate,
+        estimate: selectedEstimate,
+        status,
+        error,
+        serviceDetails,
+        setServiceDetails,
+        calculatePricing,
+      }}
+    >
       {children}
     </PricingContext.Provider>
   );

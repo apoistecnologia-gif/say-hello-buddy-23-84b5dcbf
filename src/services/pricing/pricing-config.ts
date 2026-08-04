@@ -20,4 +20,3 @@ export const PRICING_CONFIG = {
     min_fare: 8.0,
   },
 };
-

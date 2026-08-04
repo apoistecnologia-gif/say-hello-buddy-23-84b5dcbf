@@ -113,7 +113,9 @@ export const getDriverSubscriptionInfo = createServerFn({ method: "GET" })
 
     const { data: latest } = await supabase
       .from("subscriptions")
-      .select("id, status, amount, period_end, payment_method, invoice_url, pix_qr_code, pix_copy_paste, paid_at, created_at")
+      .select(
+        "id, status, amount, period_end, payment_method, invoice_url, pix_qr_code, pix_copy_paste, paid_at, created_at",
+      )
       .eq("driver_id", driver.id)
       .order("created_at", { ascending: false })
       .limit(1)

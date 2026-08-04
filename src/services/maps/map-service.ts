@@ -1,7 +1,14 @@
-import { GoogleMap, MapType } from '@capacitor/google-maps';
-import { MapCameraPosition, MapCoordinates, MapError, MapErrorCode, MAP_MESSAGES_PT, MapBounds } from '../../types/map';
-import { MAP_STYLE_DARK, DEFAULT_ZOOM } from './map-config';
-import { ROUTE_CONFIG } from '../routes/route-config';
+import { GoogleMap, MapType } from "@capacitor/google-maps";
+import {
+  MapCameraPosition,
+  MapCoordinates,
+  MapError,
+  MapErrorCode,
+  MAP_MESSAGES_PT,
+  MapBounds,
+} from "../../types/map";
+import { MAP_STYLE_DARK, DEFAULT_ZOOM } from "./map-config";
+import { ROUTE_CONFIG } from "../routes/route-config";
 
 class MapService {
   private static instance: MapService;
@@ -23,10 +30,10 @@ class MapService {
   public async createMap(
     element: HTMLElement,
     apiKey: string,
-    initialPosition?: MapCoordinates
+    initialPosition?: MapCoordinates,
   ): Promise<GoogleMap> {
-    const mapId = element.id || 'default-map';
-    
+    const mapId = element.id || "default-map";
+
     const existingMap = this.maps.get(mapId);
     if (existingMap) return existingMap;
 
@@ -40,14 +47,14 @@ class MapService {
           zoom: DEFAULT_ZOOM,
           mapTypeId: MapType.Normal,
           styles: MAP_STYLE_DARK,
-        }
+        },
       });
 
       this.maps.set(mapId, map);
       return map;
     } catch (error) {
-      console.error('Failed to create map:', error);
-      throw this.normalizeError('maps_initialization_failed');
+      console.error("Failed to create map:", error);
+      throw this.normalizeError("maps_initialization_failed");
     }
   }
 
@@ -62,10 +69,7 @@ class MapService {
     }
   }
 
-  public async upsertPickupMarker(
-    mapId: string, 
-    coordinate: MapCoordinates
-  ): Promise<void> {
+  public async upsertPickupMarker(mapId: string, coordinate: MapCoordinates): Promise<void> {
     const map = this.maps.get(mapId);
     if (!map) return;
 
@@ -78,21 +82,18 @@ class MapService {
 
       const markerId = await map.addMarker({
         coordinate: coordinate,
-        title: 'Origem',
-        iconUrl: 'assets/markers/pickup.png',
+        title: "Origem",
+        iconUrl: "assets/markers/pickup.png",
         opacity: 1,
       });
 
       this.passengerMarkerId.set(mapId, markerId);
     } catch (error) {
-      console.error('Error upserting pickup marker:', error);
+      console.error("Error upserting pickup marker:", error);
     }
   }
 
-  public async upsertDestinationMarker(
-    mapId: string,
-    coordinate: MapCoordinates
-  ): Promise<void> {
+  public async upsertDestinationMarker(mapId: string, coordinate: MapCoordinates): Promise<void> {
     const map = this.maps.get(mapId);
     if (!map) return;
 
@@ -105,14 +106,14 @@ class MapService {
 
       const markerId = await map.addMarker({
         coordinate: coordinate,
-        title: 'Destino',
-        iconUrl: 'assets/markers/destination.png',
+        title: "Destino",
+        iconUrl: "assets/markers/destination.png",
         opacity: 1,
       });
 
       this.destinationMarkerId.set(mapId, markerId);
     } catch (error) {
-      console.error('Error upserting destination marker:', error);
+      console.error("Error upserting destination marker:", error);
     }
   }
 
@@ -136,7 +137,7 @@ class MapService {
     mapId: string,
     pickup: MapCoordinates,
     destination: MapCoordinates,
-    padding: number = 100
+    padding: number = 100,
   ): Promise<void> {
     const map = this.maps.get(mapId);
     if (!map) return;
@@ -149,7 +150,7 @@ class MapService {
       southwest: {
         lat: Math.min(pickup.lat, destination.lat),
         lng: Math.min(pickup.lng, destination.lng),
-      }
+      },
     };
 
     try {
@@ -164,16 +165,13 @@ class MapService {
       // Fallback
       const center = {
         lat: (pickup.lat + destination.lat) / 2,
-        lng: (pickup.lng + destination.lng) / 2
+        lng: (pickup.lng + destination.lng) / 2,
       };
       await this.setCamera(mapId, { coordinate: center, zoom: 12 });
     }
   }
 
-  public async upsertRoutePolyline(
-    mapId: string,
-    points: MapCoordinates[]
-  ): Promise<void> {
+  public async upsertRoutePolyline(mapId: string, points: MapCoordinates[]): Promise<void> {
     const map = this.maps.get(mapId);
     if (!map) return;
 
@@ -183,19 +181,21 @@ class MapService {
         await map.removePolylines([existingId]);
       }
 
-      const polylineIds = await (map as any).addPolylines([{
-        path: points,
-        strokeColor: ROUTE_CONFIG.STYLE.STROKE_COLOR,
-        strokeWeight: ROUTE_CONFIG.STYLE.STROKE_WEIGHT,
-        strokeOpacity: ROUTE_CONFIG.STYLE.STROKE_OPACITY,
-      }]);
+      const polylineIds = await (map as any).addPolylines([
+        {
+          path: points,
+          strokeColor: ROUTE_CONFIG.STYLE.STROKE_COLOR,
+          strokeWeight: ROUTE_CONFIG.STYLE.STROKE_WEIGHT,
+          strokeOpacity: ROUTE_CONFIG.STYLE.STROKE_OPACITY,
+        },
+      ]);
 
       if (polylineIds.length > 0) {
         const polylineId = polylineIds[0] as string | undefined;
         if (polylineId) this.routePolylineId.set(mapId, polylineId);
       }
     } catch (error) {
-      console.error('Error upserting route polyline:', error);
+      console.error("Error upserting route polyline:", error);
     }
   }
 
@@ -210,17 +210,17 @@ class MapService {
     }
   }
 
-  public async fitRouteBounds(
-    mapId: string,
-    points: MapCoordinates[]
-  ): Promise<void> {
+  public async fitRouteBounds(mapId: string, points: MapCoordinates[]): Promise<void> {
     const map = this.maps.get(mapId);
     if (!map || points.length < 2 || this.cameraMovedByUser) return;
 
     try {
-      let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-      
-      points.forEach(p => {
+      let minLat = 90,
+        maxLat = -90,
+        minLng = 180,
+        maxLng = -180;
+
+      points.forEach((p) => {
         if (p.lat < minLat) minLat = p.lat;
         if (p.lat > maxLat) maxLat = p.lat;
         if (p.lng < minLng) minLng = p.lng;
@@ -229,17 +229,21 @@ class MapService {
 
       const bounds: MapBounds = {
         northeast: { lat: maxLat, lng: maxLng },
-        southwest: { lat: minLat, lng: minLng }
+        southwest: { lat: minLat, lng: minLng },
       };
 
       // @ts-ignore
       await map.fitBounds(bounds, ROUTE_CONFIG.MAP_PADDING.BOTTOM);
     } catch (e) {
-      console.error('Error fitting route bounds:', e);
+      console.error("Error fitting route bounds:", e);
     }
   }
 
-  public async setCamera(mapId: string, position: MapCameraPosition, animate = true): Promise<void> {
+  public async setCamera(
+    mapId: string,
+    position: MapCameraPosition,
+    animate = true,
+  ): Promise<void> {
     const map = this.maps.get(mapId);
     if (!map) return;
 

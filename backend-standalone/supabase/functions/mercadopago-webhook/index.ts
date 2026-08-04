@@ -4,8 +4,7 @@ import { mercadoPagoBaseUrl } from "../_shared/mercadopago.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MP_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")?.trim() ?? "";
-const MP_WEBHOOK_SECRET =
-  Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")?.trim() ?? "";
+const MP_WEBHOOK_SECRET = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")?.trim() ?? "";
 const MAX_SIGNATURE_AGE_SECONDS = 300;
 
 const corsHeaders = {
@@ -39,11 +38,7 @@ function signatureTimestamp(signature: string): string {
   return part?.slice(3) ?? "";
 }
 
-async function verifySignature(
-  dataId: string,
-  requestId: string,
-  signature: string,
-) {
+async function verifySignature(dataId: string, requestId: string, signature: string) {
   if (!MP_WEBHOOK_SECRET || !signature || !requestId) return false;
   const parts = Object.fromEntries(
     signature.split(",").map((part) => {
@@ -55,8 +50,7 @@ async function verifySignature(
   const receivedHash = parts.v1?.toLowerCase();
   const timestamp = Number(ts);
   if (!ts || !receivedHash || !Number.isFinite(timestamp)) return false;
-  if (Math.abs(Date.now() / 1000 - timestamp) > MAX_SIGNATURE_AGE_SECONDS)
-    return false;
+  if (Math.abs(Date.now() / 1000 - timestamp) > MAX_SIGNATURE_AGE_SECONDS) return false;
 
   const key = await crypto.subtle.importKey(
     "raw",
@@ -66,11 +60,7 @@ async function verifySignature(
     ["sign"],
   );
   const manifest = `id:${dataId};request-id:${requestId};ts:${ts};`;
-  const signed = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(manifest),
-  );
+  const signed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(manifest));
   const expectedHash = Array.from(new Uint8Array(signed))
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
@@ -83,28 +73,21 @@ async function mpFetch<T>(path: string): Promise<T> {
     headers: { Authorization: `Bearer ${MP_TOKEN}` },
   });
   const text = await response.text();
-  if (!response.ok)
-    throw new Error(`MP_HTTP_${response.status}:${text.slice(0, 300)}`);
+  if (!response.ok) throw new Error(`MP_HTTP_${response.status}:${text.slice(0, 300)}`);
   return JSON.parse(text) as T;
 }
 
-function mappedStatus(
-  status: string,
-): "active" | "pending" | "overdue" | "cancelled" {
+function mappedStatus(status: string): "active" | "pending" | "overdue" | "cancelled" {
   if (status === "approved") return "active";
-  if (["pending", "in_process", "authorized"].includes(status))
-    return "pending";
-  if (["cancelled", "refunded", "charged_back"].includes(status))
-    return "cancelled";
+  if (["pending", "in_process", "authorized"].includes(status)) return "pending";
+  if (["cancelled", "refunded", "charged_back"].includes(status)) return "cancelled";
   return "overdue";
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS")
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-  if (!MP_WEBHOOK_SECRET)
-    return json({ error: "webhook_secret_not_configured" }, 503);
+  if (!MP_WEBHOOK_SECRET) return json({ error: "webhook_secret_not_configured" }, 503);
 
   const rawBody = await req.text();
   let payload: {
@@ -121,10 +104,7 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const type = String(
-    payload.type ??
-      url.searchParams.get("type") ??
-      url.searchParams.get("topic") ??
-      "",
+    payload.type ?? url.searchParams.get("type") ?? url.searchParams.get("topic") ?? "",
   );
   const dataId = String(
     payload.data?.id ??
@@ -133,14 +113,11 @@ Deno.serve(async (req) => {
       url.searchParams.get("id") ??
       "",
   );
-  if (!dataId || !type)
-    return json({ ok: true, ignored: "missing_event_identity" });
+  if (!dataId || !type) return json({ ok: true, ignored: "missing_event_identity" });
 
   const requestId = req.headers.get("x-request-id") ?? "";
   const signature = req.headers.get("x-signature") ?? "";
-  if (
-    !(await verifySignature(dataId, requestId, signature).catch(() => false))
-  ) {
+  if (!(await verifySignature(dataId, requestId, signature).catch(() => false))) {
     return json({ error: "invalid_signature" }, 401);
   }
 
@@ -158,10 +135,8 @@ Deno.serve(async (req) => {
     })
     .select("id")
     .single();
-  if (receiptError?.code === "23505")
-    return json({ ok: true, duplicate: true });
-  if (receiptError || !receipt)
-    return json({ error: "receipt_write_failed" }, 500);
+  if (receiptError?.code === "23505") return json({ ok: true, duplicate: true });
+  if (receiptError || !receipt) return json({ error: "receipt_write_failed" }, 500);
 
   const finishReceipt = async (status: string, detail?: string) => {
     await admin
@@ -195,20 +170,14 @@ Deno.serve(async (req) => {
     const externalReference = payment.external_reference ?? "";
 
     if (kind === "cancellation_fee" || externalReference.startsWith("fee:")) {
-      const feeId = String(
-        payment.metadata?.fee_id ?? externalReference.replace(/^fee:/, ""),
-      );
+      const feeId = String(payment.metadata?.fee_id ?? externalReference.replace(/^fee:/, ""));
       const { data: fee, error: feeError } = await admin
         .from("cancellation_fees")
         .select("id,fee_amount,is_paid")
         .eq("id", feeId)
         .maybeSingle();
       if (feeError || !fee) throw new Error("CANCELLATION_FEE_NOT_FOUND");
-      if (
-        Math.abs(
-          Number(payment.transaction_amount ?? 0) - Number(fee.fee_amount),
-        ) > 0.01
-      ) {
+      if (Math.abs(Number(payment.transaction_amount ?? 0) - Number(fee.fee_amount)) > 0.01) {
         await finishReceipt("rejected", "cancellation_fee_amount_mismatch");
         return json({ error: "amount_mismatch" }, 422);
       }
@@ -217,16 +186,10 @@ Deno.serve(async (req) => {
           _fee_id: feeId,
         });
         if (error) throw new Error(`FEE_SETTLE_FAILED:${error.message}`);
-      } else if (
-        ["refunded", "charged_back"].includes(payment.status) &&
-        fee.is_paid
-      ) {
-        const { error } = await admin.rpc(
-          "reverse_cancellation_fee_settlement",
-          {
-            _fee_id: feeId,
-          },
-        );
+      } else if (["refunded", "charged_back"].includes(payment.status) && fee.is_paid) {
+        const { error } = await admin.rpc("reverse_cancellation_fee_settlement", {
+          _fee_id: feeId,
+        });
         if (error) throw new Error(`FEE_REVERSE_FAILED:${error.message}`);
       }
       await admin
@@ -299,15 +262,9 @@ Deno.serve(async (req) => {
       await finishReceipt("rejected", "missing_charge_identity");
       return json({ error: "missing_charge_identity" }, 422);
     }
-    const { data: subscription, error: subscriptionError } =
-      await subscriptionQuery.maybeSingle();
-    if (subscriptionError || !subscription)
-      throw new Error("SUBSCRIPTION_CHARGE_NOT_FOUND");
-    if (
-      Math.abs(
-        Number(payment.transaction_amount ?? 0) - Number(subscription.amount),
-      ) > 0.01
-    ) {
+    const { data: subscription, error: subscriptionError } = await subscriptionQuery.maybeSingle();
+    if (subscriptionError || !subscription) throw new Error("SUBSCRIPTION_CHARGE_NOT_FOUND");
+    if (Math.abs(Number(payment.transaction_amount ?? 0) - Number(subscription.amount)) > 0.01) {
       await finishReceipt("rejected", "subscription_amount_mismatch");
       return json({ error: "amount_mismatch" }, 422);
     }
@@ -329,9 +286,7 @@ Deno.serve(async (req) => {
       subscription.paid_at &&
       subscription.provider_payment_id === String(payment.id);
     let periodStart =
-      sameApprovedPayment && subscription.period_start
-        ? new Date(subscription.period_start)
-        : now;
+      sameApprovedPayment && subscription.period_start ? new Date(subscription.period_start) : now;
     if (payment.status === "approved") {
       if (
         subscription.provider_payment_id &&
@@ -352,13 +307,9 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
       if (currentPaidError) {
-        throw new Error(
-          `CURRENT_SUBSCRIPTION_LOOKUP_FAILED:${currentPaidError.message}`,
-        );
+        throw new Error(`CURRENT_SUBSCRIPTION_LOOKUP_FAILED:${currentPaidError.message}`);
       }
-      const currentEnd = currentPaid?.period_end
-        ? new Date(currentPaid.period_end)
-        : null;
+      const currentEnd = currentPaid?.period_end ? new Date(currentPaid.period_end) : null;
       if (
         !sameApprovedPayment &&
         currentEnd &&
@@ -371,19 +322,14 @@ Deno.serve(async (req) => {
     const periodEnd = sameApprovedPayment
       ? subscription.period_end
       : payment.status === "approved"
-        ? new Date(
-            periodStart.getTime() + billingDays * 86_400_000,
-          ).toISOString()
+        ? new Date(periodStart.getTime() + billingDays * 86_400_000).toISOString()
         : subscription.period_end;
-    const method =
-      payment.payment_type_id ?? payment.payment_method_id ?? "unknown";
+    const method = payment.payment_type_id ?? payment.payment_method_id ?? "unknown";
     const approved = payment.status === "approved";
     const reversed = ["refunded", "charged_back"].includes(payment.status);
     const subscriptionPatch: Record<string, unknown> = {
       status,
-      period_start: approved
-        ? periodStart.toISOString()
-        : subscription.period_start,
+      period_start: approved ? periodStart.toISOString() : subscription.period_start,
       period_end: approved ? periodEnd : subscription.period_end,
       payment_method: method,
       paid_at: approved
@@ -401,9 +347,7 @@ Deno.serve(async (req) => {
       .from("subscriptions")
       .update(subscriptionPatch)
       .eq("id", subscription.id)
-      .or(
-        `provider_payment_id.is.null,provider_payment_id.eq.${String(payment.id)}`,
-      )
+      .or(`provider_payment_id.is.null,provider_payment_id.eq.${String(payment.id)}`)
       .select("id")
       .maybeSingle();
     if (subResult.error || !subResult.data)
@@ -415,20 +359,17 @@ Deno.serve(async (req) => {
     // antecipa os períodos pagos seguintes para eliminar o intervalo aberto
     // pelo estorno. A duração já comprada de cada período é preservada.
     if (reversed) {
-      const { data: remainingPeriods, error: remainingPeriodsError } =
-        await admin
-          .from("subscriptions")
-          .select("id,period_start,period_end")
-          .eq("driver_id", driver.user_id)
-          .eq("status", "active")
-          .not("paid_at", "is", null)
-          .gt("period_end", now.toISOString())
-          .neq("id", subscription.id)
-          .order("period_start", { ascending: true });
+      const { data: remainingPeriods, error: remainingPeriodsError } = await admin
+        .from("subscriptions")
+        .select("id,period_start,period_end")
+        .eq("driver_id", driver.user_id)
+        .eq("status", "active")
+        .not("paid_at", "is", null)
+        .gt("period_end", now.toISOString())
+        .neq("id", subscription.id)
+        .order("period_start", { ascending: true });
       if (remainingPeriodsError) {
-        throw new Error(
-          `REMAINING_PERIODS_LOOKUP_FAILED:${remainingPeriodsError.message}`,
-        );
+        throw new Error(`REMAINING_PERIODS_LOOKUP_FAILED:${remainingPeriodsError.message}`);
       }
 
       let coverageCursor = now.getTime();
@@ -440,8 +381,7 @@ Deno.serve(async (req) => {
         }
         const duration = Math.max(
           86_400_000,
-          originalEnd -
-            (Number.isFinite(originalStart) ? originalStart : coverageCursor),
+          originalEnd - (Number.isFinite(originalStart) ? originalStart : coverageCursor),
         );
         if (Number.isFinite(originalStart) && originalStart <= coverageCursor) {
           coverageCursor = Math.max(coverageCursor, originalEnd);
@@ -497,12 +437,8 @@ Deno.serve(async (req) => {
         driverPatch.subscription_expires_at = null;
       }
     }
-    const driverResult = await admin
-      .from("drivers")
-      .update(driverPatch)
-      .eq("id", driver.id);
-    if (driverResult.error)
-      throw new Error(`DRIVER_UPDATE_FAILED:${driverResult.error.message}`);
+    const driverResult = await admin.from("drivers").update(driverPatch).eq("id", driver.id);
+    if (driverResult.error) throw new Error(`DRIVER_UPDATE_FAILED:${driverResult.error.message}`);
 
     await admin.from("driver_payment_events").insert({
       driver_id: driver.id,

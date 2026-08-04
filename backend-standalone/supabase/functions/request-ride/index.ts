@@ -5,8 +5,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -45,8 +44,7 @@ const RADII_KM = [3, 5, 8, 12, 20, 30, 50];
 const MAX_GPS_AGE_SECONDS = 120;
 const REQUEST_TIMEOUT_SECONDS = 60;
 const SEARCH_TIMEOUT_SECONDS = 180;
-const GOOGLE_ROUTES_URL =
-  "https://routes.googleapis.com/directions/v2:computeRoutes";
+const GOOGLE_ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes";
 
 function finiteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
@@ -72,11 +70,7 @@ function distanceKm(a: Point, b: Point): number {
   const s1 = Math.sin(dLat / 2);
   const s2 = Math.sin(dLng / 2);
   const aa =
-    s1 * s1 +
-    Math.cos((a.lat * Math.PI) / 180) *
-      Math.cos((b.lat * Math.PI) / 180) *
-      s2 *
-      s2;
+    s1 * s1 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * s2 * s2;
   return 2 * R * Math.asin(Math.sqrt(aa));
 }
 
@@ -84,8 +78,7 @@ async function serverRouteMetrics(
   origin: Point,
   destination: Point,
 ): Promise<{ distanceKm: number; durationMin: number }> {
-  const mapsKey =
-    Deno.env.get("GOOGLE_MAPS_PLATFORM_API_KEY")?.trim() || "";
+  const mapsKey = Deno.env.get("GOOGLE_MAPS_PLATFORM_API_KEY")?.trim() || "";
   if (!mapsKey) throw new Error("google_routes_key_missing");
   if (!mapsKey.startsWith("AIza") || mapsKey.length < 35) {
     throw new Error(
@@ -123,18 +116,13 @@ async function serverRouteMetrics(
   });
   const text = await response.text();
   if (!response.ok)
-    throw new Error(
-      `google_routes_failed:${response.status}:${text.slice(0, 120)}`,
-    );
+    throw new Error(`google_routes_failed:${response.status}:${text.slice(0, 120)}`);
   const payload = JSON.parse(text) as {
     routes?: Array<{ distanceMeters?: number; duration?: string }>;
   };
   const route = payload.routes?.[0];
   const distanceMeters = Number(route?.distanceMeters ?? 0);
-  const durationSeconds = Number.parseInt(
-    String(route?.duration ?? "0s").replace("s", ""),
-    10,
-  );
+  const durationSeconds = Number.parseInt(String(route?.duration ?? "0s").replace("s", ""), 10);
   if (
     !Number.isFinite(distanceMeters) ||
     distanceMeters <= 0 ||
@@ -155,27 +143,21 @@ function normalizeCategory(value: unknown): string {
     .toLowerCase();
 }
 
-function sanitizeServiceDetails(
-  value: unknown,
-): Record<string, unknown> | null {
+function sanitizeServiceDetails(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const encoded = JSON.stringify(value);
   if (encoded.length > 12_000) throw new Error("service_details_too_large");
   return JSON.parse(encoded) as Record<string, unknown>;
 }
 
-async function loadTariff(
-  admin: any,
-  category: string,
-): Promise<Record<string, number>> {
+async function loadTariff(admin: any, category: string): Promise<Record<string, number>> {
   const { data, error } = await admin
     .from("tariff_rules")
     .select("field_key, value")
     .eq("category_key", category);
   if (error) throw new Error(`Falha ao carregar tarifas: ${error.message}`);
   const out: Record<string, number> = {};
-  for (const row of data ?? [])
-    out[String(row.field_key)] = Number(row.value ?? 0);
+  for (const row of data ?? []) out[String(row.field_key)] = Number(row.value ?? 0);
   return out;
 }
 
@@ -218,12 +200,9 @@ function computeFare(
 
   if (category === "fretes") {
     if (details.ajudantes === "um") add("1 ajudante", tariff.helper1_fee ?? 0);
-    if (details.ajudantes === "dois")
-      add("2 ajudantes", tariff.helper2_fee ?? 0);
-    if (yes(details.itemPesado))
-      add("Item pesado", tariff.heavy_furniture_fee ?? 0);
-    if (yes(details.desmontar))
-      add("Montagem/desmontagem", tariff.assembly_fee ?? 0);
+    if (details.ajudantes === "dois") add("2 ajudantes", tariff.helper2_fee ?? 0);
+    if (yes(details.itemPesado)) add("Item pesado", tariff.heavy_furniture_fee ?? 0);
+    if (yes(details.desmontar)) add("Montagem/desmontagem", tariff.assembly_fee ?? 0);
     if (yes(details.embalar)) add("Embalagem", tariff.packing_fee ?? 0);
     for (const [label, location] of [
       ["Retirada", record(details.retirada)],
@@ -232,10 +211,7 @@ function computeFare(
       if (yes(location.dificilAcesso))
         add(`${label}: acesso difícil`, tariff.difficult_access_fee ?? 0);
       if (yes(location.escadas) && !yes(location.elevador)) {
-        add(
-          `${label}: escadas`,
-          (tariff.stair_fee ?? 0) * Math.max(1, number(location.andar)),
-        );
+        add(`${label}: escadas`, (tariff.stair_fee ?? 0) * Math.max(1, number(location.andar)));
       }
     }
   }
@@ -243,16 +219,11 @@ function computeFare(
   if (category === "guincho") {
     if (["utilitario", "caminhonete"].includes(String(details.tipoVeiculo)))
       add("Veículo pesado", tariff.heavy_vehicle_fee ?? 0);
-    if (yes(details.dificilAcesso))
-      add("Acesso difícil", tariff.difficult_access_fee ?? 0);
-    if (yes(details.acidente))
-      add("Veículo acidentado", tariff.accident_fee ?? 0);
-    if (yes(details.precisaPlataforma))
-      add("Plataforma", tariff.platform_fee ?? 0);
-    if (yes(details.rodasTravadas))
-      add("Rodas travadas", tariff.locked_wheels_fee ?? 0);
-    if (yes(details.garagemSubsolo))
-      add("Garagem/subsolo", tariff.garage_fee ?? 0);
+    if (yes(details.dificilAcesso)) add("Acesso difícil", tariff.difficult_access_fee ?? 0);
+    if (yes(details.acidente)) add("Veículo acidentado", tariff.accident_fee ?? 0);
+    if (yes(details.precisaPlataforma)) add("Plataforma", tariff.platform_fee ?? 0);
+    if (yes(details.rodasTravadas)) add("Rodas travadas", tariff.locked_wheels_fee ?? 0);
+    if (yes(details.garagemSubsolo)) add("Garagem/subsolo", tariff.garage_fee ?? 0);
   }
 
   if (category === "envios") {
@@ -264,8 +235,7 @@ function computeFare(
     add("Peso", weightKg * (tariff.per_kg ?? 0));
   }
 
-  const total =
-    base + Object.values(extras).reduce((sum, value) => sum + value, 0);
+  const total = base + Object.values(extras).reduce((sum, value) => sum + value, 0);
   return {
     base: Math.round(base * 100) / 100,
     extras,
@@ -275,9 +245,7 @@ function computeFare(
 
 async function dispatch(admin: any, ride: any): Promise<string[]> {
   const rejected = new Set<string>(
-    Array.isArray(ride.rejected_driver_ids)
-      ? ride.rejected_driver_ids.map(String)
-      : [],
+    Array.isArray(ride.rejected_driver_ids) ? ride.rejected_driver_ids.map(String) : [],
   );
   const { data: drivers, error } = await admin
     .from("drivers")
@@ -286,26 +254,19 @@ async function dispatch(admin: any, ride: any): Promise<string[]> {
     );
   if (error) throw new Error(`Falha ao buscar motoristas: ${error.message}`);
 
-  const driverIds = (drivers ?? [])
-    .map((driver: any) => String(driver.user_id))
-    .filter(Boolean);
-  const { data: activeSubscriptions, error: subscriptionsError } =
-    driverIds.length
-      ? await admin
-          .from("subscriptions")
-          .select("driver_id")
-          .in("driver_id", driverIds)
-          .eq("status", "active")
-          .not("paid_at", "is", null)
-          .or(
-            `period_start.is.null,period_start.lte.${new Date().toISOString()}`,
-          )
-          .gt("period_end", new Date().toISOString())
-      : { data: [], error: null };
+  const driverIds = (drivers ?? []).map((driver: any) => String(driver.user_id)).filter(Boolean);
+  const { data: activeSubscriptions, error: subscriptionsError } = driverIds.length
+    ? await admin
+        .from("subscriptions")
+        .select("driver_id")
+        .in("driver_id", driverIds)
+        .eq("status", "active")
+        .not("paid_at", "is", null)
+        .or(`period_start.is.null,period_start.lte.${new Date().toISOString()}`)
+        .gt("period_end", new Date().toISOString())
+    : { data: [], error: null };
   if (subscriptionsError)
-    throw new Error(
-      `Falha ao validar mensalidades: ${subscriptionsError.message}`,
-    );
+    throw new Error(`Falha ao validar mensalidades: ${subscriptionsError.message}`);
   const entitledDrivers = new Set(
     (activeSubscriptions ?? []).map((row: any) => String(row.driver_id)),
   );
@@ -318,24 +279,18 @@ async function dispatch(admin: any, ride: any): Promise<string[]> {
         .in("user_id", driverIds)
     : { data: [], error: null };
   if (preferencesError)
-    throw new Error(
-      `Falha ao buscar preferências dos motoristas: ${preferencesError.message}`,
-    );
+    throw new Error(`Falha ao buscar preferências dos motoristas: ${preferencesError.message}`);
   const preferencesByDriver = new Map(
     (preferences ?? []).map((pref: any) => [String(pref.user_id), pref]),
   );
 
   const { data: assignedRides, error: assignedError } = await admin
     .from("rides")
-    .select(
-      "id,driver_id,status,destination_lat,destination_lng,queued_after_ride_id",
-    )
+    .select("id,driver_id,status,destination_lat,destination_lng,queued_after_ride_id")
     .in("status", ["motorista_a_caminho", "motorista_chegou", "em_viagem"])
     .not("driver_id", "is", null);
   if (assignedError)
-    throw new Error(
-      `Falha ao verificar corridas ativas: ${assignedError.message}`,
-    );
+    throw new Error(`Falha ao verificar corridas ativas: ${assignedError.message}`);
 
   const activeByDriver = new Map<string, any>();
   const queuedDrivers = new Set<string>();
@@ -357,8 +312,7 @@ async function dispatch(admin: any, ride: any): Promise<string[]> {
       if (rejected.has(String(d.user_id))) return false;
       if (!entitledDrivers.has(String(d.user_id))) return false;
       if (normalizeCategory(d.category) !== category) return false;
-      if (!finiteNumber(d.current_lat) || !finiteNumber(d.current_lng))
-        return false;
+      if (!finiteNumber(d.current_lat) || !finiteNumber(d.current_lng)) return false;
       if (d.last_location_at) {
         const age = (now - new Date(d.last_location_at).getTime()) / 1000;
         if (age > MAX_GPS_AGE_SECONDS) return false;
@@ -370,21 +324,13 @@ async function dispatch(admin: any, ride: any): Promise<string[]> {
       if (pref?.ride_alerts === false) return false;
       if (isShortRide && pref?.accept_short === false) return false;
       if (!isShortRide && pref?.accept_long === false) return false;
-      if (
-        (paymentMethod === "cash" || paymentMethod === "dinheiro") &&
-        pref?.accept_cash === false
-      )
+      if ((paymentMethod === "cash" || paymentMethod === "dinheiro") && pref?.accept_cash === false)
         return false;
       if (paymentMethod === "pix" && pref?.accept_pix === false) return false;
       if (
-        [
-          "card",
-          "credit",
-          "credit_card",
-          "debit",
-          "debit_card",
-          "maquininha",
-        ].includes(paymentMethod) &&
+        ["card", "credit", "credit_card", "debit", "debit_card", "maquininha"].includes(
+          paymentMethod,
+        ) &&
         pref?.accept_card === false
       )
         return false;
@@ -393,9 +339,7 @@ async function dispatch(admin: any, ride: any): Promise<string[]> {
     .map((d: any) => {
       const active = activeByDriver.get(String(d.user_id));
       const reference =
-        active &&
-        finiteNumber(active.destination_lat) &&
-        finiteNumber(active.destination_lng)
+        active && finiteNumber(active.destination_lat) && finiteNumber(active.destination_lng)
           ? { lat: active.destination_lat, lng: active.destination_lng }
           : { lat: d.current_lat, lng: d.current_lng };
       return {
@@ -404,12 +348,7 @@ async function dispatch(admin: any, ride: any): Promise<string[]> {
         finishingRide: Boolean(active),
         maxRadiusKm: Math.max(
           1,
-          Math.min(
-            50,
-            Number(
-              preferencesByDriver.get(String(d.user_id))?.max_radius_km ?? 10,
-            ),
-          ),
+          Math.min(50, Number(preferencesByDriver.get(String(d.user_id))?.max_radius_km ?? 10)),
         ),
       };
     });
@@ -438,9 +377,7 @@ async function dispatch(admin: any, ride: any): Promise<string[]> {
       candidate_driver_ids: ids,
       offered_driver_ids: ids,
       current_offer_driver_id: null,
-      request_expires_at: new Date(
-        Date.now() + REQUEST_TIMEOUT_SECONDS * 1000,
-      ).toISOString(),
+      request_expires_at: new Date(Date.now() + REQUEST_TIMEOUT_SECONDS * 1000).toISOString(),
       dispatch_attempts: Number(ride.dispatch_attempts ?? 0) + 1,
     })
     .eq("id", ride.id)
@@ -469,19 +406,13 @@ async function notifyCandidates(ride: any, userIds: string[]): Promise<void> {
     }),
   });
   if (!response.ok)
-    console.error(
-      "[request-ride] push failed",
-      response.status,
-      await response.text(),
-    );
+    console.error("[request-ride] push failed", response.status, await response.text());
 }
 
 Deno.serve(async (req) => {
   try {
-    if (req.method === "OPTIONS")
-      return new Response(null, { headers: corsHeaders });
-    if (req.method !== "POST")
-      return json({ error: "method_not_allowed" }, 405);
+    if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
@@ -490,8 +421,7 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: authData, error: authError } =
-      await admin.auth.getUser(token);
+    const { data: authData, error: authError } = await admin.auth.getUser(token);
     const userId = authData.user?.id;
     if (authError || !userId)
       return json({ error: "unauthorized", detail: authError?.message }, 401);
@@ -500,9 +430,7 @@ Deno.serve(async (req) => {
     if (body.action === "redispatch") {
       const rideId = String(body.ride_id ?? "");
       if (
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-          rideId,
-        )
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rideId)
       ) {
         return json({ error: "invalid_ride_id" }, 422);
       }
@@ -513,10 +441,7 @@ Deno.serve(async (req) => {
         .eq("passenger_id", userId)
         .maybeSingle();
       if (currentError) {
-        return json(
-          { error: "ride_lookup_failed", detail: currentError.message },
-          500,
-        );
+        return json({ error: "ride_lookup_failed", detail: currentError.message }, 500);
       }
       if (!current) return json({ error: "ride_not_found" }, 404);
       if (
@@ -533,8 +458,7 @@ Deno.serve(async (req) => {
       }
       const searchExpiresAt = current.search_expires_at
         ? new Date(current.search_expires_at).getTime()
-        : new Date(current.created_at).getTime() +
-          SEARCH_TIMEOUT_SECONDS * 1000;
+        : new Date(current.created_at).getTime() + SEARCH_TIMEOUT_SECONDS * 1000;
       if (searchExpiresAt <= Date.now()) {
         const { error: expireError } = await admin
           .from("rides")
@@ -551,10 +475,7 @@ Deno.serve(async (req) => {
           .eq("status", "procurar_motorista")
           .is("accepted_driver_id", null);
         if (expireError) {
-          return json(
-            { error: "ride_expire_failed", detail: expireError.message },
-            500,
-          );
+          return json({ error: "ride_expire_failed", detail: expireError.message }, 500);
         }
         return json({
           ok: true,
@@ -564,14 +485,10 @@ Deno.serve(async (req) => {
         });
       }
       const rejected = new Set<string>(
-        Array.isArray(current.rejected_driver_ids)
-          ? current.rejected_driver_ids.map(String)
-          : [],
+        Array.isArray(current.rejected_driver_ids) ? current.rejected_driver_ids.map(String) : [],
       );
       const visibleCandidates = Array.isArray(current.candidate_driver_ids)
-        ? current.candidate_driver_ids
-            .map(String)
-            .filter((id: string) => !rejected.has(id))
+        ? current.candidate_driver_ids.map(String).filter((id: string) => !rejected.has(id))
         : [];
       const offerExpiresAt = current.request_expires_at
         ? new Date(current.request_expires_at).getTime()
@@ -610,8 +527,7 @@ Deno.serve(async (req) => {
       return json({ error: "invalid_coordinates" }, 422);
     if (!body.origin_name?.trim() || !body.destination_name?.trim())
       return json({ error: "missing_address" }, 422);
-    if (!CATEGORIES.has(body.category))
-      return json({ error: "invalid_category" }, 422);
+    if (!CATEGORIES.has(body.category)) return json({ error: "invalid_category" }, 422);
     let serviceDetails: Record<string, unknown> | null = null;
     try {
       serviceDetails = sanitizeServiceDetails(body.service_details);
@@ -625,12 +541,8 @@ Deno.serve(async (req) => {
       .eq("auth_user_id", userId)
       .maybeSingle();
     if (passengerError)
-      return json(
-        { error: "passenger_status_failed", detail: passengerError.message },
-        500,
-      );
-    if (passengerUser?.blocked_at)
-      return json({ error: "passenger_blocked" }, 403);
+      return json({ error: "passenger_status_failed", detail: passengerError.message }, 500);
+    if (passengerUser?.blocked_at) return json({ error: "passenger_blocked" }, 403);
     if (
       passengerUser?.suspended_until &&
       new Date(passengerUser.suspended_until).getTime() > Date.now()
@@ -649,10 +561,7 @@ Deno.serve(async (req) => {
       .eq("passenger_id", userId)
       .maybeSingle();
     if (walletError)
-      return json(
-        { error: "wallet_status_failed", detail: walletError.message },
-        500,
-      );
+      return json({ error: "wallet_status_failed", detail: walletError.message }, 500);
     if (wallet?.is_blocked)
       return json(
         {
@@ -670,10 +579,7 @@ Deno.serve(async (req) => {
       .eq("request_key", requestKey)
       .maybeSingle();
     if (keyLookupError)
-      return json(
-        { error: "idempotency_lookup_failed", detail: keyLookupError.message },
-        500,
-      );
+      return json({ error: "idempotency_lookup_failed", detail: keyLookupError.message }, 500);
     if (existingByKey) {
       return json({
         ok: true,
@@ -727,12 +633,9 @@ Deno.serve(async (req) => {
       const scheduledAt = new Date(body.scheduled_for);
       const scheduledMs = scheduledAt.getTime();
       const delayMs = scheduledMs - Date.now();
-      if (!Number.isFinite(scheduledMs))
-        return json({ error: "invalid_scheduled_for" }, 422);
-      if (delayMs < 15 * 60 * 1000)
-        return json({ error: "scheduled_too_soon" }, 422);
-      if (delayMs > 30 * 24 * 60 * 60 * 1000)
-        return json({ error: "scheduled_too_far" }, 422);
+      if (!Number.isFinite(scheduledMs)) return json({ error: "invalid_scheduled_for" }, 422);
+      if (delayMs < 15 * 60 * 1000) return json({ error: "scheduled_too_soon" }, 422);
+      if (delayMs > 30 * 24 * 60 * 60 * 1000) return json({ error: "scheduled_too_far" }, 422);
 
       const { data: scheduledSetting, error: settingError } = await admin
         .from("app_settings")
@@ -740,10 +643,7 @@ Deno.serve(async (req) => {
         .eq("key", "ride.allow_scheduled")
         .maybeSingle();
       if (settingError)
-        return json(
-          { error: "scheduled_setting_failed", detail: settingError.message },
-          500,
-        );
+        return json({ error: "scheduled_setting_failed", detail: settingError.message }, 500);
       if (
         scheduledSetting?.value === false ||
         String(scheduledSetting?.value).toLowerCase() === "false"
@@ -765,20 +665,11 @@ Deno.serve(async (req) => {
     const tariff = await loadTariff(admin, body.category);
     let fare;
     try {
-      fare = computeFare(
-        tariff,
-        finalKm,
-        finalMin,
-        body.category,
-        serviceDetails,
-      );
+      fare = computeFare(tariff, finalKm, finalMin, body.category, serviceDetails);
     } catch (fareError) {
       return json(
         {
-          error:
-            fareError instanceof Error
-              ? fareError.message
-              : "invalid_service_pricing",
+          error: fareError instanceof Error ? fareError.message : "invalid_service_pricing",
         },
         422,
       );
@@ -872,10 +763,7 @@ Deno.serve(async (req) => {
       return json({ error: "passenger_already_has_active_ride" }, 409);
     }
     if (insertError || !ride)
-      return json(
-        { error: "ride_insert_failed", detail: insertError?.message },
-        500,
-      );
+      return json({ error: "ride_insert_failed", detail: insertError?.message }, 500);
 
     let candidateIds: string[] = [];
     if (!scheduledFor) {

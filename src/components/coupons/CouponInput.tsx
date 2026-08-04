@@ -26,8 +26,8 @@ export function CouponInput() {
           </button>
         </div>
         <div className="flex items-start gap-2 text-zinc-500">
-           <AlertCircle size={14} className="shrink-0 mt-0.5" />
-           <p className="text-[10px] leading-tight">{coupon.message}</p>
+          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          <p className="text-[10px] leading-tight">{coupon.message}</p>
         </div>
       </div>
     );
@@ -39,7 +39,7 @@ export function CouponInput() {
         <Ticket size={16} className="text-zinc-500" />
         <span className="text-xs font-bold text-zinc-400">Possui um cupom?</span>
       </div>
-      
+
       <div className="relative flex gap-2">
         <input
           type="text"
@@ -56,7 +56,9 @@ export function CouponInput() {
         </button>
       </div>
       {!isAvailable && (
-        <p className="text-[9px] text-zinc-600 font-medium">Cupons estarão disponíveis após integração com o servidor.</p>
+        <p className="text-[9px] text-zinc-600 font-medium">
+          Cupons estarão disponíveis após integração com o servidor.
+        </p>
       )}
     </div>
   );

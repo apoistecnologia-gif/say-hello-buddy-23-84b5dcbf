@@ -25,9 +25,7 @@ function json(body: unknown, status = 200) {
 
 async function authenticatedUser(request: Request) {
   const header = request.headers.get("authorization") ?? "";
-  const token = header.toLowerCase().startsWith("bearer ")
-    ? header.slice(7).trim()
-    : "";
+  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
   if (!token) return null;
   const result = await supabaseAdmin.auth.getUser(token);
   return result.data.user ?? null;
@@ -46,7 +44,10 @@ export const Route = createFileRoute("/api/passenger/rides/rating")({
         try {
           input = inputSchema.parse(await request.json());
         } catch (error) {
-          return json({ ok: false, error: "Dados da avaliação inválidos.", detail: String(error) }, 400);
+          return json(
+            { ok: false, error: "Dados da avaliação inválidos.", detail: String(error) },
+            400,
+          );
         }
 
         const current = await supabaseAdmin
@@ -68,17 +69,18 @@ export const Route = createFileRoute("/api/passenger/rides/rating")({
         }
 
         const now = new Date().toISOString();
-        const update = input.action === "rate"
-          ? {
-              driver_rating: input.stars,
-              driver_rating_comment: input.comment || null,
-              passenger_rated_at: now,
-            }
-          : {
-              driver_rating: null,
-              driver_rating_comment: null,
-              passenger_rated_at: now,
-            };
+        const update =
+          input.action === "rate"
+            ? {
+                driver_rating: input.stars,
+                driver_rating_comment: input.comment || null,
+                passenger_rated_at: now,
+              }
+            : {
+                driver_rating: null,
+                driver_rating_comment: null,
+                passenger_rated_at: now,
+              };
 
         const saved = await supabaseAdmin
           .from("rides")

@@ -1,12 +1,7 @@
-export type LocationPermissionStatus = 
-  | 'unknown' 
-  | 'prompt' 
-  | 'granted' 
-  | 'denied' 
-  | 'blocked' 
-  | 'unavailable';
+export type LocationPermissionStatus =
+  "unknown" | "prompt" | "granted" | "denied" | "blocked" | "unavailable";
 
-export type AccuracyQuality = 'high' | 'medium' | 'low' | 'none';
+export type AccuracyQuality = "high" | "medium" | "low" | "none";
 
 export interface AppLocation {
   latitude: number;
@@ -19,15 +14,15 @@ export interface AppLocation {
   timestamp: number;
 }
 
-export type LocationErrorCode = 
-  | 'permission_denied'
-  | 'permission_blocked'
-  | 'location_disabled'
-  | 'timeout'
-  | 'position_unavailable'
-  | 'low_accuracy'
-  | 'native_unavailable'
-  | 'unknown';
+export type LocationErrorCode =
+  | "permission_denied"
+  | "permission_blocked"
+  | "location_disabled"
+  | "timeout"
+  | "position_unavailable"
+  | "low_accuracy"
+  | "native_unavailable"
+  | "unknown";
 
 export interface LocationError {
   code: LocationErrorCode;

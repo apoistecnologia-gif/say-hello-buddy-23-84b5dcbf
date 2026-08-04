@@ -13,7 +13,10 @@ const documentSchema = z.object({
   label: z.enum(labels),
   fileName: z.string().min(1).max(160),
   contentType: z.string().min(1),
-  base64: z.string().min(1).max(Math.ceil((maxDocumentBytes * 4) / 3) + 16),
+  base64: z
+    .string()
+    .min(1)
+    .max(Math.ceil((maxDocumentBytes * 4) / 3) + 16),
 });
 
 const signupSchema = z.object({
@@ -29,7 +32,11 @@ const signupSchema = z.object({
   vehicle_model: z.string().trim().min(2).max(80),
   vehicle_plate: z.string().trim().min(6).max(10),
   vehicle_color: z.string().trim().min(2).max(40),
-  vehicle_year: z.coerce.number().int().min(1971).max(new Date().getFullYear() + 1),
+  vehicle_year: z.coerce
+    .number()
+    .int()
+    .min(1971)
+    .max(new Date().getFullYear() + 1),
   documents: z.array(documentSchema).length(4),
 });
 
@@ -38,7 +45,13 @@ function json(value: unknown, status = 200) {
 }
 
 function extension(fileName: string) {
-  return fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+  return (
+    fileName
+      .split(".")
+      .pop()
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]/g, "") || "bin"
+  );
 }
 
 function decode(base64: string) {
@@ -54,7 +67,10 @@ export const Route = createFileRoute("/api/public/driver-signup")({
         try {
           input = signupSchema.parse(await request.json());
         } catch (error) {
-          return json({ ok: false, error: "Dados do cadastro inválidos.", detail: String(error) }, 400);
+          return json(
+            { ok: false, error: "Dados do cadastro inválidos.", detail: String(error) },
+            400,
+          );
         }
 
         const email = input.email.toLowerCase();
@@ -66,9 +82,17 @@ export const Route = createFileRoute("/api/public/driver-signup")({
         });
 
         if (created.error || !created.data.user) {
-          const duplicate = /already|registered|exists|duplicate/i.test(created.error?.message ?? "");
+          const duplicate = /already|registered|exists|duplicate/i.test(
+            created.error?.message ?? "",
+          );
           return json(
-            { ok: false, error: duplicate ? "Este e-mail já está cadastrado." : "Não foi possível criar a conta.", detail: created.error?.message },
+            {
+              ok: false,
+              error: duplicate
+                ? "Este e-mail já está cadastrado."
+                : "Não foi possível criar a conta.",
+              detail: created.error?.message,
+            },
             duplicate ? 409 : 500,
           );
         }
@@ -77,12 +101,16 @@ export const Route = createFileRoute("/api/public/driver-signup")({
         const uploaded: Array<{ bucket: string; path: string }> = [];
         try {
           const paths: Record<string, string> = {};
-          const bodies: Record<string, { body: ArrayBuffer; contentType: string; fileName: string }> = {};
+          const bodies: Record<
+            string,
+            { body: ArrayBuffer; contentType: string; fileName: string }
+          > = {};
 
           for (const document of input.documents) {
             const contentType = document.contentType.toLowerCase();
             const allowed = document.label === "selfie" ? imageTypes : documentTypes;
-            if (!allowed.includes(contentType)) throw new Error(`Formato inválido em ${document.label}.`);
+            if (!allowed.includes(contentType))
+              throw new Error(`Formato inválido em ${document.label}.`);
 
             const body = decode(document.base64);
             if (!body.byteLength || body.byteLength > maxDocumentBytes) {
@@ -94,7 +122,8 @@ export const Route = createFileRoute("/api/public/driver-signup")({
               upsert: true,
               contentType,
             });
-            if (upload.error) throw new Error(`Falha no upload de ${document.label}: ${upload.error.message}`);
+            if (upload.error)
+              throw new Error(`Falha no upload de ${document.label}: ${upload.error.message}`);
             uploaded.push({ bucket: document.bucket, path });
             paths[document.label] = path;
             bodies[document.label] = { body, contentType, fileName: document.fileName };
@@ -104,29 +133,33 @@ export const Route = createFileRoute("/api/public/driver-signup")({
           const selfie = bodies.selfie;
           if (selfie) {
             const path = `${userId}/avatar-${Date.now()}.${extension(selfie.fileName)}`;
-            const upload = await supabaseAdmin.storage.from("profile-photos").upload(path, selfie.body, {
-              upsert: true,
-              contentType: selfie.contentType,
-            });
+            const upload = await supabaseAdmin.storage
+              .from("profile-photos")
+              .upload(path, selfie.body, {
+                upsert: true,
+                contentType: selfie.contentType,
+              });
             if (!upload.error) {
               photoPath = path;
               uploaded.push({ bucket: "profile-photos", path });
             }
           }
 
-          const profile = await supabaseAdmin.from("users").upsert({
-            auth_user_id: userId,
-            name: input.name,
-            email,
-            phone: input.phone,
-            avatar_url: photoPath,
-          }, { onConflict: "auth_user_id" });
+          const profile = await supabaseAdmin.from("users").upsert(
+            {
+              auth_user_id: userId,
+              name: input.name,
+              email,
+              phone: input.phone,
+              avatar_url: photoPath,
+            },
+            { onConflict: "auth_user_id" },
+          );
           if (profile.error) throw new Error(`Falha ao criar perfil: ${profile.error.message}`);
 
-          const role = await supabaseAdmin.from("user_roles").upsert(
-            { user_id: userId, role: "driver" },
-            { onConflict: "user_id,role" },
-          );
+          const role = await supabaseAdmin
+            .from("user_roles")
+            .upsert({ user_id: userId, role: "driver" }, { onConflict: "user_id,role" });
           if (role.error) throw new Error(`Falha ao definir perfil: ${role.error.message}`);
 
           const driver = await supabaseAdmin.from("drivers").insert({
@@ -153,12 +186,15 @@ export const Route = createFileRoute("/api/public/driver-signup")({
           });
           if (driver.error) throw new Error(`Falha ao criar motorista: ${driver.error.message}`);
 
-          return json({
-            ok: true,
-            message: "Cadastro enviado para análise.",
-            auth_user_id: userId,
-            status: "em_analise",
-          }, 201);
+          return json(
+            {
+              ok: true,
+              message: "Cadastro enviado para análise.",
+              auth_user_id: userId,
+              status: "em_analise",
+            },
+            201,
+          );
         } catch (error) {
           await Promise.allSettled([
             ...uploaded.map((file) => supabaseAdmin.storage.from(file.bucket).remove([file.path])),
@@ -168,7 +204,10 @@ export const Route = createFileRoute("/api/public/driver-signup")({
             supabaseAdmin.auth.admin.deleteUser(userId),
           ]);
           console.error("[driver-signup] cadastro revertido", error);
-          return json({ ok: false, error: error instanceof Error ? error.message : "Falha no cadastro." }, 500);
+          return json(
+            { ok: false, error: error instanceof Error ? error.message : "Falha no cadastro." },
+            500,
+          );
         }
       },
     },

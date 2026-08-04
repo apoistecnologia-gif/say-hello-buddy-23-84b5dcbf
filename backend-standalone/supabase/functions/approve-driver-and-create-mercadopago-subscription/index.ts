@@ -12,8 +12,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -25,14 +24,12 @@ function json(body: unknown, status = 200) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS")
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer "))
-      return json({ error: "unauthorized" }, 401);
+    if (!authHeader.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false, autoRefreshToken: false },
@@ -55,8 +52,7 @@ Deno.serve(async (req) => {
     const body = (await req.json().catch(() => null)) as {
       driverId?: unknown;
     } | null;
-    if (typeof body?.driverId !== "string")
-      return json({ error: "missing_driverId" }, 400);
+    if (typeof body?.driverId !== "string") return json({ error: "missing_driverId" }, 400);
 
     const { data: driver, error: driverError } = await admin
       .from("drivers")
@@ -77,8 +73,7 @@ Deno.serve(async (req) => {
     if (!driver.selfie_url) missing.push("selfie");
     if (!driver.cnh_url) missing.push("CNH");
     if (!driver.vehicle_document_url) missing.push("documento do veículo");
-    if (missing.length)
-      return json({ error: "missing_required_fields", missing }, 422);
+    if (missing.length) return json({ error: "missing_required_fields", missing }, 422);
 
     const reusable = await findReusablePendingCharge(admin, driver.user_id);
     if (reusable) {

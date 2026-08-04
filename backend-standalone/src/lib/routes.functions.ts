@@ -29,21 +29,21 @@ export type RouteResult = {
   steps: RouteStep[];
 };
 
-
 // Requer usuário autenticado para evitar consumo abusivo da chave do Google Maps.
 export const computeRoute = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data) => InputSchema.parse(data))
   .handler(async ({ data }): Promise<RouteResult> => {
-    const mapsKey =
-      process.env.GOOGLE_MAPS_PLATFORM_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY;
+    const mapsKey = process.env.GOOGLE_MAPS_PLATFORM_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY;
     if (!mapsKey) {
       throw new Error("Google Maps não configurado no servidor.");
     }
 
     const body = {
       origin: { location: { latLng: { latitude: data.origin.lat, longitude: data.origin.lng } } },
-      destination: { location: { latLng: { latitude: data.destination.lat, longitude: data.destination.lng } } },
+      destination: {
+        location: { latLng: { latitude: data.destination.lat, longitude: data.destination.lng } },
+      },
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_AWARE",
       polylineEncoding: "ENCODED_POLYLINE",
@@ -56,7 +56,8 @@ export const computeRoute = createServerFn({ method: "POST" })
       headers: {
         "X-Goog-Api-Key": mapsKey,
         "Content-Type": "application/json",
-        "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.legs.steps.navigationInstruction,routes.legs.steps.startLocation,routes.legs.steps.distanceMeters",
+        "X-Goog-FieldMask":
+          "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,routes.legs.steps.navigationInstruction,routes.legs.steps.startLocation,routes.legs.steps.distanceMeters",
       },
       body: JSON.stringify(body),
     });
@@ -96,7 +97,8 @@ export const computeRoute = createServerFn({ method: "POST" })
         const instr = st.navigationInstruction?.instructions;
         if (typeof lat === "number" && typeof lng === "number" && instr) {
           steps.push({
-            lat, lng,
+            lat,
+            lng,
             distanceMeters: st.distanceMeters ?? 0,
             instruction: instr,
             maneuver: st.navigationInstruction?.maneuver,

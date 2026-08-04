@@ -1,13 +1,13 @@
-import { 
-  PlaceSuggestion, 
-  PlacesError, 
-  DestinationAddress, 
+import {
+  PlaceSuggestion,
+  PlacesError,
+  DestinationAddress,
   AddressComponent,
   PlacesErrorCode,
-  PLACES_MESSAGES_PT
-} from '../../types/places';
-import { PLACES_CONFIG } from './places-config';
-import { googleMapsLoader } from '../google/google-maps-loader';
+  PLACES_MESSAGES_PT,
+} from "../../types/places";
+import { PLACES_CONFIG } from "./places-config";
+import { googleMapsLoader } from "../google/google-maps-loader";
 
 class PlacesService {
   private static instance: PlacesService;
@@ -32,11 +32,11 @@ class PlacesService {
 
     this.isInitializing = true;
     try {
-      this.placesLib = await googleMapsLoader.importLibrary('places');
+      this.placesLib = await googleMapsLoader.importLibrary("places");
       this.createSessionToken();
     } catch (error) {
-      console.error('Failed to initialize Places library:', error);
-      throw this.normalizeError('places_library_load_failed');
+      console.error("Failed to initialize Places library:", error);
+      throw this.normalizeError("places_library_load_failed");
     } finally {
       this.isInitializing = false;
     }
@@ -53,11 +53,11 @@ class PlacesService {
   }
 
   public async searchPredictions(
-    query: string, 
-    locationBias?: { lat: number; lng: number }
+    query: string,
+    locationBias?: { lat: number; lng: number },
   ): Promise<PlaceSuggestion[]> {
     const normalizedQuery = query.trim();
-    
+
     if (normalizedQuery.length < PLACES_CONFIG.MIN_CHARS) {
       return [];
     }
@@ -87,21 +87,22 @@ class PlacesService {
         // Bias circular de 10km (raio urbano centralizado)
         request.locationBias = {
           center: { lat: locationBias.lat, lng: locationBias.lng },
-          radius: 10000 
+          radius: 10000,
         };
       }
 
       // Utilizando fetchAutocompleteSuggestions da API moderna
       // @ts-ignore
-      const { suggestions: googleSuggestions } = await this.placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+      const { suggestions: googleSuggestions } =
+        await this.placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
 
       // Proteção contra respostas fora de ordem
       if (requestId !== this.lastRequestId) {
-        throw this.normalizeError('places_cancelled');
+        throw this.normalizeError("places_cancelled");
       }
 
       const suggestions = googleSuggestions.map((s: any) => this.normalizeSuggestion(s));
-      
+
       // Update cache
       if (this.cache.size >= PLACES_CONFIG.CACHE_MAX_SIZE) {
         const firstKey = this.cache.keys().next().value;
@@ -111,12 +112,12 @@ class PlacesService {
 
       return suggestions;
     } catch (error: any) {
-      if (error.code === 'places_cancelled') throw error;
-      
-      console.error('Places Search Error:', error);
-      
+      if (error.code === "places_cancelled") throw error;
+
+      console.error("Places Search Error:", error);
+
       // Tratar estados de erro específicos da biblioteca se necessário
-      throw this.normalizeError('places_network_error');
+      throw this.normalizeError("places_network_error");
     }
   }
 
@@ -127,25 +128,25 @@ class PlacesService {
       // Obter o objeto Place oficial a partir da previsão (API Moderna)
       // O prediction.place aqui é a referência segura ao objeto de previsão necessária para seleção
       const place = prediction.place;
-      
+
       if (!place) {
-        throw this.normalizeError('places_invalid_prediction');
+        throw this.normalizeError("places_invalid_prediction");
       }
 
       // Solicitar somente os campos necessários (fetchFields)
       await place.fetchFields({
-        fields: PLACES_CONFIG.DETAILS_FIELDS
+        fields: PLACES_CONFIG.DETAILS_FIELDS,
       });
 
       const normalized = this.normalizePlace(place);
-      
+
       // Encerrar sessão atual
       this.resetSessionToken();
-      
+
       return normalized;
     } catch (error: any) {
-      console.error('Place Details Error:', error);
-      throw this.normalizeError('places_details_unavailable');
+      console.error("Place Details Error:", error);
+      throw this.normalizeError("places_details_unavailable");
     }
   }
 
@@ -175,59 +176,60 @@ class PlacesService {
       distanceMeters: p.distanceMeters,
       // Guardamos a referência ao objeto de lugar para o fetchFields posterior
       // @ts-ignore
-      place: p.toPlace() 
+      place: p.toPlace(),
     };
   }
 
   private normalizePlace(place: any): DestinationAddress {
     const components: AddressComponent = {};
-    
+
     // Mapeamento moderno de addressComponents
     place.addressComponents?.forEach((c: any) => {
       const types = c.types;
-      if (types.includes('route')) components.rua = c.longText;
-      if (types.includes('street_number')) components.numero = c.longText;
-      if (types.includes('neighborhood') || types.includes('sublocality')) components.bairro = c.longText;
-      if (types.includes('locality')) components.cidade = c.longText;
-      if (types.includes('administrative_area_level_1')) {
+      if (types.includes("route")) components.rua = c.longText;
+      if (types.includes("street_number")) components.numero = c.longText;
+      if (types.includes("neighborhood") || types.includes("sublocality"))
+        components.bairro = c.longText;
+      if (types.includes("locality")) components.cidade = c.longText;
+      if (types.includes("administrative_area_level_1")) {
         components.estado = c.longText;
         components.estadoSigla = c.shortText;
       }
-      if (types.includes('postal_code')) components.cep = c.longText;
-      if (types.includes('country')) components.pais = c.longText;
+      if (types.includes("postal_code")) components.cep = c.longText;
+      if (types.includes("country")) components.pais = c.longText;
     });
 
     const location = place.location;
-    if (!location || typeof location.lat !== 'function' || typeof location.lng !== 'function') {
-      throw this.normalizeError('places_invalid_location');
+    if (!location || typeof location.lat !== "function" || typeof location.lng !== "function") {
+      throw this.normalizeError("places_invalid_location");
     }
 
     const latitude = location.lat();
     const longitude = location.lng();
 
     if (!place.id || isNaN(latitude) || isNaN(longitude)) {
-      throw this.normalizeError('places_invalid_location');
+      throw this.normalizeError("places_invalid_location");
     }
 
     return {
       placeId: place.id,
       latitude,
       longitude,
-      label: place.displayName || place.formattedAddress?.split(',')[0] || 'Local selecionado',
+      label: place.displayName || place.formattedAddress?.split(",")[0] || "Local selecionado",
       subLabel: place.formattedAddress,
       formattedAddress: place.formattedAddress,
       name: place.displayName,
       components,
       types: place.types || [],
       selectedAt: new Date().toISOString(),
-      source: 'google_places'
+      source: "google_places",
     };
   }
 
   private normalizeError(code: PlacesErrorCode): PlacesError {
     return {
       code,
-      message: PLACES_MESSAGES_PT[code]
+      message: PLACES_MESSAGES_PT[code],
     };
   }
 }

@@ -2,12 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { Geolocation, PermissionStatus } from "@capacitor/geolocation";
 
 export type LocationPermissionState =
-  | "unknown"
-  | "prompt"
-  | "granted"
-  | "denied"
-  | "blocked"
-  | "unavailable";
+  "unknown" | "prompt" | "granted" | "denied" | "blocked" | "unavailable";
 
 export interface LocationData {
   latitude: number;
@@ -40,15 +35,21 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const clearLocationError = useCallback(() => setError(null), []);
 
   const openSettings = useCallback(async () => {
-    // In Capacitor, we use NativeSettings or similar if needed, 
+    // In Capacitor, we use NativeSettings or similar if needed,
     // but Geolocation doesn't provide a direct openSettings.
     // We'll leave it as a placeholder for platform-specific implementation.
     console.log("Open settings requested");
   }, []);
 
   const validateCoords = (lat: number, lng: number) => {
-    return Number.isFinite(lat) && Number.isFinite(lng) && 
-           lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    return (
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+    );
   };
 
   const updateLocationState = (pos: any) => {
@@ -59,7 +60,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           latitude,
           longitude,
           accuracy,
-          timestamp: pos.timestamp
+          timestamp: pos.timestamp,
         };
         setLocation(newData);
         setError(null);
@@ -131,23 +132,26 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     let mounted = true;
     let watchId: string;
-    
+
     const init = async () => {
       const status = await checkPermissions();
       if (!mounted) return;
 
       if (status?.location === "granted") {
         refreshLocation();
-        
-        watchId = await Geolocation.watchPosition({ 
-          enableHighAccuracy: true,
-          timeout: 15000 
-        }, (position, err) => {
-          if (!mounted) return;
-          if (position) {
-            updateLocationState(position);
-          }
-        });
+
+        watchId = await Geolocation.watchPosition(
+          {
+            enableHighAccuracy: true,
+            timeout: 15000,
+          },
+          (position, err) => {
+            if (!mounted) return;
+            if (position) {
+              updateLocationState(position);
+            }
+          },
+        );
       }
     };
 
@@ -162,18 +166,20 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [checkPermissions, refreshLocation]);
 
   return (
-    <LocationContext.Provider value={{ 
-      location, 
-      currentPosition: location,
-      isLoading, 
-      error, 
-      permissionState,
-      requestPermission,
-      refreshLocation,
-      refreshPosition: refreshLocation,
-      openSettings,
-      clearLocationError
-    }}>
+    <LocationContext.Provider
+      value={{
+        location,
+        currentPosition: location,
+        isLoading,
+        error,
+        permissionState,
+        requestPermission,
+        refreshLocation,
+        refreshPosition: refreshLocation,
+        openSettings,
+        clearLocationError,
+      }}
+    >
       {children}
     </LocationContext.Provider>
   );

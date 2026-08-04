@@ -5,7 +5,7 @@ class RideRequestService {
   async createRide(payload: RideRequestPayload): Promise<RideRequestResponse> {
     try {
       const { data, error } = await supabase.functions.invoke("request-ride", {
-        body: payload
+        body: payload,
       });
 
       if (error) {
@@ -13,20 +13,20 @@ class RideRequestService {
         return {
           ok: false,
           error_code: error.message || "internal_error",
-          message: "Não foi possível solicitar a corrida agora. Tente novamente."
+          message: "Não foi possível solicitar a corrida agora. Tente novamente.",
         };
       }
 
       return {
         ok: true,
-        ...data
+        ...data,
       };
     } catch (err) {
       console.error("Network error calling request-ride:", err);
       return {
         ok: false,
         error_code: "network_error",
-        message: "Falha na conexão. Verifique sua internet."
+        message: "Falha na conexão. Verifique sua internet.",
       };
     }
   }
@@ -36,8 +36,8 @@ class RideRequestService {
       const { data, error } = await supabase.functions.invoke("request-ride", {
         body: {
           action: "cancel",
-          ride_id: rideId
-        }
+          ride_id: rideId,
+        },
       });
 
       if (error) throw error;

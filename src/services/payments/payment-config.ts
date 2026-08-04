@@ -15,4 +15,3 @@ export const PAYMENT_ICONS: Record<string, any> = {
   cash: Banknote,
   wallet: Wallet,
 };
-

@@ -31,9 +31,7 @@ async function sendDriverPush(driverId: string, rideId: string) {
 
 async function authenticatedUser(request: Request) {
   const header = request.headers.get("authorization") ?? "";
-  const token = header.toLowerCase().startsWith("bearer ")
-    ? header.slice(7).trim()
-    : "";
+  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
 
   if (!token) return null;
 
@@ -48,10 +46,7 @@ export const Route = createFileRoute("/api/passenger/rides/cancel")({
         const user = await authenticatedUser(request);
 
         if (!user) {
-          return json(
-            { ok: false, error: "Sessão inválida. Entre novamente." },
-            401,
-          );
+          return json({ ok: false, error: "Sessão inválida. Entre novamente." }, 401);
         }
 
         let input: z.infer<typeof inputSchema>;
@@ -81,10 +76,7 @@ export const Route = createFileRoute("/api/passenger/rides/cancel")({
         }
 
         if (!current.data) {
-          return json(
-            { ok: false, error: "Corrida não encontrada." },
-            404,
-          );
+          return json({ ok: false, error: "Corrida não encontrada." }, 404);
         }
 
         const ride = current.data as any;
@@ -94,8 +86,9 @@ export const Route = createFileRoute("/api/passenger/rides/cancel")({
         }
 
         if (
-          !["agendada", "procurar_motorista", "motorista_a_caminho", "motorista_chegou"]
-            .includes(String(ride.status))
+          !["agendada", "procurar_motorista", "motorista_a_caminho", "motorista_chegou"].includes(
+            String(ride.status),
+          )
         ) {
           return json(
             {

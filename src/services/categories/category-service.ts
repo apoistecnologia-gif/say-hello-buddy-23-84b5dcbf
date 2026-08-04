@@ -14,7 +14,7 @@ class CategoryService {
       throw error;
     }
 
-    return (data || []).map(cat => ({
+    return (data || []).map((cat) => ({
       id: cat.id,
       code: cat.code,
       key: cat.code as RideCategoryCode,
@@ -27,7 +27,7 @@ class CategoryService {
       sortOrder: cat.sort_order || 0,
       capacityLabel: cat.capacity_label,
       etaLabel: cat.eta_label,
-      details: {}
+      details: {},
     }));
   }
 }

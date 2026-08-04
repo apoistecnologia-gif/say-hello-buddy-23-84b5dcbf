@@ -36,14 +36,21 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       setStatus("loading");
-      
+
       const originCoord: RouteCoordinates = { lat: location.latitude, lng: location.longitude };
       const destCoord: RouteCoordinates = { lat: destination.latitude, lng: destination.longitude };
-      const intermediates: RouteCoordinates[] = orderedStops.map(s => ({ lat: s.latitude, lng: s.longitude }));
+      const intermediates: RouteCoordinates[] = orderedStops.map((s) => ({
+        lat: s.latitude,
+        lng: s.longitude,
+      }));
 
       // Validações básicas
-      if (!Number.isFinite(originCoord.lat) || !Number.isFinite(originCoord.lng) ||
-          !Number.isFinite(destCoord.lat) || !Number.isFinite(destCoord.lng)) {
+      if (
+        !Number.isFinite(originCoord.lat) ||
+        !Number.isFinite(originCoord.lng) ||
+        !Number.isFinite(destCoord.lat) ||
+        !Number.isFinite(destCoord.lng)
+      ) {
         throw new Error("Coordenadas inválidas");
       }
 
@@ -54,7 +61,7 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const response = await routeService.computeRoute({
         origin: originCoord,
         destination: destCoord,
-        intermediates
+        intermediates,
       });
 
       if (!response.encodedPolyline) {
@@ -68,7 +75,7 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch (err) {
         throw new Error("Não foi possível processar o trajeto da rota.");
       }
-      
+
       const newRoute: RouteResult = {
         origin: originCoord,
         destination: destCoord,
@@ -80,14 +87,14 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         steps: response.steps || [],
         calculatedAt: Date.now(),
         source: "apois_backend",
-        requestKey: `${originCoord.lat},${originCoord.lng}-${destCoord.lat},${destCoord.lng}`
+        requestKey: `${originCoord.lat},${originCoord.lng}-${destCoord.lat},${destCoord.lng}`,
       };
 
       setRoute(newRoute);
       setStatus("success");
       setError(null);
     } catch (err: any) {
-      if (err.name === 'AbortError') return;
+      if (err.name === "AbortError") return;
       setError(err.message || "Falha ao calcular rota");
       setStatus("failed");
     }
@@ -102,16 +109,18 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [calculateRoute]);
 
   return (
-    <RouteContext.Provider value={{ 
-      route, 
-      status, 
-      isLoading: status === "loading",
-      error,
-      isStale: status === "stale",
-      clearRoute: () => setRoute(null),
-      refresh: calculateRoute,
-      retry: calculateRoute
-    }}>
+    <RouteContext.Provider
+      value={{
+        route,
+        status,
+        isLoading: status === "loading",
+        error,
+        isStale: status === "stale",
+        clearRoute: () => setRoute(null),
+        refresh: calculateRoute,
+        retry: calculateRoute,
+      }}
+    >
       {children}
     </RouteContext.Provider>
   );

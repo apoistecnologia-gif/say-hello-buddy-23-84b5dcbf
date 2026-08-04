@@ -25,11 +25,11 @@ export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = (
         setIsLoading(true);
         const data = await paymentService.getPaymentMethods();
         setMethods(data);
-        
+
         // Load preference
         if (user) {
           const saved = localStorage.getItem(`apois:passageiro:${user.id}:payment_method`);
-          if (saved && data && (data as any[]).some(m => m.code === saved)) {
+          if (saved && data && (data as any[]).some((m) => m.code === saved)) {
             setSelectedMethod(saved as PaymentMethodCode);
           } else if (data && (data as any[]).length > 0) {
             setSelectedMethod((data as any[])[0].code);
@@ -53,13 +53,15 @@ export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = (
   };
 
   return (
-    <PaymentMethodsContext.Provider value={{ 
-      methods, 
-      selectedMethod, 
-      setSelectedMethod: handleSelect, 
-      selectMethod: handleSelect,
-      isLoading 
-    }}>
+    <PaymentMethodsContext.Provider
+      value={{
+        methods,
+        selectedMethod,
+        setSelectedMethod: handleSelect,
+        selectMethod: handleSelect,
+        isLoading,
+      }}
+    >
       {children}
     </PaymentMethodsContext.Provider>
   );

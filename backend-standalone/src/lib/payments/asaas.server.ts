@@ -281,8 +281,6 @@ export const asaasProvider: PaymentProvider & {
 
 export function getWebhookSecret(): string | null {
   return (
-    process.env.ASAAS_WEBHOOK_TOKEN?.trim() ||
-    process.env.ASAAS_WEBHOOK_SECRET?.trim() ||
-    null
+    process.env.ASAAS_WEBHOOK_TOKEN?.trim() || process.env.ASAAS_WEBHOOK_SECRET?.trim() || null
   );
 }

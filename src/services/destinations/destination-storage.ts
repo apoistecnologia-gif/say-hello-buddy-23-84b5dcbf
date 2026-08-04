@@ -1,11 +1,11 @@
-import { DestinationHistoryItem } from '../../types/destinations';
-import { supabase } from '@/integrations/supabase/client';
+import { DestinationHistoryItem } from "../../types/destinations";
+import { supabase } from "@/integrations/supabase/client";
 
 const getStorageKey = (key: string) => {
   const user = supabase.auth.getUser();
   // We can't use await inside get/save synchronously, but we can try to get ID
   // For safety, let's assume session is loaded.
-  const userId = 'anonymous'; // Fallback
+  const userId = "anonymous"; // Fallback
   return `apois:passageiro:${userId}:${key}`;
 };
 
@@ -17,10 +17,10 @@ class DestinationStorage {
         const parsed = JSON.parse(session);
         return parsed.user.id;
       } catch (e) {
-        return 'unknown';
+        return "unknown";
       }
     }
-    return 'anonymous';
+    return "anonymous";
   }
 
   private static getRecentKey() {

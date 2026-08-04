@@ -2,15 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 const roots = ["src", "supabase", "scripts"];
-const extensions = new Set([
-  ".ts",
-  ".tsx",
-  ".js",
-  ".mjs",
-  ".md",
-  ".sql",
-  ".toml",
-]);
+const extensions = new Set([".ts", ".tsx", ".js", ".mjs", ".md", ".sql", ".toml"]);
 const mojibake = /Ã[¡-¿ƒ]|Â[\u0080-\u00bf]|â[€™œ“”€¢†‡]|ðŸ|ï¿½|\uFFFD/u;
 const failures = [];
 

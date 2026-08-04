@@ -1,13 +1,13 @@
 import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider, createRouter, createHashHistory } from '@tanstack/react-router'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { routeTree } from './routeTree.gen'
+import { RouterProvider, createRouter, createHashHistory } from "@tanstack/react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { routeTree } from "./routeTree.gen";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
-import './styles.css'
+import "./styles.css";
 
-const queryClient = new QueryClient()
-const hashHistory = createHashHistory()
+const queryClient = new QueryClient();
+const hashHistory = createHashHistory();
 
 const router = createRouter({
   routeTree,
@@ -15,18 +15,18 @@ const router = createRouter({
   context: {
     queryClient,
   },
-})
+});
 
-declare module '@tanstack/react-router' {
+declare module "@tanstack/react-router" {
   interface Register {
-    router: typeof router
+    router: typeof router;
   }
 }
 
 // Componente para normalização de rota inicial (sem hash)
 const Normalizer = () => {
   const { authState } = useAuth();
-  
+
   useEffect(() => {
     const hash = window.location.hash;
     // Se não houver hash ou for apenas "#", normaliza conforme a sessão
@@ -53,9 +53,5 @@ ReactDOM.createRoot(rootElement).render(
     <AuthProvider>
       <Normalizer />
     </AuthProvider>
-  </QueryClientProvider>
+  </QueryClientProvider>,
 );
-
-
-
-

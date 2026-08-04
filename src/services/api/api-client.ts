@@ -10,9 +10,9 @@ export class ApiClient {
   private baseUrl: string;
 
   private constructor() {
-    this.baseUrl = import.meta.env['VITE_APOIS_API_URL'] || '';
+    this.baseUrl = import.meta.env["VITE_APOIS_API_URL"] || "";
     if (import.meta.env.DEV && !this.baseUrl) {
-      this.baseUrl = 'http://localhost:3000';
+      this.baseUrl = "http://localhost:3000";
     }
   }
 
@@ -24,22 +24,24 @@ export class ApiClient {
   }
 
   public async post<T>(path: string, body: any, options?: ApiRequestOptions): Promise<T> {
-    const { data: { session } } = await supabase.auth.getSession();
-    
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
     if (!session) {
-      throw new Error('authentication_required');
+      throw new Error("authentication_required");
     }
 
-    if (!this.baseUrl && !path.startsWith('http')) {
-      console.warn('VITE_APOIS_API_URL not configured');
-      throw new Error('geocode_configuration_missing');
+    if (!this.baseUrl && !path.startsWith("http")) {
+      console.warn("VITE_APOIS_API_URL not configured");
+      throw new Error("geocode_configuration_missing");
     }
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), options?.timeout || 15000);
-    
+
     if (options?.signal) {
-      options.signal.addEventListener('abort', () => {
+      options.signal.addEventListener("abort", () => {
         clearTimeout(timeoutId);
         controller.abort();
       });
@@ -47,10 +49,10 @@ export class ApiClient {
 
     try {
       const response = await fetch(`${this.baseUrl}${path}`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -59,27 +61,27 @@ export class ApiClient {
       clearTimeout(timeoutId);
 
       if (response.status === 401) {
-        throw new Error('authentication_required');
+        throw new Error("authentication_required");
       }
 
       if (response.status === 429) {
-        throw new Error('geocode_rate_limited');
+        throw new Error("geocode_rate_limited");
       }
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result?.error || 'service_unavailable');
+        throw new Error(result?.error || "service_unavailable");
       }
 
       return result as T;
     } catch (error: any) {
       clearTimeout(timeoutId);
-      
-      if (error.name === 'AbortError') {
-        throw new Error(options?.signal?.aborted ? 'geocode_cancelled' : 'geocode_timeout');
+
+      if (error.name === "AbortError") {
+        throw new Error(options?.signal?.aborted ? "geocode_cancelled" : "geocode_timeout");
       }
-      
+
       throw error;
     }
   }

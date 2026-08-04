@@ -7,8 +7,13 @@ export type FareBreakdown = {
 };
 
 function yes(value: unknown): boolean {
-  return value === true || ["sim", "yes", "true", "1"].includes(
-    String(value ?? "").trim().toLowerCase(),
+  return (
+    value === true ||
+    ["sim", "yes", "true", "1"].includes(
+      String(value ?? "")
+        .trim()
+        .toLowerCase(),
+    )
   );
 }
 
@@ -35,7 +40,7 @@ export function calculateServerFare(args: {
   serviceDetails?: ServiceDetails;
 }): FareBreakdown {
   const { category, tariff } = args;
-  
+
   // Basic calculation
   const baseRaw =
     (category === "guincho"
@@ -43,11 +48,11 @@ export function calculateServerFare(args: {
       : (tariff.base_fare ?? 0)) +
     (tariff.per_km ?? 0) * Math.max(0, args.distanceKm) +
     (tariff.per_min ?? 0) * Math.max(0, args.durationMin);
-  
+
   const base = Math.max(tariff.min_fare ?? 0, baseRaw);
   const details = record(args.serviceDetails);
   const extras: Record<string, number> = {};
-  
+
   const add = (key: string, amount: number) => {
     if (Number.isFinite(amount) && amount > 0) extras[key] = rounded(amount);
   };
@@ -100,8 +105,6 @@ export function calculateServerFare(args: {
   return {
     base: rounded(base),
     extras,
-    total: rounded(
-      base + Object.values(extras).reduce((sum, amount) => sum + amount, 0),
-    ),
+    total: rounded(base + Object.values(extras).reduce((sum, amount) => sum + amount, 0)),
   };
 }

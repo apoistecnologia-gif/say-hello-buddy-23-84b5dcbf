@@ -1,10 +1,6 @@
 import { createStart, createMiddleware } from "@tanstack/react-start";
 
-const APK_ORIGINS = new Set([
-  "capacitor://localhost",
-  "https://localhost",
-  "http://localhost",
-]);
+const APK_ORIGINS = new Set(["capacitor://localhost", "https://localhost", "http://localhost"]);
 
 const corsMiddleware = createMiddleware({ type: "request" }).server(async ({ next, request }) => {
   const origin = request.headers.get("origin") ?? "";

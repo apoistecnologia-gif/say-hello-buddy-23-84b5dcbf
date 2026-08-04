@@ -46,14 +46,16 @@ export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = (
   };
 
   return (
-    <RideCategoriesContext.Provider value={{ 
-      categories, 
-      selectedCategory, 
-      setSelectedCategory, 
-      selectCategory,
-      isLoading,
-      refreshCategories: fetchCategories
-    }}>
+    <RideCategoriesContext.Provider
+      value={{
+        categories,
+        selectedCategory,
+        setSelectedCategory,
+        selectCategory,
+        isLoading,
+        refreshCategories: fetchCategories,
+      }}
+    >
       {children}
     </RideCategoriesContext.Provider>
   );

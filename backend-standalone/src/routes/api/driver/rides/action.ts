@@ -17,7 +17,11 @@ const inputSchema = z.object({
     "confirm_payment",
   ]),
   rideId: z.string().uuid(),
-  safety_code: z.string().trim().regex(/^\d{4}$/).optional(),
+  safety_code: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/)
+    .optional(),
   motivo: z.string().max(500).optional(),
   stars: z.number().int().min(1).max(5).optional(),
   comment: z.string().max(500).nullable().optional(),
@@ -27,7 +31,14 @@ function json(body: unknown, status = 200) {
   return Response.json(body, { status });
 }
 
-async function sendRidePush(userIds: string[], event: string, title: string, body: string, rideId: string, url: string) {
+async function sendRidePush(
+  userIds: string[],
+  event: string,
+  title: string,
+  body: string,
+  rideId: string,
+  url: string,
+) {
   if (!userIds.length) return;
   try {
     const { error } = await supabaseAdmin.functions.invoke("send-ride-push", {
@@ -62,7 +73,8 @@ async function transition(
   query = Array.isArray(from) ? query.in("status", from as any) : query.eq("status", from as any);
   const result = await query.select("*").maybeSingle();
   if (result.error) throw new Error(result.error.message);
-  if (!result.data) throw new Error("A corrida já mudou de estado ou não pertence a este motorista.");
+  if (!result.data)
+    throw new Error("A corrida já mudou de estado ou não pertence a este motorista.");
   return result.data;
 }
 
@@ -155,9 +167,7 @@ export const Route = createFileRoute("/api/driver/rides/action")({
         const driver = driverResult.data as any;
 
         const driverUserId: string =
-          typeof driver.user_id === "string" && driver.user_id
-            ? driver.user_id
-            : user.id;
+          typeof driver.user_id === "string" && driver.user_id ? driver.user_id : user.id;
         if (driver.approval_status !== "aprovado") {
           return json({ ok: false, error: "Motorista ainda não aprovado." }, 403);
         }
@@ -183,28 +193,36 @@ export const Route = createFileRoute("/api/driver/rides/action")({
               return json(
                 {
                   ok: false,
-                  error:
-                    "Mensalidade vencida. Regularize o plano antes de aceitar novas corridas.",
+                  error: "Mensalidade vencida. Regularize o plano antes de aceitar novas corridas.",
                 },
                 403,
               );
             }
             const current = await supabaseAdmin
               .from("rides")
-              .select("passenger_id,status,accepted_driver_id,candidate_driver_ids,rejected_driver_ids,request_expires_at")
+              .select(
+                "passenger_id,status,accepted_driver_id,candidate_driver_ids,rejected_driver_ids,request_expires_at",
+              )
               .eq("id", input.rideId)
               .maybeSingle();
             if (current.error || !current.data) throw new Error("Corrida não encontrada.");
             const ride = current.data as any;
-            const candidates = Array.isArray(ride.candidate_driver_ids) ? ride.candidate_driver_ids : [];
-            const rejected = Array.isArray(ride.rejected_driver_ids) ? ride.rejected_driver_ids : [];
+            const candidates = Array.isArray(ride.candidate_driver_ids)
+              ? ride.candidate_driver_ids
+              : [];
+            const rejected = Array.isArray(ride.rejected_driver_ids)
+              ? ride.rejected_driver_ids
+              : [];
             if (ride.status !== "procurar_motorista" || ride.accepted_driver_id) {
               throw new Error("Esta corrida já foi aceita ou cancelada.");
             }
             if (!candidates.includes(driverUserId) || rejected.includes(driverUserId)) {
               throw new Error("Esta corrida não está mais disponível para você.");
             }
-            if (!ride.request_expires_at || new Date(ride.request_expires_at).getTime() <= Date.now()) {
+            if (
+              !ride.request_expires_at ||
+              new Date(ride.request_expires_at).getTime() <= Date.now()
+            ) {
               throw new Error("A oferta expirou. Aguarde uma nova chamada.");
             }
 
@@ -245,9 +263,10 @@ export const Route = createFileRoute("/api/driver/rides/action")({
                 .maybeSingle();
               passengerPhotoUrl = (profile.data as any)?.avatar_url ?? null;
             }
-            const vehicle = [driver.vehicle_color, driver.vehicle_model, driver.vehicle_plate]
-              .filter((value) => value && String(value).trim())
-              .join(" • ") || null;
+            const vehicle =
+              [driver.vehicle_color, driver.vehicle_model, driver.vehicle_plate]
+                .filter((value) => value && String(value).trim())
+                .join(" • ") || null;
             const safetyCode = String(Math.floor(1000 + Math.random() * 9000));
             const accepted = await supabaseAdmin
               .from("rides")
@@ -278,14 +297,24 @@ export const Route = createFileRoute("/api/driver/rides/action")({
               .maybeSingle();
             if (accepted.error) throw new Error(accepted.error.message);
             if (!accepted.data) throw new Error("Outro motorista aceitou esta corrida primeiro.");
-            if (ride.passenger_id) void sendRidePush([ride.passenger_id], "passenger.driver_accepted", "Motorista a caminho", `${driver.name ?? "Seu motorista"} aceitou a corrida.`, input.rideId, "/passageiro/app");
+            if (ride.passenger_id)
+              void sendRidePush(
+                [ride.passenger_id],
+                "passenger.driver_accepted",
+                "Motorista a caminho",
+                `${driver.name ?? "Seu motorista"} aceitou a corrida.`,
+                input.rideId,
+                "/passageiro/app",
+              );
             return json({ ok: true, data: accepted.data });
           }
 
           if (input.action === "reject") {
             const current = await supabaseAdmin
               .from("rides")
-              .select("status,accepted_driver_id,candidate_driver_ids,rejected_driver_ids,offered_driver_ids")
+              .select(
+                "status,accepted_driver_id,candidate_driver_ids,rejected_driver_ids,offered_driver_ids",
+              )
               .eq("id", input.rideId)
               .maybeSingle();
             if (current.error || !current.data) throw new Error("Corrida não encontrada.");
@@ -293,11 +322,17 @@ export const Route = createFileRoute("/api/driver/rides/action")({
             if (ride.status !== "procurar_motorista" || ride.accepted_driver_id) {
               throw new Error("A corrida não está mais aguardando motorista.");
             }
-            const candidates = Array.isArray(ride.candidate_driver_ids) ? ride.candidate_driver_ids : [];
-            if (!candidates.includes(driverUserId)) throw new Error("Esta corrida não foi ofertada para você.");
-            const rejected = Array.from(new Set([...(ride.rejected_driver_ids ?? []), driverUserId]));
-            const offered = (Array.isArray(ride.offered_driver_ids) ? ride.offered_driver_ids : [])
-              .filter((id: string) => id !== driverUserId);
+            const candidates = Array.isArray(ride.candidate_driver_ids)
+              ? ride.candidate_driver_ids
+              : [];
+            if (!candidates.includes(driverUserId))
+              throw new Error("Esta corrida não foi ofertada para você.");
+            const rejected = Array.from(
+              new Set([...(ride.rejected_driver_ids ?? []), driverUserId]),
+            );
+            const offered = (
+              Array.isArray(ride.offered_driver_ids) ? ride.offered_driver_ids : []
+            ).filter((id: string) => id !== driverUserId);
             const update = await supabaseAdmin
               .from("rides")
               .update({
@@ -330,8 +365,21 @@ export const Route = createFileRoute("/api/driver/rides/action")({
             if ((current.data as any).queued_after_ride_id) {
               throw new Error("Finalize a corrida atual antes de ir ao próximo passageiro.");
             }
-            const arrived = await transition(input.rideId, driverUserId, "motorista_a_caminho", "motorista_chegou");
-            if ((arrived as any).passenger_id) void sendRidePush([(arrived as any).passenger_id], "passenger.driver_arrived", "Seu motorista chegou", "Tenha o código de segurança em mãos.", input.rideId, "/passageiro/app");
+            const arrived = await transition(
+              input.rideId,
+              driverUserId,
+              "motorista_a_caminho",
+              "motorista_chegou",
+            );
+            if ((arrived as any).passenger_id)
+              void sendRidePush(
+                [(arrived as any).passenger_id],
+                "passenger.driver_arrived",
+                "Seu motorista chegou",
+                "Tenha o código de segurança em mãos.",
+                input.rideId,
+                "/passageiro/app",
+              );
             return json({ ok: true, data: arrived });
           }
 
@@ -349,8 +397,22 @@ export const Route = createFileRoute("/api/driver/rides/action")({
             if (!input.safety_code || String(ride.safety_code) !== input.safety_code) {
               throw new Error("Código incorreto. Peça o código ao passageiro.");
             }
-            const started = await transition(input.rideId, driverUserId, "motorista_chegou", "em_viagem", { started_at: new Date().toISOString() });
-            if ((started as any).passenger_id) void sendRidePush([(started as any).passenger_id], "passenger.ride_started", "Viagem iniciada", "Acompanhe o trajeto pelo aplicativo.", input.rideId, "/passageiro/app");
+            const started = await transition(
+              input.rideId,
+              driverUserId,
+              "motorista_chegou",
+              "em_viagem",
+              { started_at: new Date().toISOString() },
+            );
+            if ((started as any).passenger_id)
+              void sendRidePush(
+                [(started as any).passenger_id],
+                "passenger.ride_started",
+                "Viagem iniciada",
+                "Acompanhe o trajeto pelo aplicativo.",
+                input.rideId,
+                "/passageiro/app",
+              );
             return json({ ok: true, data: started });
           }
 
@@ -362,15 +424,30 @@ export const Route = createFileRoute("/api/driver/rides/action")({
               .maybeSingle();
             if (current.error || !current.data) throw new Error("Corrida não encontrada.");
             const ride = current.data as any;
-            if (ride.driver_id !== driverUserId || ride.status !== "em_viagem") throw new Error("A corrida não pode ser finalizada agora.");
+            if (ride.driver_id !== driverUserId || ride.status !== "em_viagem")
+              throw new Error("A corrida não pode ser finalizada agora.");
             const price = await finalFare(
               String(ride.category),
               ride.distance_km,
               ride.duration_min,
               ride.service_details,
             );
-            const completed = await transition(input.rideId, driverUserId, "em_viagem", "finalizada", { completed_at: new Date().toISOString(), final_price: price });
-            if ((completed as any).passenger_id) void sendRidePush([(completed as any).passenger_id], "passenger.ride_finished", "Corrida finalizada", "Confira o valor e avalie seu motorista.", input.rideId, "/passageiro/app");
+            const completed = await transition(
+              input.rideId,
+              driverUserId,
+              "em_viagem",
+              "finalizada",
+              { completed_at: new Date().toISOString(), final_price: price },
+            );
+            if ((completed as any).passenger_id)
+              void sendRidePush(
+                [(completed as any).passenger_id],
+                "passenger.ride_finished",
+                "Corrida finalizada",
+                "Confira o valor e avalie seu motorista.",
+                input.rideId,
+                "/passageiro/app",
+              );
             const nextRide = await promoteQueuedRide(driverUserId, input.rideId);
             return json({ ok: true, data: { ...(completed as any), next_ride: nextRide } });
           }
@@ -383,12 +460,24 @@ export const Route = createFileRoute("/api/driver/rides/action")({
               .maybeSingle();
             if (current.error || !current.data) throw new Error("Corrida não encontrada.");
             const ride = current.data as any;
-            if (ride.driver_id !== driverUserId || !["motorista_a_caminho", "motorista_chegou"].includes(ride.status)) {
+            if (
+              ride.driver_id !== driverUserId ||
+              !["motorista_a_caminho", "motorista_chegou"].includes(ride.status)
+            ) {
               throw new Error("A corrida não pode ser cancelada agora.");
             }
-            const candidates: string[] = Array.isArray(ride.candidate_driver_ids) ? ride.candidate_driver_ids : [];
-            const rejected = Array.from(new Set([...(Array.isArray(ride.rejected_driver_ids) ? ride.rejected_driver_ids : []), driverUserId]));
-            const remaining = candidates.filter((id) => id !== driverUserId && !rejected.includes(id));
+            const candidates: string[] = Array.isArray(ride.candidate_driver_ids)
+              ? ride.candidate_driver_ids
+              : [];
+            const rejected = Array.from(
+              new Set([
+                ...(Array.isArray(ride.rejected_driver_ids) ? ride.rejected_driver_ids : []),
+                driverUserId,
+              ]),
+            );
+            const remaining = candidates.filter(
+              (id) => id !== driverUserId && !rejected.includes(id),
+            );
             const searching = await supabaseAdmin
               .from("rides")
               .update({
@@ -419,9 +508,26 @@ export const Route = createFileRoute("/api/driver/rides/action")({
               .select("*")
               .maybeSingle();
             if (searching.error) throw new Error(searching.error.message);
-            if (!searching.data) throw new Error("A corrida mudou de estado antes do cancelamento.");
-            if ((searching.data as any).passenger_id) void sendRidePush([(searching.data as any).passenger_id], "passenger.ride_cancelled", "Motorista cancelou", "Estamos procurando outro motorista para você.", input.rideId, "/passageiro/app");
-            if (remaining.length) void sendRidePush(remaining, "driver.new_ride_request", "MOVVI • Nova corrida disponível", `${(searching.data as any).origin_name ?? "Origem"} → ${(searching.data as any).destination_name ?? "Destino"}`, input.rideId, "/motorista/app");
+            if (!searching.data)
+              throw new Error("A corrida mudou de estado antes do cancelamento.");
+            if ((searching.data as any).passenger_id)
+              void sendRidePush(
+                [(searching.data as any).passenger_id],
+                "passenger.ride_cancelled",
+                "Motorista cancelou",
+                "Estamos procurando outro motorista para você.",
+                input.rideId,
+                "/passageiro/app",
+              );
+            if (remaining.length)
+              void sendRidePush(
+                remaining,
+                "driver.new_ride_request",
+                "MOVVI • Nova corrida disponível",
+                `${(searching.data as any).origin_name ?? "Origem"} → ${(searching.data as any).destination_name ?? "Destino"}`,
+                input.rideId,
+                "/motorista/app",
+              );
             console.info("[MOVVI REDESPACHO] motorista cancelou; procurando substituto", {
               rideId: input.rideId,
               rejectedDriverId: driverUserId,
@@ -456,9 +562,7 @@ export const Route = createFileRoute("/api/driver/rides/action")({
               .eq("status", "finalizada")
               .maybeSingle();
             if (existing.error || !existing.data) {
-              throw new Error(
-                "A confirmação só pode ser feita pelo motorista após a corrida.",
-              );
+              throw new Error("A confirmação só pode ser feita pelo motorista após a corrida.");
             }
             return json({ ok: true, data: existing.data });
           }
@@ -466,7 +570,11 @@ export const Route = createFileRoute("/api/driver/rides/action")({
           if (!input.stars) throw new Error("Escolha uma nota de 1 a 5.");
           const rating = await supabaseAdmin
             .from("rides")
-            .update({ passenger_rating: input.stars, passenger_rating_comment: input.comment ?? null, driver_rated_at: new Date().toISOString() } as any)
+            .update({
+              passenger_rating: input.stars,
+              passenger_rating_comment: input.comment ?? null,
+              driver_rated_at: new Date().toISOString(),
+            } as any)
             .eq("id", input.rideId)
             .eq("driver_id", driverUserId)
             .eq("status", "finalizada")
@@ -476,8 +584,7 @@ export const Route = createFileRoute("/api/driver/rides/action")({
           if (rating.error) throw new Error(rating.error.message);
           return json({ ok: true, data: { ok: true } });
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : "Falha na ação da corrida.";
+          const message = error instanceof Error ? error.message : "Falha na ação da corrida.";
           console.error("[driver-ride-action]", {
             action: input.action,
             rideId: input.rideId,

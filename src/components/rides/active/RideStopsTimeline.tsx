@@ -23,22 +23,30 @@ export const RideStopsTimeline: React.FC<RideStopsTimelineProps> = ({ ride }) =>
           ))}
           <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
         </div>
-        
+
         <div className="flex-1 space-y-5 py-0.5">
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">Embarque</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">
+              Embarque
+            </p>
             <p className="text-xs font-bold text-zinc-300 truncate">{ride.origin_name}</p>
           </div>
-          
+
           {stops.map((stop, i) => (
             <div key={i} className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">Parada {i + 1}</p>
-              <p className="text-xs font-bold text-zinc-300 truncate">{stop.address || stop.label}</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">
+                Parada {i + 1}
+              </p>
+              <p className="text-xs font-bold text-zinc-300 truncate">
+                {stop.address || stop.label}
+              </p>
             </div>
           ))}
 
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">Destino Final</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">
+              Destino Final
+            </p>
             <p className="text-xs font-bold text-zinc-300 truncate">{ride.destination_name}</p>
           </div>
         </div>
