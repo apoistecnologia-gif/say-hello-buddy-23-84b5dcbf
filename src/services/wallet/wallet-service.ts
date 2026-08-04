@@ -5,7 +5,7 @@ class WalletService {
   async getWallet(userId: string): Promise<WalletSummary | null> {
     const { data, error } = await (supabase as any)
       .from("passenger_wallets")
-      .select("passenger_id, balance, is_blocked, blocked_reason")
+      .select("id, passenger_id, balance, is_blocked, blocked_reason")
       .eq("passenger_id", userId)
       .maybeSingle();
 
