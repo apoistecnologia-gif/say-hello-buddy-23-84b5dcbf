@@ -50,7 +50,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (err) {
       setError("wallet_load_failed");
       setState("failed");
-      return;
     } finally {
       setIsLoading(false);
     }
