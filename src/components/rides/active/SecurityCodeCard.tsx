@@ -2,7 +2,7 @@ import React from "react";
 import { Info } from "lucide-react";
 
 interface SecurityCodeCardProps {
-  code?: string;
+  code: string | undefined;
 }
 
 export const SecurityCodeCard: React.FC<SecurityCodeCardProps> = ({ code }) => {
