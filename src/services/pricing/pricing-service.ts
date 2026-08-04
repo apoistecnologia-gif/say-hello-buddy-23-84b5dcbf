@@ -21,7 +21,7 @@ class PricingService {
     const { data: tariff, error } = await (supabase
       .from("tariff_rules" as any)
       .select("*") as any)
-      .eq("category_id", category.id)
+      .eq("category_key", category.key)
       .single();
 
     if (error || !tariff) {
