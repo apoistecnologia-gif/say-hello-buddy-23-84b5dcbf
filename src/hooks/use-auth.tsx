@@ -58,18 +58,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Validar role em public.user_roles
-      const { data: roleData, error: roleError } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userData?.id)
-        .eq("role", "passenger")
-        .maybeSingle();
+      if (userData?.id) {
+        const { data: roleData, error: roleError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userData.id)
+          .eq("role", "passenger")
+          .maybeSingle();
 
-      if (roleError) {
-        console.error("Error fetching user role:", roleError);
-        setRole(null);
-      } else {
-        setRole(roleData?.role as AppRole | null);
+        if (roleError) {
+          console.error("Error fetching user role:", roleError);
+          setRole(null);
+        } else {
+          setRole(roleData?.role as AppRole | null);
+        }
       }
     } catch (err) {
       console.error("Profile fetch error:", err);
@@ -85,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
+      if (session?.user?.id) {
         fetchProfile(session.user.id);
       }
       setIsLoading(false);
@@ -99,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
 
-      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user?.id) {
         fetchProfile(session.user.id);
       } else if (event === "SIGNED_OUT") {
         setProfile(null);
@@ -119,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshProfile = async () => {
-    if (user) {
+    if (user?.id) {
       await fetchProfile(user.id);
     }
   };
