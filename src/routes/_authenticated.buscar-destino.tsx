@@ -254,6 +254,44 @@ function BuscarDestinoPage() {
                     </button>
                   </div>
 
+                  <button 
+                    onClick={() => {
+                      setIsBottomSheetOpen(false);
+                      setIsPickingOnMap(true);
+                    }}
+                    className="w-full flex items-center gap-4 p-4 bg-[#2a2a2a] rounded-2xl border border-white/5 active:scale-[0.98] transition-all"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-apois-yellow/10 flex items-center justify-center">
+                      <MapIcon className="w-5 h-5 text-apois-yellow" />
+                    </div>
+                    <span className="font-bold text-white text-sm">Escolher no mapa</span>
+                  </button>
+
+                  <section>
+                    <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1 mb-3">Favoritos</h2>
+                    {favorites.length === 0 ? (
+                      <p className="text-xs text-gray-500 px-1 py-2 italic">Você ainda não possui favoritos.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {favorites.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => handleSelectHistoryItem(item as DestinationAddress)}
+                            className="w-full flex items-center gap-4 p-3 rounded-xl active:bg-white/5 text-left"
+                          >
+                            <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center">
+                              {getFavoriteIcon(item.icon)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-white text-sm truncate">{item.nickname || item.label}</p>
+                              <p className="text-xs text-gray-500 truncate">{item.formattedAddress}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
                   {recent.length > 0 && (
                     <section>
                       <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1 mb-3">Recentes</h2>
