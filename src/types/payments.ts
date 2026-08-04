@@ -9,12 +9,10 @@ export interface PaymentMethod {
 }
 
 export interface WalletSummary {
-  id: string;
-  user_id: string;
+  passenger_id: string;
   balance: number;
-  available_balance: number;
-  blocked_balance: number;
-  status: "active" | "blocked" | "inactive";
+  is_blocked: boolean;
+  blocked_reason: string | null;
 }
 
 export interface CouponValidationResult {
@@ -25,7 +23,6 @@ export interface CouponValidationResult {
   max_discount?: number | null;
   min_fare?: number | null;
   message?: string;
-  error_code?: string;
 }
 
 export interface CheckoutEstimate {
@@ -38,23 +35,3 @@ export interface CheckoutEstimate {
 }
 
 export type CouponStatus = "idle" | "validating" | "valid" | "invalid" | "expired" | "exhausted" | "not_applicable" | "error";
-
-export type PaymentError = 
-  | "payment_methods_load_failed"
-  | "payment_method_unavailable"
-  | "payment_method_invalid"
-  | "wallet_not_found"
-  | "wallet_blocked"
-  | "wallet_unavailable"
-  | "insufficient_wallet_balance"
-  | "payment_unknown_error";
-
-export type CouponError =
-  | "coupon_configuration_missing"
-  | "coupon_invalid"
-  | "coupon_expired"
-  | "coupon_exhausted"
-  | "coupon_not_applicable"
-  | "coupon_timeout"
-  | "coupon_network_error"
-  | "coupon_service_unavailable";
