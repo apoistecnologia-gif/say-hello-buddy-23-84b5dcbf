@@ -3,7 +3,7 @@ import { useLocation } from "@/hooks/use-location";
 import { useDestination } from "@/hooks/use-destination";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { routeService } from "@/services/routes/route-service";
-import { RouteResult, RouteStatus } from "@/types/routes";
+import { RouteResult, RouteStatus, RouteCoordinates } from "@/types/routes";
 
 interface RouteContextType {
   route: RouteResult | null;
@@ -21,7 +21,7 @@ const RouteContext = createContext<RouteContextType | undefined>(undefined);
 export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { location } = useLocation();
   const { destination } = useDestination();
-  const { stops } = useRideStops();
+  const { orderedStops } = useRideStops();
   const [route, setRoute] = useState<RouteResult | null>(null);
   const [status, setStatus] = useState<RouteStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -35,20 +35,38 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       setStatus("loading");
-      const origin = { lat: location.latitude, lng: location.longitude };
-      const dest = { lat: destination.latitude, lng: destination.longitude };
-      const intermediates = stops.map(s => ({ lat: s.latitude, lng: s.longitude }));
+      const originCoord: RouteCoordinates = { lat: location.latitude, lng: location.longitude };
+      const destCoord: RouteCoordinates = { lat: destination.latitude, lng: destination.longitude };
+      const intermediates: RouteCoordinates[] = orderedStops.map(s => ({ lat: s.latitude, lng: s.longitude }));
 
-      const result = await routeService.computeRoute(origin, dest, intermediates);
-      setRoute(result);
+      const response = await routeService.computeRoute({
+        origin: originCoord,
+        destination: destCoord,
+        intermediates
+      });
+      
+      const newRoute: RouteResult = {
+        origin: originCoord,
+        destination: destCoord,
+        intermediates,
+        distanceMeters: response.distanceMeters,
+        durationSeconds: response.durationSeconds,
+        encodedPolyline: response.encodedPolyline,
+        decodedPoints: [], // Will be filled by Map decoder if needed
+        steps: [],
+        calculatedAt: Date.now(),
+        source: "apois_backend",
+        requestKey: `${originCoord.lat},${originCoord.lng}-${destCoord.lat},${destCoord.lng}`
+      };
+
+      setRoute(newRoute);
       setStatus("success");
       setError(null);
     } catch (err: any) {
-      if (err.message === 'route_cancelled') return;
       setError(err.message || "Failed to calculate route");
       setStatus("failed");
     }
-  }, [location, destination, stops]);
+  }, [location, destination, orderedStops]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
