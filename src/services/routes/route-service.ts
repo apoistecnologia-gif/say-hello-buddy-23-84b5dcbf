@@ -113,7 +113,7 @@ class RouteService {
   private updateCache(key: string, result: RouteResult): void {
     if (this.cache.size >= ROUTE_CONFIG.CACHE_MAX_ENTRIES) {
       const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      if (oldestKey) this.cache.delete(oldestKey);
     }
     this.cache.set(key, { result, timestamp: Date.now() });
   }
