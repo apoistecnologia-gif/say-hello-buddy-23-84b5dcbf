@@ -6,7 +6,7 @@ import { routeTree } from './routeTree.gen'
 import { AuthProvider } from "@/hooks/use-auth";
 import './styles.css'
 
-console.info("APOIS_MAIN_INICIADO");
+
 
 const queryClient = new QueryClient()
 const hashHistory = createHashHistory()
