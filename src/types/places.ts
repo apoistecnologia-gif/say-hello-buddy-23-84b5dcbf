@@ -13,6 +13,9 @@ export type PlacesErrorCode =
   | 'places_invalid_response'
   | 'places_invalid_place_id'
   | 'places_details_unavailable'
+  | 'places_library_load_failed'
+  | 'places_invalid_prediction'
+  | 'places_invalid_location'
   | 'places_cancelled'
   | 'places_unknown_error';
 
@@ -32,7 +35,10 @@ export const PLACES_MESSAGES_PT: Record<PlacesErrorCode, string> = {
   places_invalid_place_id: 'ID do local inválido.',
   places_details_unavailable: 'Não foi possível abrir este local. Escolha outra opção.',
   places_cancelled: 'Busca cancelada.',
-  places_unknown_error: 'Ocorreu um erro inesperado na busca.'
+  places_unknown_error: 'Ocorreu um erro inesperado na busca.',
+  places_library_load_failed: 'Falha ao carregar a biblioteca de mapas.',
+  places_invalid_prediction: 'Sugestão de local inválida.',
+  places_invalid_location: 'Localização do destino inválida.'
 };
 
 export type PlaceSuggestionType = 
