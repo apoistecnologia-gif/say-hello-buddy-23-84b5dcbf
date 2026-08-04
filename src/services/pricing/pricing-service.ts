@@ -18,7 +18,7 @@ class PricingService {
   public async estimateFare(category: RideCategory, route: any): Promise<number> {
     if (!route || !route.distanceMeters || !route.durationSeconds) return 0;
 
-    const { data: tariff, error } = await supabase
+    const { data: tariff, error } = await (supabase as any)
       .from("tariff_rules")
       .select("*")
       .eq("category_key", category.key)

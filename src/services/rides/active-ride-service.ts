@@ -17,7 +17,7 @@ class ActiveRideService {
   }
 
   public async getRideById(rideId: string, userId: string): Promise<ActiveRide> {
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("rides")
       .select("*")
       .eq("id", rideId)
@@ -38,7 +38,7 @@ class ActiveRideService {
       "em_viagem"
     ];
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("rides")
       .select("*")
       .eq("passenger_id", userId)
