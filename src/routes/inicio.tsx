@@ -11,10 +11,11 @@ export const Route = createFileRoute("/inicio")({
 
 function InicioPage() {
   const { accuracyQuality } = useLocation();
+  const { address, status, isLoading, error, refreshAddress } = usePickupAddress();
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white relative">
-      {/* Map Background - Occupies full background to allow overlaying elements */}
+      {/* Map Background */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <PassengerMap />
       </div>
@@ -23,12 +24,54 @@ function InicioPage() {
       <div className="relative z-10 p-4 pt-6">
         <div className="bg-[#1e1e1e]/90 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-white/5">
           <LocationStatus />
+          
+          {/* Pickup Address Display */}
+          <div className="mt-2 mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold mb-1">Seu local de embarque</p>
+            
+            {isLoading ? (
+              <div className="flex items-center gap-2 py-2">
+                <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" />
+                <div className="h-4 w-48 bg-zinc-800 rounded animate-pulse" />
+              </div>
+            ) : error ? (
+              <button 
+                onClick={() => refreshAddress()}
+                className="flex items-center gap-2 py-2 text-red-400 group active:scale-[0.98]"
+              >
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">{error.message} (Toque para tentar)</span>
+              </button>
+            ) : address ? (
+              <div className="py-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-white leading-tight truncate">
+                    {address.label}
+                  </h2>
+                  {address.isApproximate && (
+                    <div className="bg-yellow-500/10 px-1.5 py-0.5 rounded border border-yellow-500/20">
+                      <span className="text-[8px] font-black text-yellow-500 uppercase">Aprox.</span>
+                    </div>
+                  )}
+                </div>
+                {address.subLabel && (
+                  <p className="text-xs text-gray-400 truncate mt-0.5">{address.subLabel}</p>
+                )}
+              </div>
+            ) : (
+              <div className="py-2">
+                <p className="text-sm text-gray-500 italic">Identificando endereço...</p>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-2 h-2 rounded-full ${accuracyQuality !== 'none' ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'bg-gray-600'}`} />
             <span className="text-xs font-medium text-gray-400">
               {accuracyQuality !== 'none' ? 'GPS Ativo e Preciso' : 'Aguardando sinal de GPS...'}
             </span>
           </div>
+
           <button className="w-full bg-[#2a2a2a] text-left px-4 py-4 rounded-xl font-bold text-lg border border-gray-700/50 shadow-inner flex items-center gap-3 active:scale-[0.98] transition-all">
             <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center">
               <MapPin className="w-5 h-5 text-yellow-500" />
