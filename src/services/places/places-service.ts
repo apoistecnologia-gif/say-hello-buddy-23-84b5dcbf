@@ -64,7 +64,7 @@ class PlacesService {
 
     this.lastQuery = normalizedQuery;
 
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const apiKey = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'];
     if (!apiKey) {
       throw this.normalizeError('places_configuration_missing');
     }
@@ -134,7 +134,7 @@ class PlacesService {
   }
 
   public async getPlaceDetails(placeId: string): Promise<DestinationAddress> {
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const apiKey = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'];
     if (!apiKey) {
       throw this.normalizeError('places_configuration_missing');
     }
