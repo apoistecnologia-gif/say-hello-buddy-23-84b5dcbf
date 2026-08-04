@@ -9,6 +9,9 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { useNavigate, useLocation } from "@tanstack/react-router";
+
 
 
 import appCss from "../styles.css?url";
