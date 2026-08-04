@@ -44,7 +44,8 @@ function RootComponent() {
                           <CouponProvider>
                             <CheckoutPreparationProvider>
                               <RideRequestProvider>
-                                <AuthGuard>
+                                <ActiveRideProvider>
+                                  <AuthGuard>
                                   <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
                                     <Outlet />
                                     <BottomNavigation />
