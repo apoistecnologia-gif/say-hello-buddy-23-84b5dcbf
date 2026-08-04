@@ -33,6 +33,19 @@ function CadastroPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 1. CONFIRMAR O SUPABASE USADO EM RUNTIME
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+    const projectRef = supabaseUrl.split(".")[0]?.split("//")[1] || "unknown";
+    const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || "";
+    const keyHash = key ? `${key.substring(0, 5)}...${key.substring(key.length - 5)}` : "missing";
+
+    console.log("[DEBUG] Supabase Runtime Config:", {
+      url: supabaseUrl,
+      projectRef,
+      keyPresent: !!key,
+      keyHash
+    });
+
     if (!name || !email || !phone || !password || !confirmPassword) {
       toast.error("Por favor, preencha todos os campos.");
       return;
@@ -55,6 +68,7 @@ function CadastroPage() {
 
     setLoading(true);
     try {
+      // 2. CAPTURAR O RETORNO REAL DO SIGNUP
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -66,23 +80,35 @@ function CadastroPage() {
         },
       });
 
+      console.log("[DEBUG] signUp Return:", {
+        userPresent: !!data.user,
+        sessionPresent: !!data.session,
+        userId: data.user?.id,
+        errorName: error?.name,
+        errorMessage: error?.message,
+        errorStatus: error?.status
+      });
+
+      // 3. NÃO MOSTRAR SUCESSO QUANDO HOUVER ERRO
       if (error) {
         if (error.message.includes("User already registered")) {
           toast.error("Este e-mail já está cadastrado.");
         } else {
-          toast.error(error.message);
+          toast.error(`Erro no cadastro: ${error.message}`);
         }
+      } else if (!data.user) {
+        // Tratar data.user nulo como falha
+        toast.error("Falha no cadastro: o servidor não retornou um usuário.");
       } else if (data.session) {
-        // Se Confirm email estiver desabilitado, o Supabase retorna a sessão imediatamente
         toast.success("Cadastro realizado com sucesso!");
         navigate({ to: "/inicio" });
       } else {
-        // Caso o projeto exija confirmação de e-mail (data.session === null)
         toast.success("Cadastro realizado! Verifique seu e-mail para confirmar a conta.");
         navigate({ to: "/login" });
       }
-    } catch (err) {
-      toast.error("Ocorreu um erro ao realizar o cadastro.");
+    } catch (err: any) {
+      console.error("[DEBUG] signUp Exception:", err);
+      toast.error("Ocorreu um erro inesperado ao realizar o cadastro.");
     } finally {
       setLoading(false);
     }
