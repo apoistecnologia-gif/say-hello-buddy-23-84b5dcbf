@@ -132,7 +132,7 @@ class GeocodingService {
       address: data.address,
       nearestPoi: data.nearestPoi,
       plusCode: data.plusCode,
-      geocodedPosition: data.geocodedLat ? { lat: data.geocodedLat, lng: data.geocodedLng } : undefined
+      geocodedPosition: data.geocodedLat ? { lat: data.geocodedLat, lng: data.geocodedLng } : null
     };
   }
 
