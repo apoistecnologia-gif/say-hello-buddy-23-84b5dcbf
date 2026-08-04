@@ -26,12 +26,13 @@ export const Route = createFileRoute("/_authenticated/inicio")({
 
 function InicioPage() {
   const navigate = useNavigate();
-  const { address } = usePickupAddress();
+  const { address, status: addressStatus } = usePickupAddress();
   const { destination, hasDestination } = useDestination();
   const { route } = useRoute();
   const { selectedCategory } = useRideCategories();
   const { checkout } = useCheckoutPreparation();
   const { initiateReview } = useRideRequest();
+  const { refreshLocation, isLoading: isLocating } = useLocation();
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPaymentListOpen, setIsPaymentListOpen] = useState(false);
@@ -66,9 +67,22 @@ function InicioPage() {
             <div className="flex-1 min-w-0">
               <p className="text-[10px] font-black uppercase tracking-widest text-apois-yellow mb-0.5">Para onde vamos?</p>
               <p className="text-sm font-bold truncate">
-                {destination?.formattedAddress || destination?.label || "Toque para definir destino"}
+                {addressStatus === "identifying" ? "Identificando sua localização…" : (address || "Toque para definir destino")}
               </p>
             </div>
+          </div>
+          </div>
+
+          {/* Botão de Recentralização */}
+          <div className="absolute right-5 bottom-80 z-20">
+            <button
+              onClick={() => refreshLocation()}
+              disabled={isLocating}
+              aria-label="Recentralizar no mapa"
+              className="w-12 h-12 bg-black/80 backdrop-blur-md border border-white/10 rounded-2xl flex items-center justify-center text-apois-yellow shadow-2xl active:scale-90 transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={cn("w-5 h-5", isLocating && "animate-spin")} />
+            </button>
           </div>
         </div>
 

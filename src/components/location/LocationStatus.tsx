@@ -1,7 +1,7 @@
 import React from "react";
 import { useLocation } from "@/hooks/use-location";
 import { Button } from "@/components/ui/button";
-import { MapPin, ShieldAlert, RefreshCw } from "lucide-react";
+import { MapPin, ShieldAlert, RefreshCw, Settings } from "lucide-react";
 
 export const LocationStatus: React.FC = () => {
   const { location, isLoading, error, permissionState, requestPermission, refreshPosition } = useLocation();

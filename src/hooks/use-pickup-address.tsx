@@ -36,8 +36,8 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
       // Basic parsing for label/short label
       const parts = formattedAddress.split(",");
       if (parts.length > 0) {
-        setPickupShortLabel(parts[0].trim());
-        setPickupLabel(parts.slice(0, 2).join(", ").trim());
+        setPickupShortLabel(parts[0]?.trim() || "Localização atual");
+        setPickupLabel(parts.slice(0, 2).join(", ").trim() || "Minha Localização");
       } else {
         setPickupLabel("Minha Localização");
         setPickupShortLabel("Localização atual");
