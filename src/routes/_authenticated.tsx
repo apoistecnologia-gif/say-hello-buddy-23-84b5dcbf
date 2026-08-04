@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Toaster } from "@/components/ui/sonner";
 import { LocationProvider } from "@/hooks/use-location";
@@ -21,17 +21,6 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-  const location = useLocation();
-  
-  // As rotas que devem ter a BottomNavigation
-  const showBottomNav = [
-    "/inicio",
-    "/corridas",
-    "/carteira",
-    "/notificacoes",
-    "/perfil"
-  ].includes(location.pathname);
-
   return (
     <LocationProvider>
       <PickupAddressProvider>
@@ -49,7 +38,7 @@ function AuthenticatedLayout() {
                               <ActiveRideProvider>
                                 <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
                                   <Outlet />
-                                  {showBottomNav && <BottomNavigation />}
+                                  <BottomNavigation />
                                   <Toaster />
                                 </div>
                               </ActiveRideProvider>
