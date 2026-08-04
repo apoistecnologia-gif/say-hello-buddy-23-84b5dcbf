@@ -11,6 +11,7 @@ export interface PaymentMethod {
 export interface WalletSummary {
   passenger_id: string;
   balance: number;
+  available_balance: number;
   is_blocked: boolean;
   available_balance?: number;
   status?: string;
