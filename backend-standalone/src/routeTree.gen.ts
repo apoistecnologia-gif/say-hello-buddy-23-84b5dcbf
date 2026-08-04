@@ -18,6 +18,7 @@ import { Route as ApiPublicHooksActivateScheduledRidesRouteImport } from './rout
 import { Route as ApiPassengerRoutesComputeRouteImport } from './routes/api/passenger/routes/compute'
 import { Route as ApiPassengerRidesRatingRouteImport } from './routes/api/passenger/rides/rating'
 import { Route as ApiPassengerRidesCancelRouteImport } from './routes/api/passenger/rides/cancel'
+import { Route as ApiPassengerPricingEstimateRouteImport } from './routes/api/passenger/pricing/estimate'
 import { Route as ApiPassengerGeocodeReverseRouteImport } from './routes/api/passenger/geocode/reverse'
 import { Route as ApiPassengerGeocodeNearestPoiRouteImport } from './routes/api/passenger/geocode/nearest-poi'
 import { Route as ApiDriverRoutesComputeRouteImport } from './routes/api/driver/routes/compute'
@@ -71,6 +72,12 @@ const ApiPassengerRidesCancelRoute = ApiPassengerRidesCancelRouteImport.update({
   path: '/api/passenger/rides/cancel',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPassengerPricingEstimateRoute =
+  ApiPassengerPricingEstimateRouteImport.update({
+    id: '/api/passenger/pricing/estimate',
+    path: '/api/passenger/pricing/estimate',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPassengerGeocodeReverseRoute =
   ApiPassengerGeocodeReverseRouteImport.update({
     id: '/api/passenger/geocode/reverse',
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/api/driver/routes/compute': typeof ApiDriverRoutesComputeRoute
   '/api/passenger/geocode/nearest-poi': typeof ApiPassengerGeocodeNearestPoiRoute
   '/api/passenger/geocode/reverse': typeof ApiPassengerGeocodeReverseRoute
+  '/api/passenger/pricing/estimate': typeof ApiPassengerPricingEstimateRoute
   '/api/passenger/rides/cancel': typeof ApiPassengerRidesCancelRoute
   '/api/passenger/rides/rating': typeof ApiPassengerRidesRatingRoute
   '/api/passenger/routes/compute': typeof ApiPassengerRoutesComputeRoute
@@ -118,6 +126,7 @@ export interface FileRoutesByTo {
   '/api/driver/routes/compute': typeof ApiDriverRoutesComputeRoute
   '/api/passenger/geocode/nearest-poi': typeof ApiPassengerGeocodeNearestPoiRoute
   '/api/passenger/geocode/reverse': typeof ApiPassengerGeocodeReverseRoute
+  '/api/passenger/pricing/estimate': typeof ApiPassengerPricingEstimateRoute
   '/api/passenger/rides/cancel': typeof ApiPassengerRidesCancelRoute
   '/api/passenger/rides/rating': typeof ApiPassengerRidesRatingRoute
   '/api/passenger/routes/compute': typeof ApiPassengerRoutesComputeRoute
@@ -134,6 +143,7 @@ export interface FileRoutesById {
   '/api/driver/routes/compute': typeof ApiDriverRoutesComputeRoute
   '/api/passenger/geocode/nearest-poi': typeof ApiPassengerGeocodeNearestPoiRoute
   '/api/passenger/geocode/reverse': typeof ApiPassengerGeocodeReverseRoute
+  '/api/passenger/pricing/estimate': typeof ApiPassengerPricingEstimateRoute
   '/api/passenger/rides/cancel': typeof ApiPassengerRidesCancelRoute
   '/api/passenger/rides/rating': typeof ApiPassengerRidesRatingRoute
   '/api/passenger/routes/compute': typeof ApiPassengerRoutesComputeRoute
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/api/driver/routes/compute'
     | '/api/passenger/geocode/nearest-poi'
     | '/api/passenger/geocode/reverse'
+    | '/api/passenger/pricing/estimate'
     | '/api/passenger/rides/cancel'
     | '/api/passenger/rides/rating'
     | '/api/passenger/routes/compute'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/api/driver/routes/compute'
     | '/api/passenger/geocode/nearest-poi'
     | '/api/passenger/geocode/reverse'
+    | '/api/passenger/pricing/estimate'
     | '/api/passenger/rides/cancel'
     | '/api/passenger/rides/rating'
     | '/api/passenger/routes/compute'
@@ -181,6 +193,7 @@ export interface FileRouteTypes {
     | '/api/driver/routes/compute'
     | '/api/passenger/geocode/nearest-poi'
     | '/api/passenger/geocode/reverse'
+    | '/api/passenger/pricing/estimate'
     | '/api/passenger/rides/cancel'
     | '/api/passenger/rides/rating'
     | '/api/passenger/routes/compute'
@@ -197,6 +210,7 @@ export interface RootRouteChildren {
   ApiDriverRoutesComputeRoute: typeof ApiDriverRoutesComputeRoute
   ApiPassengerGeocodeNearestPoiRoute: typeof ApiPassengerGeocodeNearestPoiRoute
   ApiPassengerGeocodeReverseRoute: typeof ApiPassengerGeocodeReverseRoute
+  ApiPassengerPricingEstimateRoute: typeof ApiPassengerPricingEstimateRoute
   ApiPassengerRidesCancelRoute: typeof ApiPassengerRidesCancelRoute
   ApiPassengerRidesRatingRoute: typeof ApiPassengerRidesRatingRoute
   ApiPassengerRoutesComputeRoute: typeof ApiPassengerRoutesComputeRoute
@@ -269,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPassengerRidesCancelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/passenger/pricing/estimate': {
+      id: '/api/passenger/pricing/estimate'
+      path: '/api/passenger/pricing/estimate'
+      fullPath: '/api/passenger/pricing/estimate'
+      preLoaderRoute: typeof ApiPassengerPricingEstimateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/passenger/geocode/reverse': {
       id: '/api/passenger/geocode/reverse'
       path: '/api/passenger/geocode/reverse'
@@ -309,6 +330,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDriverRoutesComputeRoute: ApiDriverRoutesComputeRoute,
   ApiPassengerGeocodeNearestPoiRoute: ApiPassengerGeocodeNearestPoiRoute,
   ApiPassengerGeocodeReverseRoute: ApiPassengerGeocodeReverseRoute,
+  ApiPassengerPricingEstimateRoute: ApiPassengerPricingEstimateRoute,
   ApiPassengerRidesCancelRoute: ApiPassengerRidesCancelRoute,
   ApiPassengerRidesRatingRoute: ApiPassengerRidesRatingRoute,
   ApiPassengerRoutesComputeRoute: ApiPassengerRoutesComputeRoute,
