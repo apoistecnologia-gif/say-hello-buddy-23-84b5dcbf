@@ -84,7 +84,7 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
       category: selectedCategory.key as any,
       distance_km: route ? route.distanceMeters / 1000 : null,
       duration_min: route ? route.durationSeconds / 60 : null,
-      estimated_price: estimate?.baseFare ? estimate.baseFare + (estimate.extrasTotal || 0) : null,
+      estimated_price: estimate?.base_fare ? estimate.base_fare + (estimate.extrasTotal || 0) : null,
       pickup_label: pickupLabel,
       pickup_short_label: pickupShortLabel,
       pickup_address: address,
