@@ -70,8 +70,12 @@ export const CategorySelector: React.FC = () => {
               <span className="text-[13px] font-bold block leading-tight truncate w-24">
                 {categoryLabel}
               </span>
-              <span className="text-[11px] font-medium opacity-80 mt-1 block">
+              <span className={cn(
+                "text-[11px] font-black mt-1 block",
+                isSelected ? "text-black/70" : "text-apois-yellow"
+              )}>
                 {!isAvailable 
+
                   ? "Indisponível"
                   : pricingStatus === "loading"
                     ? "Calculando..."
