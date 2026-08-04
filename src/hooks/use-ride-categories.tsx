@@ -25,7 +25,7 @@ export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = (
       const data = await categoryService.getCategories();
       setCategories(data);
       if (data.length > 0 && !selectedCategory) {
-        setSelectedCategory(data[0]);
+        setSelectedCategory(data[0] || null);
       }
     } catch (error) {
       console.error("[RideCategoriesProvider] Error:", error);
