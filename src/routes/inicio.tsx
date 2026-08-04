@@ -1,17 +1,29 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useLocation } from "@/hooks/use-location";
 import { usePickupAddress } from "@/hooks/use-pickup-address";
+import { useDestination } from "@/hooks/use-destination";
 import { LocationStatus } from "@/components/location/LocationStatus";
 import PassengerMap from "@/components/map/PassengerMap";
-import { MapPin, Shield, AlertCircle, Loader2 } from "lucide-react";
+import { MapPin, Shield, AlertCircle, Loader2, X } from "lucide-react";
 
 export const Route = createFileRoute("/inicio")({
   component: InicioPage,
 });
 
 function InicioPage() {
+  const navigate = useNavigate();
   const { accuracyQuality } = useLocation();
   const { address, status, isLoading, error, refreshAddress } = usePickupAddress();
+  const { destination, clearDestination, hasDestination } = useDestination();
+
+  const handleOpenSearch = () => {
+    navigate({ to: '/buscar-destino' });
+  };
+
+  const handleClearDestination = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    clearDestination();
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white relative">
@@ -72,11 +84,31 @@ function InicioPage() {
             </span>
           </div>
 
-          <button className="w-full bg-[#2a2a2a] text-left px-4 py-4 rounded-xl font-bold text-lg border border-gray-700/50 shadow-inner flex items-center gap-3 active:scale-[0.98] transition-all">
+          <button 
+            onClick={handleOpenSearch}
+            className="w-full bg-[#2a2a2a] text-left px-4 py-4 rounded-xl font-bold text-lg border border-gray-700/50 shadow-inner flex items-center gap-3 active:scale-[0.98] transition-all"
+          >
             <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center">
-              <MapPin className="w-5 h-5 text-yellow-500" />
+              <MapPin className={`w-5 h-5 ${hasDestination ? 'text-blue-500' : 'text-yellow-500'}`} />
             </div>
-            <span className="text-zinc-200">Para onde vamos?</span>
+            <div className="flex-1 min-w-0">
+              {hasDestination ? (
+                <div>
+                  <p className="text-white text-base truncate leading-tight">{destination?.label}</p>
+                  <p className="text-gray-400 text-[10px] font-medium truncate mt-0.5">{destination?.subLabel}</p>
+                </div>
+              ) : (
+                <span className="text-zinc-200">Para onde vamos?</span>
+              )}
+            </div>
+            {hasDestination && (
+              <button 
+                onClick={handleClearDestination}
+                className="p-2 -mr-1 text-gray-500 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </button>
         </div>
       </div>
