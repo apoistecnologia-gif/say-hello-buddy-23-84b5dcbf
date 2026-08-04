@@ -17,6 +17,7 @@ import { ServiceDetailsForm } from "@/components/pricing/ServiceDetailsForm";
 import { PaymentMethodSelector, PaymentMethodList } from "@/components/payments/PaymentMethodSelector";
 import { CouponInput } from "@/components/coupons/CouponInput";
 import { CheckoutSummary } from "@/components/pricing/CheckoutSummary";
+import { FareDetails } from "@/components/pricing/FareDetails";
 import { MapPin, ChevronRight, Settings2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
