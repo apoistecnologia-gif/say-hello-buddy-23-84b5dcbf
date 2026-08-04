@@ -1,4 +1,4 @@
-import { AppLocation } from '../location';
+import { AppLocation } from './location';
 
 export type MapErrorCode =
   | 'maps_configuration_missing'
