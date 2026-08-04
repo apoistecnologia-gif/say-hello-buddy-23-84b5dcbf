@@ -31,7 +31,7 @@ export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = (
           const saved = localStorage.getItem(`apois:passageiro:${user.id}:payment_method`);
           if (saved && data && (data as PaymentMethod[]).some(m => m.code === saved)) {
             setSelectedMethod(saved as PaymentMethodCode);
-          } else if (data.length > 0) {
+          } else if (data && data.length > 0) {
             setSelectedMethod(data[0].code);
           }
         }
