@@ -1,48 +1,41 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { DestinationAddress } from '../types/places';
+import React, { createContext, useContext, useState } from "react";
+
+export interface Destination {
+  label: string;
+  formattedAddress: string;
+  latitude: number;
+  longitude: number;
+  placeId: string;
+}
 
 interface DestinationContextType {
-  destination: DestinationAddress | null;
-  setDestination: (destination: DestinationAddress | null) => void;
-  clearDestination: () => void;
+  destination: Destination | null;
+  setDestination: (dest: Destination | null) => void;
   hasDestination: boolean;
-  selectedAt: string | null;
-  source: 'google_places' | null;
+  clearDestination: () => void;
 }
 
 const DestinationContext = createContext<DestinationContextType | undefined>(undefined);
 
-export function DestinationProvider({ children }: { children: ReactNode }) {
-  const [destination, setDestinationState] = useState<DestinationAddress | null>(null);
+export const DestinationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [destination, setDestination] = useState<Destination | null>(null);
 
-  const setDestination = (dest: DestinationAddress | null) => {
-    setDestinationState(dest);
-  };
-
-  const clearDestination = () => {
-    setDestinationState(null);
-  };
+  const clearDestination = () => setDestination(null);
 
   return (
-    <DestinationContext.Provider
-      value={{
-        destination,
-        setDestination,
-        clearDestination,
-        hasDestination: !!destination,
-        selectedAt: destination?.selectedAt || null,
-        source: destination?.source || null,
-      }}
-    >
+    <DestinationContext.Provider value={{ 
+      destination, 
+      setDestination, 
+      hasDestination: !!destination,
+      clearDestination
+    }}>
       {children}
     </DestinationContext.Provider>
   );
-}
+};
 
-export function useDestination() {
+export const useDestination = () => {
   const context = useContext(DestinationContext);
-  if (context === undefined) {
-    throw new Error('useDestination must be used within a DestinationProvider');
-  }
+  if (!context) throw new Error("useDestination must be used within DestinationProvider");
   return context;
-}
+};
