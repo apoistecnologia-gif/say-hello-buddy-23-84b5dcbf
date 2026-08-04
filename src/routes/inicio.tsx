@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useLocation } from "@/hooks/use-location";
+import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { LocationStatus } from "@/components/location/LocationStatus";
 import PassengerMap from "@/components/map/PassengerMap";
-import { MapPin, Shield } from "lucide-react";
+import { MapPin, Shield, AlertCircle, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/inicio")({
   component: InicioPage,
