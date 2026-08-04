@@ -54,21 +54,27 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let watchId: string;
     
     const startWatch = async () => {
-      watchId = await Geolocation.watchPosition({ enableHighAccuracy: true }, (position, err) => {
-        if (err) {
-          setError(err.message);
-          setIsLoading(false);
-          return;
-        }
-        if (position) {
-          setLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy
-          });
-          setIsLoading(false);
-        }
-      });
+      try {
+        watchId = await Geolocation.watchPosition({ enableHighAccuracy: true }, (position, err) => {
+          if (err) {
+            console.warn("[useLocation] Watch error:", err);
+            setError(err.message);
+            setIsLoading(false);
+            return;
+          }
+          if (position) {
+            setLocation({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy
+            });
+            setIsLoading(false);
+          }
+        });
+      } catch (e) {
+        console.error("[useLocation] Failed to start watch:", e);
+        setIsLoading(false);
+      }
     };
 
     startWatch();
