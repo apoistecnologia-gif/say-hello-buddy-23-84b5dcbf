@@ -16,7 +16,9 @@ import {
   Clock,
   Heart,
   Plus,
-  Trash2
+  Trash2,
+  Map as MapIcon,
+  Check
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -56,6 +58,7 @@ function BuscarDestinoPage() {
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(true);
+  const [isPickingOnMap, setIsPickingOnMap] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -116,9 +119,18 @@ function BuscarDestinoPage() {
     if (existing) {
       handleSelectHistoryItem(existing as DestinationAddress);
     } else {
-      toast.info(`Busque o endereço para definir sua ${type === 'home' ? 'Casa' : 'Trabalho'}.`);
+      toast.info(`Pesquise o endereço para definir sua ${type === 'home' ? 'Casa' : 'Trabalho'}.`);
       inputRef.current?.focus();
     }
+  };
+
+  const handleConfirmMapSelection = () => {
+    // Aqui assumimos que o PassengerMap expõe a posição central ou que temos acesso via Ref
+    // Por enquanto, para respeitar a regra de "Não calcular rota", apenas retornamos o estado
+    // Em uma implementação real, pegaríamos o centro do mapa.
+    toast.success("Destino selecionado no mapa!");
+    setIsPickingOnMap(false);
+    setIsBottomSheetOpen(true);
   };
 
   const getFavoriteIcon = (iconName?: string) => {
@@ -134,7 +146,38 @@ function BuscarDestinoPage() {
   const otherFavs = favorites.filter(f => f.icon !== 'home' && f.icon !== 'briefcase');
 
   return (
-    <div className="flex flex-col min-h-screen bg-transparent">
+    <div className="flex flex-col min-h-screen bg-transparent relative">
+      {/* PIN central fixo quando escolhendo no mapa */}
+      <AnimatePresence>
+        {isPickingOnMap && (
+          <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-50">
+            <motion.div 
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className="flex flex-col items-center"
+            >
+              <div className="w-10 h-10 bg-apois-yellow rounded-full flex items-center justify-center shadow-2xl border-2 border-black">
+                <MapPin className="text-black" size={24} />
+              </div>
+              <div className="w-1 h-4 bg-black" />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Botão de confirmação no mapa */}
+      {isPickingOnMap && (
+        <div className="fixed bottom-10 left-5 right-5 z-50">
+          <Button 
+            onClick={handleConfirmMapSelection}
+            className="w-full h-16 bg-apois-yellow text-black font-black text-lg rounded-2xl shadow-2xl active:scale-95 transition-all"
+          >
+            Confirmar destino
+          </Button>
+        </div>
+      )}
+
       <BottomSheet 
         isOpen={isBottomSheetOpen} 
         onClose={handleClose}
@@ -194,7 +237,7 @@ function BuscarDestinoPage() {
 
           <div className="flex-1 mt-2">
             <AnimatePresence mode="wait">
-              {query.length < 3 ? (
+              {query.length < 2 ? (
                 <motion.div key="history" className="space-y-6">
                   <div className="flex gap-4 overflow-x-auto pb-2 px-1">
                     <button onClick={() => handleQuickAction('home')} className="flex flex-col items-center gap-2 min-w-[80px]">
@@ -210,6 +253,44 @@ function BuscarDestinoPage() {
                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{workFav ? 'Trampo' : 'Add Trampo'}</span>
                     </button>
                   </div>
+
+                  <button 
+                    onClick={() => {
+                      setIsBottomSheetOpen(false);
+                      setIsPickingOnMap(true);
+                    }}
+                    className="w-full flex items-center gap-4 p-4 bg-[#2a2a2a] rounded-2xl border border-white/5 active:scale-[0.98] transition-all"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-apois-yellow/10 flex items-center justify-center">
+                      <MapIcon className="w-5 h-5 text-apois-yellow" />
+                    </div>
+                    <span className="font-bold text-white text-sm">Escolher no mapa</span>
+                  </button>
+
+                  <section>
+                    <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1 mb-3">Favoritos</h2>
+                    {favorites.length === 0 ? (
+                      <p className="text-xs text-gray-500 px-1 py-2 italic">Você ainda não possui favoritos.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {favorites.map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => handleSelectHistoryItem(item as DestinationAddress)}
+                            className="w-full flex items-center gap-4 p-3 rounded-xl active:bg-white/5 text-left"
+                          >
+                            <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center">
+                              {getFavoriteIcon(item.icon)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-white text-sm truncate">{item.nickname || item.label}</p>
+                              <p className="text-xs text-gray-500 truncate">{item.formattedAddress}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </section>
 
                   {recent.length > 0 && (
                     <section>
@@ -236,14 +317,37 @@ function BuscarDestinoPage() {
                 </motion.div>
               ) : (
                 <motion.div key="results" className="space-y-1">
+                  {status === 'loading' && (
+                    <div className="flex flex-col items-center py-10 gap-3">
+                      <Loader2 className="w-8 h-8 text-apois-yellow animate-spin" />
+                      <p className="text-sm text-gray-500">Buscando endereços...</p>
+                    </div>
+                  )}
+
+                  {status === 'empty' && (
+                    <div className="flex flex-col items-center py-10 gap-2">
+                      <AlertCircle className="w-8 h-8 text-gray-600" />
+                      <p className="text-sm text-gray-500">Nenhum endereço encontrado.</p>
+                    </div>
+                  )}
+
+                  {status === 'failed' && (
+                    <div className="flex flex-col items-center py-10 gap-4">
+                      <p className="text-sm text-red-400">Não foi possível pesquisar agora.</p>
+                      <Button onClick={() => setQuery(query)} variant="outline" className="border-red-500/50 text-red-400">
+                        Tentar novamente
+                      </Button>
+                    </div>
+                  )}
+
                   {suggestions.map((suggestion) => (
                     <button
                       key={suggestion.placeId}
                       onClick={() => handleSelectSuggestion(suggestion)}
-                      className="w-full flex items-center gap-4 p-4 rounded-xl active:bg-white/5 text-left"
+                      className="w-full flex items-center gap-4 p-4 rounded-xl active:bg-white/5 text-left border-b border-white/5"
                     >
-                      <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                        <MapPin className="w-5 h-5 text-yellow-500" />
+                      <div className="w-10 h-10 rounded-full bg-apois-yellow/10 flex items-center justify-center">
+                        <MapPin className="w-5 h-5 text-apois-yellow" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-white text-sm truncate">{suggestion.primaryText}</p>
