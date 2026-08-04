@@ -4,6 +4,7 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { LocationProvider } from "@/hooks/use-location";
 import { PickupAddressProvider } from "@/hooks/use-pickup-address";
 import { DestinationProvider } from "@/hooks/use-destination";
+import { RideStopsProvider } from "@/hooks/rides/use-ride-stops";
 import { DestinationHistoryProvider } from "@/hooks/use-destination-history";
 import { RouteProvider } from "@/hooks/use-route";
 import { RideCategoriesProvider } from '@/hooks/use-ride-categories';
@@ -32,6 +33,7 @@ function RootComponent() {
         <LocationProvider>
           <PickupAddressProvider>
             <DestinationProvider>
+              <RideStopsProvider>
               <DestinationHistoryProvider>
                 <RouteProvider>
                   <RideCategoriesProvider>
@@ -57,6 +59,7 @@ function RootComponent() {
                   </RideCategoriesProvider>
                 </RouteProvider>
               </DestinationHistoryProvider>
+            </RideStopsProvider>
             </DestinationProvider>
           </PickupAddressProvider>
         </LocationProvider>

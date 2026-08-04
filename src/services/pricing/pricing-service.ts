@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { 
-  RideCategoryKey, 
+   
   CategoryTariff, 
   FareEstimate, 
   ServiceDetails,

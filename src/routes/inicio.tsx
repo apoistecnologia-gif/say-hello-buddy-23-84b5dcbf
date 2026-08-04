@@ -12,6 +12,7 @@ import { useRideRequest } from "@/hooks/rides/use-ride-request";
 import { LocationStatus } from "@/components/location/LocationStatus";
 import PassengerMap from "@/components/map/PassengerMap";
 import { CategorySelector } from "@/components/pricing/CategorySelector";
+import { RideStopsInput } from "@/components/rides/RideStopsInput";
 import { ServiceDetailsForm } from "@/components/pricing/ServiceDetailsForm";
 import { PaymentMethodSelector, PaymentMethodList } from "@/components/payments/PaymentMethodSelector";
 import { CouponInput } from "@/components/coupons/CouponInput";
@@ -83,6 +84,7 @@ function InicioPage() {
                    )}
                 </div>
                 
+                <RideStopsInput />
                 <CategorySelector />
                 
                 <div className="px-5 space-y-4">

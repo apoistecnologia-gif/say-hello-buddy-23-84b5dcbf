@@ -18,7 +18,7 @@ export const RouteSummary: React.FC = () => {
   } = useRoute();
   
   const { destination, clearDestination } = useDestination();
-  const { address: pickupAddress } = usePickupAddress();
+  const { address: pickupAddress, pickupLabel } = usePickupAddress();
 
   if (!destination && !route) return null;
 
@@ -57,7 +57,7 @@ export const RouteSummary: React.FC = () => {
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
               </div>
               <p className="text-sm font-medium text-gray-300 truncate">
-                {pickupAddress?.label || 'Seu local'}
+                {pickupLabel || 'Seu local'}
               </p>
             </div>
             
