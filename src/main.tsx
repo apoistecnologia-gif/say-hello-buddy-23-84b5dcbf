@@ -1,12 +1,12 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
+import React from "react";
+import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter, createHashHistory } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { routeTree } from './routeTree.gen'
+import { AuthProvider } from "@/hooks/use-auth";
 import './styles.css'
 
-console.info("APOIS_BUILD_TESTE_2026_08_04_1202");
-console.info("[APOIS] main.tsx iniciado");
+console.info("APOIS_MAIN_INICIADO");
 
 const queryClient = new QueryClient()
 const hashHistory = createHashHistory()
@@ -25,21 +25,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
-const rootElement = document.getElementById('root')
-console.info("[APOIS] root encontrado", !!rootElement);
+const rootElement = document.getElementById("root");
 
-if (rootElement) {
-  console.info("[APOIS] React montando v2");
-  rootElement.innerHTML = "<h1>REACT OVERRIDE TEST</h1>";
-  const root = ReactDOM.createRoot(rootElement)
-  root.render(
-    <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
-    </React.StrictMode>
-  )
-  console.info("[APOIS] Render chamado");
-} else {
-  console.error("[APOIS] Erro: Elemento #root não encontrado");
+if (!rootElement) {
+  throw new Error("Elemento #root não encontrado");
 }
+
+ReactDOM.createRoot(rootElement).render(
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  </QueryClientProvider>
+);
+
+
+
+
