@@ -11,6 +11,10 @@ export class ApiClient {
 
   private constructor() {
     this.baseUrl = import.meta.env['VITE_APOIS_API_URL'] || '';
+    if (import.meta.env.DEV && !this.baseUrl) {
+      // Auto-fallback for development if not in .env
+      this.baseUrl = 'http://localhost:3000';
+    }
   }
 
   public static getInstance(): ApiClient {

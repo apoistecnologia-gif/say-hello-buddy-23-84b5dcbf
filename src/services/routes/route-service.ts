@@ -1,7 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
+import { apiClient } from "../api/api-client";
 import { RouteRequest, RouteResponse } from "@/types/routes";
-
-// Tipagens movidas para @/types/routes.ts
 
 class RouteService {
   private static instance: RouteService;
@@ -31,26 +29,22 @@ class RouteService {
     this.abortController = new AbortController();
 
     try {
-      const { data, error } = await supabase.functions.invoke("compute-route", {
-        body: request,
-        headers: {
-          "X-Client-Timeout": "15000"
-        }
+      // Redireciona para o endpoint do backend standalone (Nitro)
+      const response = await apiClient.post<any>('/api/passenger/routes/compute', request, {
+        signal: this.abortController.signal,
+        timeout: 15000
       });
 
-      if (error) {
-        if (error.status === 401) throw new Error("Não autenticado");
-        if (error.status === 403) throw new Error("Sem permissão para passageiro");
-        if (error.status === 429) throw new Error("Muitas requisições. Tente mais tarde.");
-        throw error;
+      if (!response || !response.ok) {
+        throw new Error(response?.error || 'Falha ao calcular rota');
       }
 
-      const response = data as RouteResponse;
-      this.cache.set(cacheKey, { data: response, timestamp: Date.now() });
-      return response;
+      const routeData = response.route as RouteResponse;
+      this.cache.set(cacheKey, { data: routeData, timestamp: Date.now() });
+      return routeData;
     } catch (err: any) {
-      if (err.name === 'AbortError') throw err;
-      console.error("[RouteService] Error computing route:", err);
+      if (err.name === 'AbortError' || err.message === 'geocode_cancelled') throw err;
+      console.error("[RouteService] Error computing route via backend:", err);
       throw err;
     } finally {
       this.abortController = null;
