@@ -1,4 +1,4 @@
-import { PLACES_CONFIG } from '../services/places/places-config';
+import { PLACES_CONFIG } from '../places/places-config';
 
 /**
  * Carregador centralizado para a Google Maps JavaScript API.
@@ -27,7 +27,7 @@ class GoogleMapsLoader {
       return this.loadPromise;
     }
 
-    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const apiKey = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'];
     if (!apiKey) {
       console.error('VITE_GOOGLE_MAPS_API_KEY is not defined');
       throw new Error('places_configuration_missing');
@@ -72,9 +72,9 @@ class GoogleMapsLoader {
         v: "weekly",
       }, apiKey);
 
-      // Aguarda a disponibilidade do importLibrary
       const checkInterval = setInterval(() => {
-        if ((window as any).google?.maps?.importLibrary) {
+        const maps = (window as any).google?.maps;
+        if (maps && typeof maps.importLibrary === 'function') {
           clearInterval(checkInterval);
           this.clearTimer();
           resolve();
