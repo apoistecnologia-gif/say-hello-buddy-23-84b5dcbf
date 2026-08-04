@@ -32,7 +32,8 @@ Deno.serve(async (req) => {
 
     const { data: rules, error: ruleError } = await supabaseAdmin
       .from("tariff_rules")
-      .select("*");
+      .select("category_id, base_fare, per_km, per_min, min_fare, stop_fee, fixed_fee")
+      .eq("is_active", true);
 
     if (ruleError) throw ruleError;
 
@@ -42,15 +43,19 @@ Deno.serve(async (req) => {
     const estimates = (categories || [])
       .filter(cat => !categoryIds || categoryIds.includes(cat.id))
       .map(cat => {
-        const catRules = rules?.filter(r => r.category_id === cat.id || r.category_key === cat.code);
-        if (!catRules?.length) {
+        const catRule = rules?.find(r => r.category_id === cat.id);
+        if (!catRule) {
           return { categoryId: cat.id, available: false, unavailableReason: "Sem regras de tarifa" };
         }
 
-        const tariff: Record<string, number> = {};
-        catRules.forEach(r => {
-          tariff[r.field_key] = Number(r.value);
-        });
+        const tariff: Record<string, number> = {
+          base_fare: Number(catRule.base_fare),
+          per_km: Number(catRule.per_km),
+          per_min: Number(catRule.per_min),
+          min_fare: Number(catRule.min_fare),
+          stop_fee: Number(catRule.stop_fee),
+          fixed_fee: Number(catRule.fixed_fee)
+        };
 
         try {
           const breakdown = calculateServerFare({
