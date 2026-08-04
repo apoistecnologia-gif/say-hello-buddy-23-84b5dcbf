@@ -22,7 +22,7 @@ export const testOfficialProject = async () => {
   
   return { 
     success: true, 
-    url: import.meta.env.VITE_SUPABASE_URL,
+    url: import.meta.env['VITE_SUPABASE_URL'],
     categoriesCount: categories?.length 
   };
 };
