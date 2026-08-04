@@ -15,6 +15,12 @@ import { PickupAddressProvider } from "@/hooks/use-pickup-address";
 import { DestinationProvider } from "@/hooks/use-destination";
 import { DestinationHistoryProvider } from "@/hooks/use-destination-history";
 import { RouteProvider } from "@/hooks/use-route";
+import { RideCategoriesProvider } from '@/hooks/use-ride-categories';
+import { PricingProvider } from '@/hooks/use-pricing';
+import { PaymentMethodsProvider } from '@/hooks/use-payment-methods';
+import { WalletProvider } from '@/hooks/use-wallet';
+import { CouponProvider } from '@/hooks/use-coupon';
+import { CheckoutPreparationProvider } from '@/hooks/use-checkout-preparation';
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { initializeNativePlatform, hideSplashScreen, setupBackButton } from "@/lib/platform/native";
 
@@ -153,12 +159,24 @@ function RootComponent() {
             <DestinationProvider>
               <DestinationHistoryProvider>
                 <RouteProvider>
-                  <AuthGuard>
-                  <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
-                    <Outlet />
-                    <BottomNavigation />
-                  </div>
-                </AuthGuard>
+                  <RideCategoriesProvider>
+                    <PricingProvider>
+                      <PaymentMethodsProvider>
+                        <WalletProvider>
+                          <CouponProvider>
+                            <CheckoutPreparationProvider>
+                              <AuthGuard>
+                                <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
+                                  <Outlet />
+                                  <BottomNavigation />
+                                </div>
+                              </AuthGuard>
+                            </CheckoutPreparationProvider>
+                          </CouponProvider>
+                        </WalletProvider>
+                      </PaymentMethodsProvider>
+                    </PricingProvider>
+                  </RideCategoriesProvider>
                 </RouteProvider>
               </DestinationHistoryProvider>
             </DestinationProvider>
