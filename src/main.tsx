@@ -31,11 +31,16 @@ if (!rootElement.innerHTML) {
   try {
     const root = ReactDOM.createRoot(rootElement)
     console.info("[APOIS] React montando");
+    console.info("[APOIS] rootElement innerHTML antes:", rootElement.innerHTML);
     root.render(
       <React.StrictMode>
+        <div style={{ position: 'fixed', top: 50, right: 10, background: 'blue', color: 'white', padding: '10px', zIndex: 10000 }}>
+          DEBUG REACT MOUNTED
+        </div>
         <RouterProvider router={router} />
       </React.StrictMode>,
     )
+    console.info("[APOIS] Render chamado");
   } catch (error) {
     console.error('Critical Render Error:', error)
     rootElement.innerHTML = `
