@@ -155,8 +155,8 @@ function InicioPage() {
           
           <div className="bg-[#1e1e1e]/95 backdrop-blur-lg rounded-3xl pt-5 pb-5 border border-white/5 shadow-2xl">
             {(hasDestination || route) ? (
-              <div className="animate-in fade-in slide-in-from-bottom duration-500">
-                <div className="px-5 mb-4 flex items-center justify-between">
+              <div className="animate-in fade-in slide-in-from-bottom duration-500 space-y-4">
+                <div className="px-5 flex items-center justify-between">
                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Escolha a Categoria</p>
                    {selectedCategory && (selectedCategory.key === 'fretes' || selectedCategory.key === 'guincho' || selectedCategory.key === 'envios') && (
                      <button 
@@ -171,19 +171,26 @@ function InicioPage() {
                 
                 <CategorySelector />
                 
-                <div className="px-5 pt-4 border-t border-white/5 flex items-center justify-between">
-                  <FareDetails />
+                <div className="px-5 space-y-4">
+                  <PaymentMethodSelector onOpenList={() => setIsPaymentListOpen(true)} />
+                  <CouponInput />
                   
+                  <div className="pt-2">
+                    <CheckoutSummary />
+                  </div>
+                </div>
+
+                <div className="px-5 pt-4 border-t border-white/5">
                   <button 
-                    disabled={pricingStatus !== "success"}
+                    disabled={!checkout.readiness}
                     className={cn(
-                      "flex items-center gap-2 px-8 py-4 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
-                      pricingStatus === "success" 
+                      "w-full flex items-center justify-center gap-2 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
+                      checkout.readiness
                         ? "bg-apois-yellow text-black shadow-apois-yellow/20" 
                         : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
                     )}
                   >
-                    Confirmar {selectedCategory?.label || "Viagem"}
+                    {checkout.readiness ? "Continuar" : "Revisar Solicitação"}
                     <ChevronRight size={20} strokeWidth={3} />
                   </button>
                 </div>
@@ -207,6 +214,11 @@ function InicioPage() {
       <ServiceDetailsForm 
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
+      />
+      
+      <PaymentMethodList 
+        isOpen={isPaymentListOpen}
+        onClose={() => setIsPaymentListOpen(false)}
       />
     </div>
   );
