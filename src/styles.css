@@ -15,14 +15,24 @@
   body {
     @apply bg-black text-white antialiased overflow-x-hidden;
     -webkit-tap-highlight-color: transparent;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
   
-  /* Mobile-first adjustments */
   input, button {
     @apply outline-none transition-all duration-200;
+  }
+
+  /* Prevent zoom on input focus for iOS/Android */
+  input[type="text"], input[type="password"], input[type="email"], textarea {
+    font-size: 16px !important;
   }
 }
 
 @utility pb-safe-area-inset-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+@utility pt-safe-area-inset-top {
+  padding-top: env(safe-area-inset-top);
+}
+
