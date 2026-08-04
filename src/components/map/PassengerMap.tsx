@@ -5,11 +5,11 @@ import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { useDestination } from "@/hooks/use-destination";
 
 interface PassengerMapProps {
-  origin?: { lat: number; lng: number };
-  destination?: { lat: number; lng: number };
+  origin: { lat: number; lng: number } | undefined;
+  destination: { lat: number; lng: number } | undefined;
   encodedPolyline: string | undefined;
-  driverLocation?: { lat: number; lng: number; heading?: number };
-  isStatic?: boolean;
+  driverLocation: { lat: number; lng: number; heading?: number } | undefined;
+  isStatic: boolean | undefined;
 }
 
 const PassengerMap: React.FC<PassengerMapProps> = ({ 
