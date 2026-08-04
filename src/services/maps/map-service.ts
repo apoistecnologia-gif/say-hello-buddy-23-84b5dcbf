@@ -191,7 +191,8 @@ class MapService {
       } as any]);
 
       if (polylineIds.length > 0) {
-        this.routePolylineId.set(mapId, polylineIds[0]);
+        const polylineId = polylineIds[0] as string | undefined;
+        if (polylineId) this.routePolylineId.set(mapId, polylineId);
       }
     } catch (error) {
       console.error('Error upserting route polyline:', error);
