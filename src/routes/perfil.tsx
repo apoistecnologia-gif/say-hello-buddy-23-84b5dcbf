@@ -68,7 +68,7 @@ function PerfilPage() {
   );
 }
 
-function MenuLink({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string }) {
+function MenuLink({ icon, label, value }: { icon: React.ReactNode, label: string, value?: string | null }) {
   return (
     <button className="w-full flex items-center justify-between p-4 bg-[#121212] hover:bg-[#1a1a1a] rounded-xl transition-colors text-left group">
       <div className="flex items-center gap-4">
