@@ -51,7 +51,8 @@ function RootComponent() {
                                     <BottomNavigation />
                                     <Toaster />
                                   </div>
-                                </AuthGuard>
+                                  </AuthGuard>
+                                </ActiveRideProvider>
                               </RideRequestProvider>
                             </CheckoutPreparationProvider>
                           </CouponProvider>
