@@ -34,7 +34,7 @@ export interface PickupAddress {
   address?: string;
   nearestPoi?: string;
   plusCode?: string;
-  geocodedPosition?: GeocodeCoordinates;
+  geocodedPosition?: GeocodeCoordinates | null;
 }
 
 export type GeocodeErrorCode =
