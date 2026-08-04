@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #FFB800;
-  --color-secondary: #FF5C00;
-  --color-surface: #1E1E1E;
-  
+  --color-primary: #ffb800;
+  --color-secondary: #ff5c00;
+  --color-surface: #1e1e1e;
+
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  
+
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 }
@@ -15,15 +15,20 @@
   body {
     @apply bg-black text-white antialiased overflow-x-hidden;
     -webkit-tap-highlight-color: transparent;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
   }
-  
-  input, button {
+
+  input,
+  button {
     @apply outline-none transition-all duration-200;
   }
 
   /* Prevent zoom on input focus for iOS/Android */
-  input[type="text"], input[type="password"], input[type="email"], textarea {
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  textarea {
     font-size: 16px !important;
   }
 }
@@ -35,4 +40,3 @@
 @utility pt-safe-area-inset-top {
   padding-top: env(safe-area-inset-top);
 }
-

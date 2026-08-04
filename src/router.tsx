@@ -5,7 +5,7 @@ import { routeTree } from "./routeTree.gen";
 export const getRouter = () => {
   const queryClient = new QueryClient();
 
-  // Use Hash History for Capacitor compatibility to ensure deep linking 
+  // Use Hash History for Capacitor compatibility to ensure deep linking
   // and page refreshes work inside the WebView without server-side support.
   const hashHistory = createHashHistory();
 
@@ -19,4 +19,3 @@ export const getRouter = () => {
 
   return router;
 };
-

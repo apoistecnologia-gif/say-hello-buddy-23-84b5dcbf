@@ -1,6 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/inicio')({
+export const Route = createFileRoute("/inicio")({
   component: InicioPage,
 });
 
@@ -21,18 +21,18 @@ function InicioPage() {
       {/* Categories/Map Placeholder */}
       <div className="flex-1 bg-[#121212] rounded-2xl relative overflow-hidden mb-4 border border-gray-800 flex items-center justify-center">
         <span className="text-gray-600 font-medium">Área reservada para o Mapa</span>
-        
+
         {/* Floating buttons in map area */}
         <div className="absolute bottom-4 right-4 flex flex-col gap-2">
           <button className="w-12 h-12 bg-red-600 rounded-full flex items-center justify-center shadow-xl">
-             <span className="text-xs font-bold">SOS</span>
+            <span className="text-xs font-bold">SOS</span>
           </button>
         </div>
       </div>
 
       {/* Service Categories */}
       <div className="grid grid-cols-4 gap-2 mb-6">
-        {['Comum', 'Premium', 'Entrega', 'Mercado'].map((cat) => (
+        {["Comum", "Premium", "Entrega", "Mercado"].map((cat) => (
           <div key={cat} className="flex flex-col items-center gap-1">
             <div className="w-14 h-14 bg-[#1e1e1e] rounded-xl flex items-center justify-center border border-gray-800">
               <div className="w-8 h-4 bg-yellow-500 rounded-sm" />
