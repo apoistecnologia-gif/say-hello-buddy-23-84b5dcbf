@@ -6,13 +6,19 @@ import { useDestination } from "@/hooks/use-destination";
 import { useRoute } from "@/hooks/use-route";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 import { usePricing } from "@/hooks/use-pricing";
+import { usePaymentMethods } from "@/hooks/use-payment-methods";
+import { useCoupon } from "@/hooks/use-coupon";
+import { useCheckoutPreparation } from "@/hooks/use-checkout-preparation";
 import { LocationStatus } from "@/components/location/LocationStatus";
 import PassengerMap from "@/components/map/PassengerMap";
 import { RouteSummary } from "@/components/route/RouteSummary";
 import { CategorySelector } from "@/components/pricing/CategorySelector";
 import { FareDetails } from "@/components/pricing/FareDetails";
 import { ServiceDetailsForm } from "@/components/pricing/ServiceDetailsForm";
-import { MapPin, Shield, AlertCircle, Loader2, X, ChevronRight, Settings2 } from "lucide-react";
+import { PaymentMethodSelector, PaymentMethodList } from "@/components/payments/PaymentMethodSelector";
+import { CouponInput } from "@/components/coupons/CouponInput";
+import { CheckoutSummary } from "@/components/pricing/CheckoutSummary";
+import { MapPin, Shield, AlertCircle, Loader2, X, ChevronRight, Settings2, Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/inicio")({
   component: InicioPage,
@@ -26,7 +32,9 @@ function InicioPage() {
   const { route, status: routeStatus, clearRoute } = useRoute();
   const { selectedCategory } = useRideCategories();
   const { estimate, status: pricingStatus } = usePricing();
+  const { checkout } = useCheckoutPreparation();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isPaymentListOpen, setIsPaymentListOpen] = useState(false);
 
   const handleOpenSearch = () => {
     navigate({ to: '/buscar-destino' });
@@ -147,8 +155,8 @@ function InicioPage() {
           
           <div className="bg-[#1e1e1e]/95 backdrop-blur-lg rounded-3xl pt-5 pb-5 border border-white/5 shadow-2xl">
             {(hasDestination || route) ? (
-              <div className="animate-in fade-in slide-in-from-bottom duration-500">
-                <div className="px-5 mb-4 flex items-center justify-between">
+              <div className="animate-in fade-in slide-in-from-bottom duration-500 space-y-4">
+                <div className="px-5 flex items-center justify-between">
                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Escolha a Categoria</p>
                    {selectedCategory && (selectedCategory.key === 'fretes' || selectedCategory.key === 'guincho' || selectedCategory.key === 'envios') && (
                      <button 
@@ -163,19 +171,26 @@ function InicioPage() {
                 
                 <CategorySelector />
                 
-                <div className="px-5 pt-4 border-t border-white/5 flex items-center justify-between">
-                  <FareDetails />
+                <div className="px-5 space-y-4">
+                  <PaymentMethodSelector onOpenList={() => setIsPaymentListOpen(true)} />
+                  <CouponInput />
                   
+                  <div className="pt-2">
+                    <CheckoutSummary />
+                  </div>
+                </div>
+
+                <div className="px-5 pt-4 border-t border-white/5">
                   <button 
-                    disabled={pricingStatus !== "success"}
+                    disabled={!checkout.readiness}
                     className={cn(
-                      "flex items-center gap-2 px-8 py-4 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
-                      pricingStatus === "success" 
+                      "w-full flex items-center justify-center gap-2 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
+                      checkout.readiness
                         ? "bg-apois-yellow text-black shadow-apois-yellow/20" 
                         : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
                     )}
                   >
-                    Confirmar {selectedCategory?.label || "Viagem"}
+                    {checkout.readiness ? "Continuar" : "Revisar Solicitação"}
                     <ChevronRight size={20} strokeWidth={3} />
                   </button>
                 </div>
@@ -199,6 +214,11 @@ function InicioPage() {
       <ServiceDetailsForm 
         isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)} 
+      />
+      
+      <PaymentMethodList 
+        isOpen={isPaymentListOpen}
+        onClose={() => setIsPaymentListOpen(false)}
       />
     </div>
   );

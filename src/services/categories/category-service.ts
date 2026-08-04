@@ -12,8 +12,8 @@ class CategoryService {
       return this.cache;
     }
 
-    // Usando any para bypass do linter de tipos inexistentes no schema local
-    const { data, error } = await (supabase.from("ride_categories") as any)
+    // Usando cast para any para evitar erros de tipo quando o schema local não está sincronizado com tabelas dinâmicas
+    const { data, error } = await (supabase as any).from("ride_categories")
       .select("*")
       .eq("enabled", true)
       .order("sort_order");
