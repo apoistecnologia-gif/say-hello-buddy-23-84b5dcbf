@@ -31,6 +31,44 @@
   textarea {
     font-size: 16px !important;
   }
+
+  /* Scrollbar Hide Utility */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Ripple Effect Mock */
+  .ripple-effect {
+    position: relative;
+    overflow: hidden;
+  }
+  .ripple-effect:active::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(2);
+    animation: ripple 0.4s ease-out;
+  }
+
+  @keyframes ripple {
+    from {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(0);
+    }
+    to {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(2.5);
+    }
+  }
 }
 
 @utility pb-safe-area-inset-bottom {
