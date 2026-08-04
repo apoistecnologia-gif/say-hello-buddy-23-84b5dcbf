@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { LocationProvider } from "@/hooks/use-location";
+import { PickupAddressProvider } from "@/hooks/use-pickup-address";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { initializeNativePlatform, hideSplashScreen, setupBackButton } from "@/lib/platform/native";
 
@@ -126,7 +127,6 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const navigate = useNavigate();
 
   useEffect(() => {
     initializeNativePlatform();
@@ -146,12 +146,14 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <LocationProvider>
-          <AuthGuard>
-            <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
-              <Outlet />
-              <BottomNavigation />
-            </div>
-          </AuthGuard>
+          <PickupAddressProvider>
+            <AuthGuard>
+              <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
+                <Outlet />
+                <BottomNavigation />
+              </div>
+            </AuthGuard>
+          </PickupAddressProvider>
         </LocationProvider>
       </AuthProvider>
     </QueryClientProvider>
