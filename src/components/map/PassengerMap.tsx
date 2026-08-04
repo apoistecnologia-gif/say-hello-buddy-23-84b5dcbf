@@ -205,8 +205,9 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   }, [currentLat, currentLng, targetDest, orderedStops, route]);
 
   return (
-    <div className="w-full h-full bg-zinc-900 overflow-hidden relative">
-      <div ref={mapRef} className="w-full h-full" />
+    <div className="w-full h-full bg-zinc-900 overflow-hidden relative" style={{ minHeight: '100%' }}>
+      <div ref={mapRef} className="w-full h-full absolute inset-0" />
+
       
       {!currentLat && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">

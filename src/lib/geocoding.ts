@@ -14,16 +14,18 @@ export const getReverseGeocoding = async (location: LocationData): Promise<strin
   try {
     // Call the APOIS backend geocoding endpoint
     // We assume the backend handles the Google Maps API internally to avoid exposing keys
-    const response = await fetch(`/api/geocoding/reverse?lat=${location.latitude}&lng=${location.longitude}`);
-    if (!response.ok) throw new Error("Failed to fetch address");
+    // Use a geocodificação do geocodingService que já está mais completa
+    const { geocodingService } = await import('../services/geocoding/geocoding-service');
+    const result = await geocodingService.resolvePickupAddress({ lat: location.latitude, lng: location.longitude });
     
-    const data = await response.json();
-    const address = data.formatted_address || "Sua localização atual";
+    // Constrói o endereço completo (Rua, Bairro, Cidade) conforme solicitado
+    const addr = result.address || result.label;
     
-    cache[cacheKey] = { address, timestamp: Date.now() };
-    return address;
+    cache[cacheKey] = { address: addr, timestamp: Date.now() };
+    return addr;
   } catch (error) {
     console.error("Geocoding failed:", error);
     return "Sua localização atual";
   }
 };
+
