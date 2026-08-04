@@ -1,3 +1,13 @@
+export type RideCategoryKey = "carros" | "motos" | "fretes" | "guincho" | "envios";
+
+export interface RideCategory {
+  key: RideCategoryKey;
+  label: string;
+  icon?: string;
+  description?: string;
+  details?: ServiceDetails;
+}
+
 export interface FareEstimate {
   category_key: string;
   total: number;
@@ -5,6 +15,7 @@ export interface FareEstimate {
   distance_fare: number;
   duration_fare: number;
   min_fare: number;
+  extrasTotal?: number;
 }
 
 export interface CategoryTariff {
