@@ -1,11 +1,13 @@
-import { GoogleMap, MapType, Marker } from '@capacitor/google-maps';
-import { MapCameraPosition, MapCoordinates, MapError, MapErrorCode, MAP_MESSAGES_PT } from '../../types/map';
+import { GoogleMap, MapType } from '@capacitor/google-maps';
+import { MapCameraPosition, MapCoordinates, MapError, MapErrorCode, MAP_MESSAGES_PT, MapBounds } from '../../types/map';
 import { MAP_STYLE_DARK, DEFAULT_ZOOM } from './map-config';
 
 class MapService {
   private static instance: MapService;
   private maps: Map<string, GoogleMap> = new Map();
-  private markers: Map<string, string> = new Map(); // mapId -> markerId
+  private passengerMarkerId: Map<string, string> = new Map();
+  private destinationMarkerId: Map<string, string> = new Map();
+  private cameraMovedByUser: boolean = false;
 
   private constructor() {}
 
@@ -23,11 +25,8 @@ class MapService {
   ): Promise<GoogleMap> {
     const mapId = element.id || 'default-map';
     
-    // Check if map already exists in our cache
     const existingMap = this.maps.get(mapId);
-    if (existingMap) {
-      return existingMap;
-    }
+    if (existingMap) return existingMap;
 
     try {
       const map = await GoogleMap.create({
@@ -39,6 +38,7 @@ class MapService {
           zoom: DEFAULT_ZOOM,
           mapTypeId: MapType.Normal,
           styles: MAP_STYLE_DARK,
+          disableDefaultUI: true,
         }
       });
 
@@ -50,71 +50,121 @@ class MapService {
     }
   }
 
-  /**
-   * Only for emergency recovery, bypassing standard singleton check
-   */
-  public async forceRecreateMap(
-    element: HTMLElement,
-    apiKey: string,
-    initialPosition?: MapCoordinates
-  ): Promise<GoogleMap> {
-    const mapId = element.id || 'default-map';
-    await this.destroyMap(mapId);
-    
-    return GoogleMap.create({
-      id: mapId,
-      element: element,
-      apiKey: apiKey,
-      config: {
-        center: initialPosition || { lat: -15.793889, lng: -47.882778 },
-        zoom: DEFAULT_ZOOM,
-        mapTypeId: MapType.Normal,
-        styles: MAP_STYLE_DARK,
-      },
-      forceCreate: true
-    }).then(map => {
-      this.maps.set(mapId, map);
-      return map;
-    });
-  }
-
   public async destroyMap(mapId: string): Promise<void> {
     const map = this.maps.get(mapId);
     if (map) {
       await map.destroy();
       this.maps.delete(mapId);
-      this.markers.delete(mapId);
+      this.passengerMarkerId.delete(mapId);
+      this.destinationMarkerId.delete(mapId);
     }
   }
 
-  public async updatePassengerMarker(
+  public async upsertPickupMarker(
     mapId: string, 
-    coordinate: MapCoordinates,
-    accuracy?: number | null
+    coordinate: MapCoordinates
   ): Promise<void> {
     const map = this.maps.get(mapId);
     if (!map) return;
 
-    const existingMarkerId = this.markers.get(mapId);
+    const existingId = this.passengerMarkerId.get(mapId);
 
     try {
-      if (existingMarkerId) {
-        // Unfortunately @capacitor/google-maps doesn't have a simple update position yet in v6/v8
-        // We often have to remove and re-add or use a specific implementation.
-        // For v8 official, we'll try to remove and add if update isn't clean.
-        await map.removeMarker(existingMarkerId);
+      if (existingId) {
+        await map.removeMarker(existingId);
       }
 
       const markerId = await map.addMarker({
         coordinate: coordinate,
-        title: 'Sua Posição',
-        iconUrl: 'assets/markers/passenger.png', // Fallback handled by plugin if missing
+        title: 'Origem',
+        iconUrl: 'assets/markers/pickup.png',
         opacity: 1,
       });
 
-      this.markers.set(mapId, markerId);
+      this.passengerMarkerId.set(mapId, markerId);
     } catch (error) {
-      console.error('Error updating marker:', error);
+      console.error('Error upserting pickup marker:', error);
+    }
+  }
+
+  public async upsertDestinationMarker(
+    mapId: string,
+    coordinate: MapCoordinates
+  ): Promise<void> {
+    const map = this.maps.get(mapId);
+    if (!map) return;
+
+    const existingId = this.destinationMarkerId.get(mapId);
+
+    try {
+      if (existingId) {
+        await map.removeMarker(existingId);
+      }
+
+      const markerId = await map.addMarker({
+        coordinate: coordinate,
+        title: 'Destino',
+        iconUrl: 'assets/markers/destination.png',
+        opacity: 1,
+      });
+
+      this.destinationMarkerId.set(mapId, markerId);
+    } catch (error) {
+      console.error('Error upserting destination marker:', error);
+    }
+  }
+
+  public async removeDestinationMarker(mapId: string): Promise<void> {
+    const map = this.maps.get(mapId);
+    if (!map) return;
+
+    const id = this.destinationMarkerId.get(mapId);
+    if (id) {
+      await map.removeMarker(id);
+      this.destinationMarkerId.delete(mapId);
+    }
+  }
+
+  public async centerOnPickup(mapId: string, coordinate: MapCoordinates): Promise<void> {
+    if (this.cameraMovedByUser) return;
+    await this.setCamera(mapId, { coordinate, zoom: DEFAULT_ZOOM });
+  }
+
+  public async fitPickupAndDestination(
+    mapId: string,
+    pickup: MapCoordinates,
+    destination: MapCoordinates,
+    padding: number = 100
+  ): Promise<void> {
+    const map = this.maps.get(mapId);
+    if (!map) return;
+
+    const bounds: MapBounds = {
+      northeast: {
+        lat: Math.max(pickup.lat, destination.lat),
+        lng: Math.max(pickup.lng, destination.lng),
+      },
+      southwest: {
+        lat: Math.min(pickup.lat, destination.lat),
+        lng: Math.min(pickup.lng, destination.lng),
+      }
+    };
+
+    try {
+      // In @capacitor/google-maps we might need to use setCamera with bounds if supported
+      // or calculate center and zoom. Standard plugin uses fitBounds logic.
+      // Assuming setCamera can handle bounds or just use a helper if available.
+      // Since it's a native plugin, we'll try to use the best fit.
+      // For now, let's use the native fitBounds if available or camera update.
+      // @ts-ignore - plugin specific
+      await map.fitBounds(bounds, padding);
+    } catch (e) {
+      // Fallback
+      const center = {
+        lat: (pickup.lat + destination.lat) / 2,
+        lng: (pickup.lng + destination.lng) / 2
+      };
+      await this.setCamera(mapId, { coordinate: center, zoom: 12 });
     }
   }
 
@@ -122,18 +172,23 @@ class MapService {
     const map = this.maps.get(mapId);
     if (!map) return;
 
-    if (animate) {
-      await map.setCamera({
-        coordinate: position.coordinate,
-        zoom: position.zoom,
-        animate: true,
-      });
-    } else {
-      await map.setCamera({
-        coordinate: position.coordinate,
-        zoom: position.zoom,
-      });
-    }
+    await map.setCamera({
+      coordinate: position.coordinate,
+      zoom: position.zoom,
+      animate: animate,
+    });
+  }
+
+  public setCameraMovedByUser(moved: boolean) {
+    this.cameraMovedByUser = moved;
+  }
+
+  public isCameraMovedByUser(): boolean {
+    return this.cameraMovedByUser;
+  }
+
+  public resetCameraMovementState() {
+    this.cameraMovedByUser = false;
   }
 
   public normalizeError(code: MapErrorCode): MapError {
