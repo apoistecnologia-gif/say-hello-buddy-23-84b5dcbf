@@ -80,13 +80,10 @@ class GoogleMapsLoader {
               m.head.append(a);
             }));
         d[l] = async (f: any, ...n: any[]) => r.add(f) && u().then(() => d[l](f, ...n));
-      })(
-        {
-          key: apiKey,
-          v: "weekly",
-        },
-        apiKey,
-      );
+      })({
+        key: apiKey,
+        v: "weekly",
+      });
 
       const checkInterval = setInterval(() => {
         const maps = (window as any).google?.maps;
