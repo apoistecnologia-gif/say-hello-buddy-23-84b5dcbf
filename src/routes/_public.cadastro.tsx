@@ -179,7 +179,7 @@ function CadastroPage() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full bg-yellow-500 hover:bg-yellow-600 text-black h-14 rounded-xl font-bold text-lg mt-6"
+          className="w-full bg-apois-yellow hover:bg-apois-yellow/90 text-black h-14 rounded-xl font-black text-base uppercase tracking-widest mt-6"
         >
           {loading ? <Loader2 className="animate-spin" /> : "Criar minha conta"}
         </Button>
