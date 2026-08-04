@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { RideCategory } from "@/types/pricing";
 import { categoryService } from "@/services/categories/category-service";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface RideCategoriesContextType {
   categories: RideCategory[];
@@ -18,7 +18,6 @@ export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = (
   const [categories, setCategories] = useState<RideCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<RideCategory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
 
   const fetchCategories = useCallback(async () => {
     setIsLoading(true);
@@ -30,19 +29,15 @@ export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = (
       }
     } catch (error) {
       console.error("[RideCategoriesProvider] Error:", error);
-      toast({
-        title: "Erro",
-        description: "Não foi possível carregar as opções de viagem.",
-        variant: "destructive",
-      });
+      toast.error("Não foi possível carregar as opções de viagem.");
     } finally {
       setIsLoading(false);
     }
-  }, [toast, selectedCategory]);
+  }, [selectedCategory]);
 
   useEffect(() => {
     fetchCategories();
-  }, []); // Only fetch on mount or manual refresh
+  }, []);
 
   const selectCategory = (category: RideCategory) => {
     if (category.isActive) {

@@ -28,7 +28,7 @@ export interface FareEstimate {
   estimatedPickupMinutes?: number;
   pricingVersion: string;
   unavailableReason?: string | null;
-  currency: string;
+  extrasTotal?: number; // Added for compatibility
   base_fare?: number;
   distance_fare?: number;
   duration_fare?: number;

@@ -73,7 +73,7 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const payload: RideRequestPayload = {
       action: "create",
       request_key: request.requestKey,
-      category: selectedCategory.key,
+      category: selectedCategory.code,
       origin: route.origin,
       destination: route.destination,
       origin_name: "Origem",

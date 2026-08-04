@@ -94,7 +94,7 @@ function InicioPage() {
             <div className="animate-in fade-in slide-in-from-bottom duration-500 space-y-4">
               <div className="px-5 flex items-center justify-between">
                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Escolha a Categoria</p>
-                 {selectedCategory && (selectedCategory.key === 'fretes' || selectedCategory.key === 'guincho' || selectedCategory.key === 'envios') && (
+                 {selectedCategory && (selectedCategory.code === 'fretes' || selectedCategory.code === 'guincho' || selectedCategory.code === 'envios') && (
                    <button 
                      type="button"
                      onClick={() => setIsFormOpen(true)}

@@ -23,7 +23,7 @@ export interface RideRequestPayload {
     lng: number;
   };
   destination_name: string;
-  category: "carros" | "motos" | "fretes" | "guincho" | "envios";
+  category: string;
   distance_km?: number | null;
   duration_min?: number | null;
   estimated_price?: number | null;

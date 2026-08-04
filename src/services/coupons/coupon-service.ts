@@ -1,5 +1,5 @@
 import { CouponValidationResult } from "@/types/payments";
-import { RideCategoryKey } from "@/types/pricing";
+import { RideCategoryCode } from "@/types/pricing";
 
 /**
  * CouponService is temporarily disabled for active calculations.
@@ -9,7 +9,7 @@ class CouponService {
   async validateCoupon(
     _code: string, 
     _userId: string,
-    _categoryKey: RideCategoryKey,
+    _categoryKey: RideCategoryCode,
     _estimatedFare: number
   ): Promise<CouponValidationResult> {
     // Honesty policy: Coupons are not yet integrated with the server
