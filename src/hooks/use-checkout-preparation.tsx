@@ -38,8 +38,10 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
 
     // Wallet selection rule: Backend must support it
     if (selectedMethod === "wallet") {
-       // Temporarily disabled if no real debt flow is confirmed
-       blockingReasons.push("payment_method_unavailable");
+      const balance = useWallet.getState?.().wallet?.balance || 0;
+      if (balance < (estimate?.estimatedPrice || 0)) {
+        blockingReasons.push("insufficient_balance");
+      }
     }
 
     const baseFare = estimate?.estimatedPrice || 0;
