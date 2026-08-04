@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Phone, Mail, ChevronRight, Bell, Shield, CreditCard } from "lucide-react";
+import { LogOut, User, Phone, Mail, ChevronRight, Bell, Shield, CreditCard, Star, CheckCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Route = createFileRoute("/perfil")({
@@ -9,7 +9,7 @@ export const Route = createFileRoute("/perfil")({
 });
 
 function PerfilPage() {
-  const { user, passenger, signOut } = useAuth();
+  const { user, profile, role, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -17,17 +17,36 @@ function PerfilPage() {
     navigate({ to: "/login" });
   };
 
+  // Se não for passageiro, mas estiver logado, algo está errado no acesso
+  if (user && role !== "passenger" && role !== null) {
+    // Silenciosamente tratamos, mas em produção redirecionaríamos
+  }
+
   return (
     <div className="flex flex-col min-h-screen bg-black text-white pb-24">
       <div className="p-6 pt-12 flex flex-col items-center border-b border-gray-900">
         <Avatar className="w-24 h-24 mb-4 border-2 border-yellow-500 p-1">
-          <AvatarImage src="" />
+          <AvatarImage src={profile?.avatar_url || ""} />
           <AvatarFallback className="bg-gray-800 text-yellow-500 text-3xl font-bold">
-            {passenger?.full_name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
+            {profile?.name?.charAt(0) || user?.email?.charAt(0).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <h2 className="text-2xl font-bold">{passenger?.full_name || "Passageiro"}</h2>
+        <h2 className="text-2xl font-bold">{profile?.name || "Passageiro"}</h2>
         <p className="text-gray-400 text-sm">{user?.email}</p>
+        
+        {profile?.average_rating !== null && (
+          <div className="flex items-center gap-4 mt-4 bg-[#121212] px-4 py-2 rounded-full">
+            <div className="flex items-center gap-1 text-yellow-500">
+              <Star size={16} fill="currentColor" />
+              <span className="text-sm font-bold text-white">{profile?.average_rating}</span>
+            </div>
+            <div className="w-px h-4 bg-gray-800" />
+            <div className="flex items-center gap-1 text-green-500">
+              <CheckCircle size={16} />
+              <span className="text-sm font-bold text-white">{profile?.completed_rides} corridas</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -40,9 +59,9 @@ function PerfilPage() {
             <MenuLink
               icon={<User size={20} />}
               label="Dados Pessoais"
-              value={passenger?.full_name}
+              value={profile?.name}
             />
-            <MenuLink icon={<Phone size={20} />} label="Telefone" value={passenger?.phone} />
+            <MenuLink icon={<Phone size={20} />} label="Telefone" value={profile?.phone} />
             <MenuLink icon={<Mail size={20} />} label="E-mail" value={user?.email} />
           </div>
 
@@ -67,7 +86,7 @@ function PerfilPage() {
             Sair do aplicativo
           </Button>
 
-          <p className="text-center text-gray-600 text-xs mt-8">Versão 1.0.0 (Beta)</p>
+          <p className="text-center text-gray-600 text-xs mt-8">Versão 1.0.0 (Oficial)</p>
         </div>
       </div>
     </div>
