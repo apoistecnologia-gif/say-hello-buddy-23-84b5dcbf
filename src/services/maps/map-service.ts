@@ -38,7 +38,6 @@ class MapService {
           zoom: DEFAULT_ZOOM,
           mapTypeId: MapType.Normal,
           styles: MAP_STYLE_DARK,
-          disableDefaultUI: true,
         }
       });
 
