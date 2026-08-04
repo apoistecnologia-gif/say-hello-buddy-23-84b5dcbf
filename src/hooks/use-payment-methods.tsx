@@ -1,51 +1,64 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { PaymentMethod, PaymentMethodKey } from "@/types/payments";
+import { PaymentMethod, PaymentMethodCode } from "@/types/payments";
 import { useAuth } from "@/hooks/use-auth";
+import { paymentService } from "@/services/payments/payment-service";
 
 interface PaymentMethodsContextType {
   methods: PaymentMethod[];
-  selectedMethod: PaymentMethodKey | null;
-  setSelectedMethod: (key: PaymentMethodKey) => void;
-  selectMethod: (key: PaymentMethodKey) => void;
+  selectedMethod: PaymentMethodCode | null;
+  setSelectedMethod: (code: PaymentMethodCode) => void;
+  selectMethod: (code: PaymentMethodCode) => void;
   isLoading: boolean;
 }
 
 const PaymentMethodsContext = createContext<PaymentMethodsContextType | undefined>(undefined);
 
-const DEFAULT_METHODS: PaymentMethod[] = [
-  { key: "pix", label: "PIX", icon: "qr-code", description: "Pagamento instantâneo", enabled: true },
-  { key: "credit_card", label: "Cartão de Crédito", icon: "credit-card", description: "Pague no app", enabled: true },
-  { key: "debit_card", label: "Cartão de Débito", icon: "credit-card", description: "Débito online", enabled: true },
-  { key: "cash", label: "Dinheiro", icon: "banknote", description: "Pague ao motorista", enabled: true },
-  { key: "wallet", label: "Carteira APOIS", icon: "wallet", description: "Saldo em conta", enabled: false }, 
-  { key: "corporate", label: "Corporativo", icon: "building", description: "Conta empresa", enabled: false },
-];
-
 export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodKey | null>("cash");
+  const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodCode | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      const saved = localStorage.getItem(`apois:passageiro:${user.id}:payment_method`);
-      if (saved) setSelectedMethod(saved as PaymentMethodKey);
-    }
+    const loadMethods = async () => {
+      try {
+        setIsLoading(true);
+        const data = await paymentService.getPaymentMethods();
+        setMethods(data);
+        
+        // Load preference
+        if (user) {
+          const saved = localStorage.getItem(`apois:passageiro:${user.id}:payment_method`);
+          if (saved && data && (data as any[]).some(m => m.code === saved)) {
+            setSelectedMethod(saved as PaymentMethodCode);
+          } else if (data && (data as any[]).length > 0) {
+            setSelectedMethod((data as any[])[0].code);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load payment methods", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMethods();
   }, [user]);
 
-  const handleSelect = (key: PaymentMethodKey) => {
-    setSelectedMethod(key);
+  const handleSelect = (code: PaymentMethodCode) => {
+    setSelectedMethod(code);
     if (user) {
-      localStorage.setItem(`apois:passageiro:${user.id}:payment_method`, key);
+      localStorage.setItem(`apois:passageiro:${user.id}:payment_method`, code);
     }
   };
 
   return (
     <PaymentMethodsContext.Provider value={{ 
-      methods: DEFAULT_METHODS, 
+      methods, 
       selectedMethod, 
       setSelectedMethod: handleSelect, 
       selectMethod: handleSelect,
-      isLoading: false 
+      isLoading 
     }}>
       {children}
     </PaymentMethodsContext.Provider>

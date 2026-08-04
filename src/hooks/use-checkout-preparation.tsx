@@ -20,7 +20,7 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
   const { selectedCategory } = useRideCategories();
   const { estimate, status: pricingStatus } = usePricing();
   const { selectedMethod } = usePaymentMethods();
-  const { state: walletState } = useWallet();
+  const { state: walletState, wallet } = useWallet();
 
   const checkout = useMemo(() => {
     const blockingReasons: string[] = [];
@@ -36,10 +36,12 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
       blockingReasons.push("passenger_debt_block");
     }
 
-    // Wallet selection rule: Backend must support it
-    if (selectedMethod === "wallet") {
-       // Temporarily disabled if no real debt flow is confirmed
-       blockingReasons.push("payment_method_unavailable");
+    // Wallet selection rule: Check balance
+    if (selectedMethod === "wallet" && estimate) {
+      const balance = wallet?.balance || 0;
+      if (balance < estimate.estimatedPrice) {
+        blockingReasons.push("insufficient_balance");
+      }
     }
 
     const baseFare = estimate?.estimatedPrice || 0;
@@ -56,7 +58,7 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
       readiness: blockingReasons.length === 0,
       blockingReasons
     };
-  }, [user, route, selectedCategory, estimate, pricingStatus, selectedMethod, walletState]);
+  }, [user, route, selectedCategory, estimate, pricingStatus, selectedMethod, walletState, wallet]);
 
   return (
     <CheckoutPreparationContext.Provider value={{ 

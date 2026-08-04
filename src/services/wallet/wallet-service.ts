@@ -5,7 +5,7 @@ class WalletService {
   async getWallet(userId: string): Promise<WalletSummary | null> {
     const { data, error } = await (supabase as any)
       .from("passenger_wallets")
-      .select("passenger_id, balance, is_blocked, blocked_reason")
+      .select("id, passenger_id, balance, is_blocked, blocked_reason")
       .eq("passenger_id", userId)
       .maybeSingle();
 
@@ -17,12 +17,18 @@ class WalletService {
     if (!data) return null;
 
     return {
-      passenger_id: data.passenger_id,
+      id: data.id || "",
+      passengerId: data.passenger_id,
       balance: Number(data.balance || 0),
       available_balance: Number(data.balance || 0),
-      is_blocked: !!data.is_blocked,
-      blocked_reason: data.blocked_reason || null
+      isBlocked: !!data.is_blocked,
+      blockedReason: data.blocked_reason || null,
+      updatedAt: new Date().toISOString(),
+      currency: "BRL",
+      status: data.is_blocked ? "blocked" : "active"
     };
+
+
   }
 }
 
