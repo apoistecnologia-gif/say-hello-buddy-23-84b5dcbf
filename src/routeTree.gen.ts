@@ -20,6 +20,8 @@ import { Route as NotificacoesRouteImport } from './routes/notificacoes'
 import { Route as PerfilRouteImport } from './routes/perfil'
 import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
 import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
+import { Route as RevisarSolicitacaoRouteImport } from './routes/revisar-solicitacao'
+import { Route as CorridaRideIdRouteImport } from './routes/corrida.$rideId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -76,6 +78,16 @@ const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
   path: '/redefinir-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RevisarSolicitacaoRoute = RevisarSolicitacaoRouteImport.update({
+  id: '/revisar-solicitacao',
+  path: '/revisar-solicitacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CorridaRideIdRoute = CorridaRideIdRouteImport.update({
+  id: '/corrida/$rideId',
+  path: '/corrida/$rideId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -89,6 +101,8 @@ export interface FileRoutesByFullPath {
   '/perfil': typeof PerfilRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/revisar-solicitacao': typeof RevisarSolicitacaoRoute
+  '/corrida/$rideId': typeof CorridaRideIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +116,8 @@ export interface FileRoutesByTo {
   '/perfil': typeof PerfilRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/revisar-solicitacao': typeof RevisarSolicitacaoRoute
+  '/corrida/$rideId': typeof CorridaRideIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +132,8 @@ export interface FileRoutesById {
   '/perfil': typeof PerfilRoute
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/redefinir-senha': typeof RedefinirSenhaRoute
+  '/revisar-solicitacao': typeof RevisarSolicitacaoRoute
+  '/corrida/$rideId': typeof CorridaRideIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,6 +149,8 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/revisar-solicitacao'
+    | '/corrida/$rideId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,6 +164,8 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/revisar-solicitacao'
+    | '/corrida/$rideId'
   id:
     | '__root__'
     | '/'
@@ -157,6 +179,8 @@ export interface FileRouteTypes {
     | '/perfil'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/revisar-solicitacao'
+    | '/corrida/$rideId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -171,6 +195,8 @@ export interface RootRouteChildren {
   PerfilRoute: typeof PerfilRoute
   RecuperarSenhaRoute: typeof RecuperarSenhaRoute
   RedefinirSenhaRoute: typeof RedefinirSenhaRoute
+  RevisarSolicitacaoRoute: typeof RevisarSolicitacaoRoute
+  CorridaRideIdRoute: typeof CorridaRideIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -252,6 +278,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RedefinirSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/revisar-solicitacao': {
+      id: '/revisar-solicitacao'
+      path: '/revisar-solicitacao'
+      fullPath: '/revisar-solicitacao'
+      preLoaderRoute: typeof RevisarSolicitacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/corrida/$rideId': {
+      id: '/corrida/$rideId'
+      path: '/corrida/$rideId'
+      fullPath: '/corrida/$rideId'
+      preLoaderRoute: typeof CorridaRideIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -267,6 +307,8 @@ const rootRouteChildren: RootRouteChildren = {
   PerfilRoute: PerfilRoute,
   RecuperarSenhaRoute: RecuperarSenhaRoute,
   RedefinirSenhaRoute: RedefinirSenhaRoute,
+  RevisarSolicitacaoRoute: RevisarSolicitacaoRoute,
+  CorridaRideIdRoute: CorridaRideIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
