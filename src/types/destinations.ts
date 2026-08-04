@@ -5,7 +5,7 @@ export interface DestinationHistoryItem extends DestinationAddress {
   createdAt: string;
   updatedAt: string;
   favorite: boolean;
-  icon?: string;
+  icon?: FavoriteIconType;
   nickname?: string;
 }
 

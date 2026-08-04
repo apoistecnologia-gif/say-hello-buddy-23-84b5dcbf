@@ -36,19 +36,32 @@ export interface MapCameraPosition {
   pitch?: number;
 }
 
-export interface MapMarker {
-  id: string;
-  coordinate: MapCoordinates;
-  title?: string;
-  snippet?: string;
-  iconUrl?: string;
-  opacity?: number;
-  flat?: boolean;
+export type MapMarkerRole = 'passenger' | 'pickup' | 'destination';
+
+export interface MapPoint {
+  latitude: number;
+  longitude: number;
+  role: MapMarkerRole;
+  label?: string;
+  markerId: string;
+}
+
+export interface PickupMapPoint extends MapPoint {
+  role: 'pickup';
+}
+
+export interface DestinationMapPoint extends MapPoint {
+  role: 'destination';
 }
 
 export interface MapBounds {
   northeast: MapCoordinates;
   southwest: MapCoordinates;
+}
+
+export interface CameraFitOptions {
+  padding: number;
+  animate?: boolean;
 }
 
 export const MAP_MESSAGES_PT: Record<MapErrorCode, string> = {

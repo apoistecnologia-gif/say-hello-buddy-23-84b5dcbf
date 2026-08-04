@@ -6,11 +6,8 @@ import { useDestinationHistory } from "@/hooks/use-destination-history";
 import { placesService } from "@/services/places/places-service";
 import { 
   ArrowLeft, 
-  Search, 
   X, 
   MapPin, 
-  History, 
-  Star, 
   Loader2, 
   AlertCircle,
   Home,
@@ -22,9 +19,10 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { PlaceSuggestion } from "@/types/places";
+import { PlaceSuggestion, DestinationAddress } from "@/types/places";
 import { BottomSheet } from "@/components/ui/bottom-sheet/BottomSheet";
 import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/buscar-destino")({
   component: BuscarDestinoPage,
@@ -34,7 +32,15 @@ function BuscarDestinoPage() {
   const navigate = useNavigate();
   const { address: origin } = usePickupAddress();
   const { setDestination } = useDestination();
-  const { recent, favorites, addToHistory, removeRecent, toggleFavorite } = useDestinationHistory();
+  const { 
+    recent, 
+    favorites, 
+    addToHistory, 
+    removeRecent, 
+    addFavorite, 
+    removeFavorite,
+    clearAllRecent 
+  } = useDestinationHistory();
   const {
     query,
     suggestions,
@@ -48,13 +54,14 @@ function BuscarDestinoPage() {
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(true);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isBottomSheetOpen) {
       setTimeout(() => {
         inputRef.current?.focus();
-      }, 400); // Aguarda animação da bottom sheet
+      }, 400);
     }
   }, [isBottomSheetOpen]);
 
@@ -82,9 +89,20 @@ function BuscarDestinoPage() {
     }
   };
 
-  const handleSelectHistoryItem = (item: any) => {
+  const handleSelectHistoryItem = (item: DestinationAddress) => {
+    addToHistory(item); // Update recent order
     setDestination(item);
     handleClose();
+  };
+
+  const handleQuickAction = async (type: 'home' | 'briefcase') => {
+    const existing = favorites.find(f => f.icon === type);
+    if (existing) {
+      handleSelectHistoryItem(existing as DestinationAddress);
+    } else {
+      toast.info(`Busque o endereço para definir sua ${type === 'home' ? 'Casa' : 'Trabalho'}.`);
+      inputRef.current?.focus();
+    }
   };
 
   const getFavoriteIcon = (iconName?: string) => {
@@ -94,6 +112,10 @@ function BuscarDestinoPage() {
       default: return <Heart className="w-5 h-5 text-red-400" />;
     }
   };
+
+  const homeFav = favorites.find(f => f.icon === 'home');
+  const workFav = favorites.find(f => f.icon === 'briefcase');
+  const otherFavs = favorites.filter(f => f.icon !== 'home' && f.icon !== 'briefcase');
 
   return (
     <div className="flex flex-col min-h-screen bg-transparent">
@@ -172,45 +194,62 @@ function BuscarDestinoPage() {
                 >
                   {/* Favoritos Rápidos */}
                   <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide px-1">
-                    <button className="flex flex-col items-center gap-2 min-w-[72px] group">
-                      <div className="w-14 h-14 rounded-full bg-[#2a2a2a] flex items-center justify-center group-active:scale-90 transition-transform">
-                        <Home className="w-6 h-6 text-blue-400" />
+                    <button 
+                      onClick={() => handleQuickAction('home')}
+                      className="flex flex-col items-center gap-2 min-w-[80px] group"
+                    >
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-transform active:scale-90 ${
+                        homeFav ? 'bg-[#2a2a2a]' : 'bg-[#2a2a2a] border border-dashed border-gray-700'
+                      }`}>
+                        <Home className={`w-6 h-6 ${homeFav ? 'text-blue-400' : 'text-gray-600'}`} />
                       </div>
-                      <span className="text-xs font-medium text-gray-400">Casa</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                        {homeFav ? 'Casa' : 'Add Casa'}
+                      </span>
                     </button>
-                    <button className="flex flex-col items-center gap-2 min-w-[72px] group">
-                      <div className="w-14 h-14 rounded-full bg-[#2a2a2a] flex items-center justify-center group-active:scale-90 transition-transform">
-                        <Briefcase className="w-6 h-6 text-orange-400" />
+                    
+                    <button 
+                      onClick={() => handleQuickAction('briefcase')}
+                      className="flex flex-col items-center gap-2 min-w-[80px] group"
+                    >
+                      <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-transform active:scale-90 ${
+                        workFav ? 'bg-[#2a2a2a]' : 'bg-[#2a2a2a] border border-dashed border-gray-700'
+                      }`}>
+                        <Briefcase className={`w-6 h-6 ${workFav ? 'text-orange-400' : 'text-gray-600'}`} />
                       </div>
-                      <span className="text-xs font-medium text-gray-400">Trabalho</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                        {workFav ? 'Trampo' : 'Add Trampo'}
+                      </span>
                     </button>
-                    <button className="flex flex-col items-center gap-2 min-w-[72px] group">
-                      <div className="w-14 h-14 rounded-full bg-[#2a2a2a] border border-dashed border-gray-700 flex items-center justify-center group-active:scale-90 transition-transform">
+
+                    <button className="flex flex-col items-center gap-2 min-w-[80px] group opacity-40">
+                      <div className="w-14 h-14 rounded-full bg-[#2a2a2a] border border-dashed border-gray-700 flex items-center justify-center transition-transform active:scale-90">
                         <Plus className="w-6 h-6 text-gray-600" />
                       </div>
-                      <span className="text-xs font-medium text-gray-400">Novo</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">Novo</span>
                     </button>
                   </div>
 
-                  {/* Lista de Favoritos */}
-                  {favorites.length > 0 && (
+                  {/* Lista de Favoritos Personalizados */}
+                  {otherFavs.length > 0 && (
                     <section>
-                      <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest px-1 mb-3">Favoritos</h2>
+                      <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em] px-1 mb-3">Favoritos</h2>
                       <div className="space-y-1">
-                        {favorites.map((fav) => (
-                          <button
-                            key={fav.id}
-                            onClick={() => handleSelectHistoryItem(fav)}
-                            className="w-full flex items-center gap-4 p-3 rounded-xl active:bg-white/5 transition-colors text-left"
-                          >
-                            <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center">
-                              {getFavoriteIcon(fav.icon)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-white truncate">{fav.nickname || fav.label}</p>
-                              <p className="text-xs text-gray-500 truncate">{fav.formattedAddress}</p>
-                            </div>
-                          </button>
+                        {otherFavs.map((fav) => (
+                          <div key={fav.id} className="group relative">
+                            <button
+                              onClick={() => handleSelectHistoryItem(fav as DestinationAddress)}
+                              className="w-full flex items-center gap-4 p-3 rounded-xl active:bg-white/5 transition-colors text-left"
+                            >
+                              <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center">
+                                {getFavoriteIcon(fav.icon)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold text-white truncate">{fav.nickname || fav.label}</p>
+                                <p className="text-[11px] text-gray-500 truncate leading-relaxed">{fav.formattedAddress}</p>
+                              </div>
+                            </button>
+                          </div>
                         ))}
                       </div>
                     </section>
@@ -219,22 +258,31 @@ function BuscarDestinoPage() {
                   {/* Lista de Recentes */}
                   <section>
                     <div className="flex items-center justify-between px-1 mb-3">
-                      <h2 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Recentes</h2>
+                      <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-[0.2em]">Recentes</h2>
+                      {recent.length > 0 && (
+                        <button 
+                          onClick={() => setShowClearConfirm(true)}
+                          className="text-[10px] font-bold text-yellow-500/70 active:text-yellow-500 uppercase tracking-wider"
+                        >
+                          Limpar tudo
+                        </button>
+                      )}
                     </div>
+                    
                     {recent.length > 0 ? (
                       <div className="space-y-1">
                         {recent.map((item) => (
                           <div key={item.id} className="group relative">
                             <button
-                              onClick={() => handleSelectHistoryItem(item)}
-                              className="w-full flex items-center gap-4 p-3 rounded-xl active:bg-white/5 transition-colors text-left"
+                              onClick={() => handleSelectHistoryItem(item as DestinationAddress)}
+                              className="w-full flex items-center gap-4 p-3 rounded-xl active:bg-white/5 transition-colors text-left pr-12"
                             >
-                              <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center">
-                                <Clock className="w-5 h-5 text-gray-400" />
+                              <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center shrink-0">
+                                <Clock className="w-5 h-5 text-gray-500" />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-white truncate">{item.label}</p>
-                                <p className="text-xs text-gray-500 truncate">{item.formattedAddress}</p>
+                                <p className="text-[11px] text-gray-500 truncate leading-relaxed">{item.formattedAddress}</p>
                               </div>
                             </button>
                             <button 
@@ -242,7 +290,8 @@ function BuscarDestinoPage() {
                                 e.stopPropagation();
                                 removeRecent(item.id);
                               }}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 p-3 text-gray-700 active:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-3 text-gray-600 active:text-red-500"
+                              aria-label="Remover recente"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -250,8 +299,8 @@ function BuscarDestinoPage() {
                         ))}
                       </div>
                     ) : (
-                      <div className="p-8 text-center bg-[#222] rounded-2xl border border-dashed border-gray-800">
-                        <p className="text-gray-500 text-sm">Seus destinos recentes aparecerão aqui para acesso rápido.</p>
+                      <div className="p-8 text-center bg-[#222]/30 rounded-2xl border border-dashed border-gray-800/50">
+                        <p className="text-gray-600 text-xs font-medium">Seus destinos recentes aparecerão aqui.</p>
                       </div>
                     )}
                   </section>
@@ -267,7 +316,7 @@ function BuscarDestinoPage() {
                   {status === 'empty' && (
                     <div className="p-8 text-center">
                       <AlertCircle className="w-12 h-12 text-gray-800 mx-auto mb-4" />
-                      <p className="text-gray-500 font-medium">Nenhum resultado encontrado para "{query}".</p>
+                      <p className="text-gray-500 font-medium">Nenhum resultado encontrado.</p>
                     </div>
                   )}
 
@@ -284,7 +333,7 @@ function BuscarDestinoPage() {
                     </div>
                   )}
 
-                  <div className="divide-y divide-gray-800/50">
+                  <div className="divide-y divide-gray-800/30">
                     {suggestions.map((suggestion) => (
                       <button
                         key={suggestion.placeId}
@@ -292,15 +341,15 @@ function BuscarDestinoPage() {
                         disabled={isSelecting}
                         className="w-full flex items-start gap-4 p-4 active:bg-white/5 transition-colors disabled:opacity-50 text-left ripple-effect"
                       >
-                        <div className="mt-1">
-                          <MapPin className="w-5 h-5 text-gray-400" />
+                        <div className="mt-1 shrink-0">
+                          <MapPin className="w-5 h-5 text-yellow-500/50" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-base font-bold text-white truncate leading-tight">
                             {suggestion.primaryText}
                           </p>
                           {suggestion.secondaryText && (
-                            <p className="text-sm text-gray-500 truncate mt-0.5">
+                            <p className="text-xs text-gray-500 truncate mt-1">
                               {suggestion.secondaryText}
                             </p>
                           )}
@@ -314,6 +363,53 @@ function BuscarDestinoPage() {
           </div>
         </div>
       </BottomSheet>
+
+      {/* Confirmação de Limpar Recentes */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              onClick={() => setShowClearConfirm(false)}
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-sm bg-[#1a1a1a] rounded-[32px] p-8 border border-white/5 shadow-2xl text-center"
+            >
+              <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-8 h-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Limpar Histórico?</h3>
+              <p className="text-gray-400 mb-8 leading-relaxed">Iso apagará todos os seus destinos recentes permanentemente.</p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowClearConfirm(false)}
+                  className="rounded-2xl h-14 font-bold border-gray-800 text-gray-400"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    await clearAllRecent();
+                    setShowClearConfirm(false);
+                    toast.success("Histórico limpo com sucesso.");
+                  }}
+                  className="rounded-2xl h-14 font-black bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Limpar
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

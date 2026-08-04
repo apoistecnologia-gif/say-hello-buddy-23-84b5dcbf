@@ -86,9 +86,10 @@ function InicioPage() {
 
           <button 
             onClick={handleOpenSearch}
+            aria-label={hasDestination ? `Destino selecionado: ${destination?.label}. Toque para alterar.` : "Para onde vamos?"}
             className="w-full bg-[#2a2a2a] text-left px-4 py-4 rounded-xl font-bold text-lg border border-gray-700/50 shadow-inner flex items-center gap-3 active:scale-[0.98] transition-all"
           >
-            <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-yellow-500/10 flex items-center justify-center shrink-0">
               <MapPin className={`w-5 h-5 ${hasDestination ? 'text-blue-500' : 'text-yellow-500'}`} />
             </div>
             <div className="flex-1 min-w-0">
@@ -104,7 +105,8 @@ function InicioPage() {
             {hasDestination && (
               <button 
                 onClick={handleClearDestination}
-                className="p-2 -mr-1 text-gray-500 hover:text-white"
+                aria-label="Limpar destino"
+                className="p-2 -mr-1 text-gray-500 active:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
