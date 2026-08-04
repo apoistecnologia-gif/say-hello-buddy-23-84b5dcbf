@@ -46,7 +46,7 @@ export const CategorySelector: React.FC = () => {
         return (
           <button
             key={cat.key}
-            onClick={() => selectCategory(cat.key)}
+            onClick={() => setSelectedCategory(cat)}
             className={cn(
               "flex-shrink-0 w-32 p-4 rounded-2xl flex flex-col items-center justify-between transition-all active:scale-95 border-2",
               isSelected 
