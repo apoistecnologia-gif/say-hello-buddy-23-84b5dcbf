@@ -18,6 +18,8 @@ import { ActiveRideProvider } from '@/hooks/rides/use-active-ride';
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Toaster } from "@/components/ui/sonner";
+import { GlobalErrorBoundary } from "@/components/diagnostics/GlobalErrorBoundary";
+import { StartupTimeout } from "@/components/diagnostics/StartupTimeout";
 
 const queryClient = new QueryClient();
 
@@ -29,8 +31,10 @@ export const Route = createRootRouteWithContext<{
 
 function RootComponent() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
+    <GlobalErrorBoundary>
+      <StartupTimeout>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
         <LocationProvider>
           <PickupAddressProvider>
             <DestinationProvider>
@@ -66,7 +70,9 @@ function RootComponent() {
             </DestinationProvider>
           </PickupAddressProvider>
         </LocationProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </StartupTimeout>
+    </GlobalErrorBoundary>
   );
 }
