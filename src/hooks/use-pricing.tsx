@@ -1,57 +1,87 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useRoute } from "@/hooks/use-route";
 import { useRideCategories } from "@/hooks/use-ride-categories";
-import { FareEstimate, ServiceDetails } from "@/types/pricing";
+import { FareEstimate, PricingRequest } from "@/types/pricing";
+import { pricingService } from "@/services/pricing/pricing-service";
+import { useRideStops } from "@/hooks/rides/use-ride-stops";
 
 interface PricingContextType {
-  estimate: FareEstimate | null;
+  estimates: FareEstimate[];
+  selectedEstimate: FareEstimate | null;
   status: "idle" | "loading" | "success" | "error";
   error: string | null;
-  serviceDetails: ServiceDetails;
-  setServiceDetails: (details: ServiceDetails) => void;
+  calculatePricing: () => Promise<void>;
 }
 
 const PricingContext = createContext<PricingContextType | undefined>(undefined);
 
 export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { route } = useRoute();
-  const { selectedCategory } = useRideCategories();
-  const [estimate, setEstimate] = useState<FareEstimate | null>(null);
+  const { route, origin, destination } = useRoute();
+  const { selectedCategory, categories } = useRideCategories();
+  const { stops } = useRideStops();
+  const [estimates, setEstimates] = useState<FareEstimate[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [serviceDetails, setServiceDetails] = useState<ServiceDetails>({});
   const [error, setError] = useState<string | null>(null);
+  
+  const lastRequestRef = useRef<string>("");
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const calculatePricing = useCallback(async () => {
+    if (!route || !origin || !destination) {
+      setEstimates([]);
+      setStatus("idle");
+      return;
+    }
+
+    const request: PricingRequest = {
+      routeId: route.routeId,
+      origin: { latitude: origin.latitude, longitude: origin.longitude },
+      destination: { latitude: destination.latitude, longitude: destination.longitude },
+      stops: stops.map(s => ({ latitude: s.latitude, longitude: s.longitude })),
+      distanceMeters: route.distanceMeters,
+      durationSeconds: route.durationSeconds,
+      categoryIds: categories.map(c => c.id)
+    };
+
+    const requestStr = JSON.stringify(request);
+    if (requestStr === lastRequestRef.current) return;
+    lastRequestRef.current = requestStr;
+
+    setStatus("loading");
+    setError(null);
+
+    try {
+      const response = await pricingService.estimateFares(request);
+      setEstimates(response.estimates);
+      setStatus("success");
+    } catch (err) {
+      console.error("[PricingProvider] Error calculating pricing:", err);
+      setError("Não foi possível calcular os valores agora.");
+      setStatus("error");
+    }
+  }, [route, origin, destination, stops, categories]);
 
   useEffect(() => {
-    if (route && selectedCategory) {
-      setStatus("loading");
-      const baseFare = 5.0;
-      const distKm = route.distanceMeters / 1000;
-      const durMin = route.durationSeconds / 60;
-      const total = baseFare + (distKm * 2.5) + (durMin * 0.5);
-      
-      setEstimate({
-        category_key: selectedCategory.key,
-        total: Math.max(total, 7.0),
-        base_fare: baseFare,
-        distance_fare: distKm * 2.5,
-        duration_fare: durMin * 0.5,
-        min_fare: 7.0
-      });
-      setStatus("success");
-      setError(null);
-    } else {
-      setEstimate(null);
-      setStatus("idle");
-    }
-  }, [route, selectedCategory, serviceDetails]);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    
+    debounceTimerRef.current = setTimeout(() => {
+      calculatePricing();
+    }, 500);
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [calculatePricing]);
+
+  const selectedEstimate = estimates.find(e => e.categoryId === selectedCategory?.id) || null;
 
   return (
     <PricingContext.Provider value={{ 
-      estimate, 
+      estimates, 
+      selectedEstimate,
       status, 
       error,
-      serviceDetails,
-      setServiceDetails
+      calculatePricing
     }}>
       {children}
     </PricingContext.Provider>

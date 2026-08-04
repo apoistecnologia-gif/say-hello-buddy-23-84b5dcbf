@@ -14,6 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
+      ride_categories: {
+        Row: {
+          capacity_label: string | null
+          code: string
+          created_at: string | null
+          description: string | null
+          eta_label: string | null
+          icon: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          name: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          capacity_label?: string | null
+          code: string
+          created_at?: string | null
+          description?: string | null
+          eta_label?: string | null
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          capacity_label?: string | null
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          eta_label?: string | null
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      tariff_rules: {
+        Row: {
+          base_fare: number
+          category_id: string | null
+          city: string | null
+          created_at: string | null
+          dynamic_multiplier: number | null
+          fixed_fee: number
+          id: string
+          is_active: boolean | null
+          min_fare: number
+          per_km: number
+          per_min: number
+          stop_fee: number
+          updated_at: string | null
+          valid_from: string | null
+          valid_to: string | null
+        }
+        Insert: {
+          base_fare?: number
+          category_id?: string | null
+          city?: string | null
+          created_at?: string | null
+          dynamic_multiplier?: number | null
+          fixed_fee?: number
+          id?: string
+          is_active?: boolean | null
+          min_fare?: number
+          per_km?: number
+          per_min?: number
+          stop_fee?: number
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Update: {
+          base_fare?: number
+          category_id?: string | null
+          city?: string | null
+          created_at?: string | null
+          dynamic_multiplier?: number | null
+          fixed_fee?: number
+          id?: string
+          is_active?: boolean | null
+          min_fare?: number
+          per_km?: number
+          per_min?: number
+          stop_fee?: number
+          updated_at?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tariff_rules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "ride_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
