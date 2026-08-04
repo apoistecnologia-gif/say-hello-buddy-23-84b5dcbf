@@ -1,5 +1,4 @@
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/hooks/use-auth";
 import { LocationProvider } from "@/hooks/use-location";
@@ -62,7 +61,6 @@ function RootComponent() {
           </PickupAddressProvider>
         </LocationProvider>
       </AuthProvider>
-      <TanStackRouterDevtools />
     </QueryClientProvider>
   );
 }
