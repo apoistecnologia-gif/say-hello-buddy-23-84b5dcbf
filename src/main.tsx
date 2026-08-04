@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { RouterProvider, createRouter, createHashHistory } from '@tanstack/react-router'
 import { QueryClient } from '@tanstack/react-query'
 import { routeTree } from './routeTree.gen'
-import './index.css'
+import './styles.css'
 
 const queryClient = new QueryClient()
 const hashHistory = createHashHistory()
