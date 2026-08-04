@@ -140,14 +140,6 @@ function LoginPage() {
           </Link>
         </div>
       </div>
-      
-      {/* SELO DE VERSÃO - APENAS DESENVOLVIMENTO */}
-      <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
-        <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-full opacity-70 tracking-tighter uppercase shadow-2xl">
-          APOIS DIAGNOSTICO 1785860763
-        </span>
-      </div>
     </div>
   );
 }
-
