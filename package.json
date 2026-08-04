@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
+    "build:dev": "vite build",
     "build": "vite build",
     "build:capacitor": "vite build --mode capacitor",
     "preview": "vite preview",
