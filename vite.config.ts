@@ -19,7 +19,7 @@ export default defineConfig({
     },
     tsconfigPaths: true,
   },
-  base: "./", // CRITICAL for Capacitor/Android WebView
+  base: "/", // Reset to root for internal preview consistency
   build: {
     outDir: "dist",
     emptyOutDir: true,
