@@ -76,8 +76,8 @@ export const DestinationHistoryProvider: React.FC<{ children: React.ReactNode }>
     const newItem: DestinationHistoryItem = {
       ...destination,
       id: crypto.randomUUID(),
-      nickname: nickname ?? undefined,
-      icon: icon ?? undefined,
+      nickname: nickname,
+      icon: icon,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       favorite: true
