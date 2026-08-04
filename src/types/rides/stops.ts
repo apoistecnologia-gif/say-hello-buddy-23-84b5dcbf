@@ -9,7 +9,7 @@ export interface RideStop {
   subLabel: string;
   formattedAddress: string;
   order: number;
-  source: 'google_places' | 'favorites' | 'recent';
+  source: "google_places" | "favorites" | "recent";
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +21,12 @@ export interface RideStopsState {
 }
 
 export interface RideStopsError {
-  code: 'limit_reached' | 'duplicate_place' | 'invalid_coordinates' | 'origin_duplicate' | 'destination_duplicate' | 'empty_place';
+  code:
+    | "limit_reached"
+    | "duplicate_place"
+    | "invalid_coordinates"
+    | "origin_duplicate"
+    | "destination_duplicate"
+    | "empty_place";
   message: string;
 }

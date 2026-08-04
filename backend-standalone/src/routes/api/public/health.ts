@@ -8,9 +8,7 @@ export const Route = createFileRoute("/api/public/health")({
         let supabaseAdminError: string | null = null;
 
         try {
-          const { supabaseAdmin } = await import(
-            "@/integrations/supabase/client.server"
-          );
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
           const result = await supabaseAdmin.auth.admin.listUsers({
             page: 1,
@@ -23,8 +21,7 @@ export const Route = createFileRoute("/api/public/health")({
             supabaseAdminOk = true;
           }
         } catch (error) {
-          supabaseAdminError =
-            error instanceof Error ? error.message : String(error);
+          supabaseAdminError = error instanceof Error ? error.message : String(error);
         }
 
         return Response.json({

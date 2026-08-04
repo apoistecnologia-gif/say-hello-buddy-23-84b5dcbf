@@ -33,7 +33,7 @@ function PerfilPage() {
     avatar_url: "",
     phone: "",
     average_rating: 5.0,
-    completed_rides: 0
+    completed_rides: 0,
   };
 
   return (
@@ -72,7 +72,11 @@ function PerfilPage() {
           </p>
 
           <div className="space-y-1">
-            <MenuLink icon={<UserIcon size={20} />} label="Dados Pessoais" value={currentProfile.name} />
+            <MenuLink
+              icon={<UserIcon size={20} />}
+              label="Dados Pessoais"
+              value={currentProfile.name}
+            />
             <MenuLink icon={<Phone size={20} />} label="Telefone" value={currentProfile.phone} />
             <MenuLink icon={<Mail size={20} />} label="E-mail" value={user?.email} />
           </div>

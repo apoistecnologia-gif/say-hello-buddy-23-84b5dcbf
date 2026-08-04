@@ -33,7 +33,7 @@ export interface CancellationFee {
   id: string;
   amount: number;
   reason: string;
-  status: 'pending' | 'paid';
+  status: "pending" | "paid";
   createdAt: string;
 }
 
@@ -55,4 +55,3 @@ export interface CouponValidationResult {
 }
 
 export type CouponStatus = "idle" | "validating" | "applied" | "not_applicable";
-

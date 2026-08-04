@@ -13,7 +13,10 @@ function json(body: unknown, status = 200) {
 }
 
 async function isAuthenticated(request: Request): Promise<boolean> {
-  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  const token = request.headers
+    .get("authorization")
+    ?.replace(/^Bearer\s+/i, "")
+    .trim();
   if (!token) return false;
   const result = await supabaseAdmin.auth.getUser(token);
   return Boolean(result.data.user && !result.error);

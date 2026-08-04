@@ -23,20 +23,23 @@ class PricingService {
     }
 
     try {
-      const { data: response, error } = await supabase.functions.invoke('passenger-pricing-estimate', {
-        body: request
-      });
+      const { data: response, error } = await supabase.functions.invoke(
+        "passenger-pricing-estimate",
+        {
+          body: request,
+        },
+      );
 
       if (error || !response || !response.ok) {
-        throw new Error(error?.message || response?.error || 'Erro ao obter estimativa');
+        throw new Error(error?.message || response?.error || "Erro ao obter estimativa");
       }
 
       const pricingResponse: PricingResponse = {
         currency: response.currency || "BRL",
         estimates: response.estimates.map((est: any) => ({
           ...est,
-          pricingVersion: est.pricingVersion || "backend-v1"
-        }))
+          pricingVersion: est.pricingVersion || "backend-v1",
+        })),
       };
 
       this.cache.set(cacheKey, { response: pricingResponse, timestamp: Date.now() });

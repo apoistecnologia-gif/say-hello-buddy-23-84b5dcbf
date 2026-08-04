@@ -23,12 +23,14 @@ export const DestinationProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const clearDestination = () => setDestination(null);
 
   return (
-    <DestinationContext.Provider value={{ 
-      destination, 
-      setDestination, 
-      hasDestination: !!destination,
-      clearDestination
-    }}>
+    <DestinationContext.Provider
+      value={{
+        destination,
+        setDestination,
+        hasDestination: !!destination,
+        clearDestination,
+      }}
+    >
       {children}
     </DestinationContext.Provider>
   );

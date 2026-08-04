@@ -45,14 +45,23 @@ const DriverSignupSchema = z.object({
       }
       const maxYear = Math.max(new Date().getFullYear() + 1, 2026);
       if (val > maxYear) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "O ano informado é maior que o permitido." });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "O ano informado é maior que o permitido.",
+        });
       }
     }),
   documents: z.tuple([
-    DriverDocumentSchema.extend({ bucket: z.literal("driver-selfies"), label: z.literal("selfie") }),
+    DriverDocumentSchema.extend({
+      bucket: z.literal("driver-selfies"),
+      label: z.literal("selfie"),
+    }),
     DriverDocumentSchema.extend({ bucket: z.literal("driver-cnh"), label: z.literal("cnh") }),
     DriverDocumentSchema.extend({ bucket: z.literal("driver-cnh"), label: z.literal("cnh_back") }),
-    DriverDocumentSchema.extend({ bucket: z.literal("vehicle-documents"), label: z.literal("veiculo") }),
+    DriverDocumentSchema.extend({
+      bucket: z.literal("vehicle-documents"),
+      label: z.literal("veiculo"),
+    }),
   ]),
 });
 
@@ -99,7 +108,13 @@ function authErrorMessage(error: unknown): string {
 }
 
 function cleanExt(fileName: string) {
-  return fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
+  return (
+    fileName
+      .split(".")
+      .pop()
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]/g, "") || "bin"
+  );
 }
 
 function decodeBase64(base64: string) {
@@ -119,13 +134,18 @@ async function removeUploadedFiles(
 }
 
 function isDevHost(host: string) {
-  return /localhost|127\.0\.0\.1|0\.0\.0\.0|id-preview--|lovableproject\.com|lovable\.app/i.test(host);
+  return /localhost|127\.0\.0\.1|0\.0\.0\.0|id-preview--|lovableproject\.com|lovable\.app/i.test(
+    host,
+  );
 }
 
 async function findAuthUserByEmail(supabaseAdmin: any, email: string) {
   const users = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (users.error) throw users.error;
-  return users.data.users.find((u: { email?: string | null }) => u.email?.toLowerCase() === email) ?? null;
+  return (
+    users.data.users.find((u: { email?: string | null }) => u.email?.toLowerCase() === email) ??
+    null
+  );
 }
 
 export const cadastrarMotorista = createServerFn({ method: "POST" })
@@ -168,8 +188,7 @@ export const cadastrarMotorista = createServerFn({ method: "POST" })
       const uploadedDocs = await Promise.all(
         data.documents.map(async (doc) => {
           // selfie: apenas imagens; demais podem ser imagem ou PDF
-          const allowed: readonly string[] =
-            doc.label === "selfie" ? IMAGE_TYPES : DOC_TYPES;
+          const allowed: readonly string[] = doc.label === "selfie" ? IMAGE_TYPES : DOC_TYPES;
           const ct = (doc.contentType || "").toLowerCase();
           if (!allowed.includes(ct)) {
             throw new Error(
@@ -186,7 +205,8 @@ export const cadastrarMotorista = createServerFn({ method: "POST" })
           if (body.byteLength > MAX_DOC_BYTES) {
             throw new Error(`Arquivo de ${doc.label} excede 8 MB.`);
           }
-          if (import.meta.env.DEV) console.log("[MOVVI DOCS] upload iniciado:", { bucket: doc.bucket, path });
+          if (import.meta.env.DEV)
+            console.log("[MOVVI DOCS] upload iniciado:", { bucket: doc.bucket, path });
           const { error } = await supabaseAdmin.storage
             .from(doc.bucket)
             .upload(path, body, { upsert: true, contentType: ct });
@@ -195,7 +215,8 @@ export const cadastrarMotorista = createServerFn({ method: "POST" })
             throw new Error(`Falha no upload de ${doc.label}.`);
           }
           uploaded.push({ bucket: doc.bucket, path });
-          if (import.meta.env.DEV) console.log("[MOVVI DOCS] upload concluído:", { bucket: doc.bucket, path });
+          if (import.meta.env.DEV)
+            console.log("[MOVVI DOCS] upload concluído:", { bucket: doc.bucket, path });
           return [doc.label, { path, body, contentType: ct, fileName: doc.fileName }] as const;
         }),
       );
@@ -204,12 +225,13 @@ export const cadastrarMotorista = createServerFn({ method: "POST" })
         "selfie" | "cnh" | "cnh_back" | "veiculo",
         { path: string; body: ArrayBuffer; contentType: string; fileName: string }
       >;
-      if (import.meta.env.DEV) console.log("[MOVVI DOCS] paths salvos:", {
-        selfie: docMap.selfie.path,
-        cnh: docMap.cnh.path,
-        cnh_back: docMap.cnh_back.path,
-        veiculo: docMap.veiculo.path,
-      });
+      if (import.meta.env.DEV)
+        console.log("[MOVVI DOCS] paths salvos:", {
+          selfie: docMap.selfie.path,
+          cnh: docMap.cnh.path,
+          cnh_back: docMap.cnh_back.path,
+          veiculo: docMap.veiculo.path,
+        });
 
       // Profile photo: copy selfie to profile-photos bucket. Salvamos apenas o
       // path — a UI gera signed URL curta sob demanda.
@@ -269,7 +291,6 @@ export const cadastrarMotorista = createServerFn({ method: "POST" })
       });
       if (driver.error) throw new Error("Falha ao criar cadastro de motorista.");
 
-
       return {
         ok: true,
         message: "Cadastro enviado para análise.",
@@ -282,11 +303,17 @@ export const cadastrarMotorista = createServerFn({ method: "POST" })
       await removeUploadedFiles(supabaseAdmin, uploaded);
       await Promise.allSettled([
         supabaseAdmin.from(DRIVER_TABLE).delete().eq("user_id", finalAuthUserId),
-        supabaseAdmin.from("user_roles").delete().eq("user_id", finalAuthUserId).eq("role", "driver"),
+        supabaseAdmin
+          .from("user_roles")
+          .delete()
+          .eq("user_id", finalAuthUserId)
+          .eq("role", "driver"),
         supabaseAdmin.from("users").delete().eq("auth_user_id", finalAuthUserId),
         supabaseAdmin.auth.admin.deleteUser(finalAuthUserId),
       ]);
-      throw new Error(error instanceof Error ? error.message : "Não foi possível concluir o cadastro.");
+      throw new Error(
+        error instanceof Error ? error.message : "Não foi possível concluir o cadastro.",
+      );
     }
   });
 
@@ -337,7 +364,9 @@ export const diagnosticarAuthMotorista = createServerFn({ method: "POST" })
       const profile = await supabaseAdmin
         .from("users")
         .select("auth_user_id")
-        .or(`auth_user_id.eq.${result.auth_user_id ?? "00000000-0000-0000-0000-000000000000"},email.eq.${email}`)
+        .or(
+          `auth_user_id.eq.${result.auth_user_id ?? "00000000-0000-0000-0000-000000000000"},email.eq.${email}`,
+        )
         .maybeSingle();
       if (profile.error) throw profile.error;
       result.related_profile_exists = !!profile.data;

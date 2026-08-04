@@ -1,86 +1,89 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { 
-  PlaceSuggestion, 
-  PlacesSearchStatus, 
-  PlacesError, 
-  PlacesErrorCode 
-} from '../types/places';
-import { placesService } from '../services/places/places-service';
-import { PLACES_CONFIG } from '../services/places/places-config';
-import { useLocation } from './use-location';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { PlaceSuggestion, PlacesSearchStatus, PlacesError, PlacesErrorCode } from "../types/places";
+import { placesService } from "../services/places/places-service";
+import { PLACES_CONFIG } from "../services/places/places-config";
+import { useLocation } from "./use-location";
 
 export function useDestinationSearch() {
   const { currentPosition } = useLocation();
-  const [query, setQueryState] = useState('');
+  const [query, setQueryState] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
-  const [status, setStatus] = useState<PlacesSearchStatus>('idle');
+  const [status, setStatus] = useState<PlacesSearchStatus>("idle");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<PlacesError | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<PlaceSuggestion | null>(null);
-  
+
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const clearQuery = useCallback(() => {
-    setQueryState('');
+    setQueryState("");
     setSuggestions([]);
-    setStatus('idle');
+    setStatus("idle");
     setError(null);
     placesService.cancelPendingSearch();
   }, []);
 
-  const search = useCallback(async (text: string) => {
-    if (text.length < 2) {
-      setSuggestions([]);
-      setStatus('below_minimum');
-      return;
-    }
+  const search = useCallback(
+    async (text: string) => {
+      if (text.length < 2) {
+        setSuggestions([]);
+        setStatus("below_minimum");
+        return;
+      }
 
-    setIsLoading(true);
-    setStatus('loading');
-    setError(null);
+      setIsLoading(true);
+      setStatus("loading");
+      setError(null);
 
-    try {
-      const results = await placesService.searchPredictions(
-        text, 
-        currentPosition ? { lat: currentPosition.latitude, lng: currentPosition.longitude } : undefined
-      );
-      
-      setSuggestions(results);
-      setStatus(results.length > 0 ? 'success' : 'empty');
-    } catch (err: any) {
-      const placesError = err as PlacesError;
-      if (placesError.code === 'places_cancelled') return;
-      
-      setError(placesError);
-      setStatus(placesError.code === 'places_rate_limited' ? 'rate_limited' : 'failed');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [location]);
+      try {
+        const results = await placesService.searchPredictions(
+          text,
+          currentPosition
+            ? { lat: currentPosition.latitude, lng: currentPosition.longitude }
+            : undefined,
+        );
 
-  const setQuery = useCallback((text: string) => {
-    const cleanText = text.replace(/^\s+/, '');
-    setQueryState(cleanText);
+        setSuggestions(results);
+        setStatus(results.length > 0 ? "success" : "empty");
+      } catch (err: any) {
+        const placesError = err as PlacesError;
+        if (placesError.code === "places_cancelled") return;
 
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
+        setError(placesError);
+        setStatus(placesError.code === "places_rate_limited" ? "rate_limited" : "failed");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [location],
+  );
 
-    if (cleanText.length === 0) {
-      clearQuery();
-      return;
-    }
+  const setQuery = useCallback(
+    (text: string) => {
+      const cleanText = text.replace(/^\s+/, "");
+      setQueryState(cleanText);
 
-    if (cleanText.length < 2) {
-      setStatus('below_minimum');
-      return;
-    }
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
 
-    setStatus('debouncing');
-    debounceTimer.current = setTimeout(() => {
-      search(cleanText);
-    }, 300);
-  }, [search, clearQuery]);
+      if (cleanText.length === 0) {
+        clearQuery();
+        return;
+      }
+
+      if (cleanText.length < 2) {
+        setStatus("below_minimum");
+        return;
+      }
+
+      setStatus("debouncing");
+      debounceTimer.current = setTimeout(() => {
+        search(cleanText);
+      }, 300);
+    },
+    [search, clearQuery],
+  );
 
   const retry = useCallback(() => {
     if (query) search(query);
@@ -110,6 +113,6 @@ export function useDestinationSearch() {
     clearQuery,
     retry,
     reset,
-    setSelectedSuggestion
+    setSelectedSuggestion,
   };
 }

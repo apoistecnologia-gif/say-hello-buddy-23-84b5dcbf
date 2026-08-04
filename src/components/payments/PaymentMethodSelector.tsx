@@ -10,8 +10,8 @@ import { PAYMENT_ICONS } from "@/services/payments/payment-config";
 export const PaymentMethodSelector: React.FC<{ onOpenList: () => void }> = ({ onOpenList }) => {
   const { selectedMethod, methods, isLoading } = usePaymentMethods();
   const { wallet } = useWallet();
-  
-  const current = methods.find(m => m.code === selectedMethod);
+
+  const current = methods.find((m) => m.code === selectedMethod);
   const Icon = current ? PAYMENT_ICONS[current.code] || Wallet : Wallet;
 
   if (isLoading) {
@@ -21,7 +21,7 @@ export const PaymentMethodSelector: React.FC<{ onOpenList: () => void }> = ({ on
   }
 
   return (
-    <button 
+    <button
       onClick={onOpenList}
       className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-all"
     >
@@ -30,7 +30,9 @@ export const PaymentMethodSelector: React.FC<{ onOpenList: () => void }> = ({ on
           <Icon size={20} />
         </div>
         <div className="text-left">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">Forma de Pagamento</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">
+            Forma de Pagamento
+          </p>
           <div className="flex items-center gap-2">
             <h4 className="text-sm font-bold text-white">
               {current?.name || current?.label || "Selecione o pagamento"}
@@ -48,8 +50,10 @@ export const PaymentMethodSelector: React.FC<{ onOpenList: () => void }> = ({ on
   );
 };
 
-
-export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
+  isOpen,
+  onClose,
+}) => {
   const { methods, selectedMethod, selectMethod } = usePaymentMethods();
   const { wallet } = useWallet();
 
@@ -60,7 +64,9 @@ export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void 
       <div className="w-full max-w-lg bg-black rounded-t-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 border-t border-zinc-800">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-black text-white">Forma de Pagamento</h2>
-          <button onClick={onClose} className="text-zinc-500 font-bold text-sm">Fechar</button>
+          <button onClick={onClose} className="text-zinc-500 font-bold text-sm">
+            Fechar
+          </button>
         </div>
 
         <div className="space-y-2 mb-6">
@@ -68,7 +74,8 @@ export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void 
             const Icon = PAYMENT_ICONS[method.code] || Wallet;
             const isSelected = selectedMethod === method.code;
             const isWallet = method.code === "wallet";
-            const isDisabled = !method.isActive || (isWallet && (!wallet || wallet.status !== "active"));
+            const isDisabled =
+              !method.isActive || (isWallet && (!wallet || wallet.status !== "active"));
 
             return (
               <button
@@ -80,17 +87,19 @@ export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void 
                 }}
                 className={cn(
                   "w-full p-4 rounded-2xl flex items-center justify-between border-2 transition-all",
-                  isSelected 
-                    ? "bg-zinc-800 border-apois-yellow" 
+                  isSelected
+                    ? "bg-zinc-800 border-apois-yellow"
                     : "bg-zinc-900/50 border-transparent",
-                  isDisabled && "opacity-40 grayscale"
+                  isDisabled && "opacity-40 grayscale",
                 )}
               >
                 <div className="flex items-center gap-4">
-                  <div className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center transition-colors",
-                    isSelected ? "bg-apois-yellow text-black" : "bg-zinc-800 text-zinc-400"
-                  )}>
+                  <div
+                    className={cn(
+                      "w-12 h-12 rounded-xl flex items-center justify-center transition-colors",
+                      isSelected ? "bg-apois-yellow text-black" : "bg-zinc-800 text-zinc-400",
+                    )}
+                  >
                     <Icon size={24} />
                   </div>
                   <div className="text-left">
@@ -107,7 +116,6 @@ export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void 
               </button>
             );
           })}
-
         </div>
       </div>
     </div>

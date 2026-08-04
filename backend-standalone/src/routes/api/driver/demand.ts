@@ -10,9 +10,7 @@ function json(body: unknown, status = 200) {
 
 async function authenticatedUser(request: Request) {
   const header = request.headers.get("authorization") ?? "";
-  const token = header.toLowerCase().startsWith("bearer ")
-    ? header.slice(7).trim()
-    : "";
+  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
   if (!token) return null;
   const result = await supabaseAdmin.auth.getUser(token);
   return result.data.user ?? null;
@@ -70,8 +68,12 @@ export const Route = createFileRoute("/api/driver/demand")({
           if (
             !Number.isFinite(lat) ||
             !Number.isFinite(lng) ||
-            lat < -34 || lat > 6 || lng < -74 || lng > -34
-          ) continue;
+            lat < -34 ||
+            lat > 6 ||
+            lng < -74 ||
+            lng > -34
+          )
+            continue;
           const cellLat = Math.round(lat / GRID_DEGREES) * GRID_DEGREES;
           const cellLng = Math.round(lng / GRID_DEGREES) * GRID_DEGREES;
           const key = `${cellLat.toFixed(2)}:${cellLng.toFixed(2)}`;

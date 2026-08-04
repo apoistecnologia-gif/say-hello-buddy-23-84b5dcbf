@@ -1,21 +1,12 @@
-import React from 'react';
-import { useRoute } from '@/hooks/use-route';
-import { useDestination } from '@/hooks/use-destination';
-import { usePickupAddress } from '@/hooks/use-pickup-address';
-import { Loader2, AlertCircle, MapPin, Navigation, Clock, RefreshCw, X } from 'lucide-react';
+import React from "react";
+import { useRoute } from "@/hooks/use-route";
+import { useDestination } from "@/hooks/use-destination";
+import { usePickupAddress } from "@/hooks/use-pickup-address";
+import { Loader2, AlertCircle, MapPin, Navigation, Clock, RefreshCw, X } from "lucide-react";
 
 export const RouteSummary: React.FC = () => {
-  const { 
-    route, 
-    status, 
-    isLoading, 
-    error, 
-    retry, 
-    clearRoute,
-    isStale,
-    refresh
-  } = useRoute();
-  
+  const { route, status, isLoading, error, retry, clearRoute, isStale, refresh } = useRoute();
+
   const { destination, clearDestination } = useDestination();
   const { pickupLabel } = usePickupAddress();
 
@@ -24,7 +15,7 @@ export const RouteSummary: React.FC = () => {
   const formatDistance = (meters: number): string => {
     if (meters < 1000) return `${Math.round(meters)} m`;
     const km = meters / 1000;
-    return `${km.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km`;
+    return `${km.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} km`;
   };
 
   const formatDuration = (seconds: number): string => {
@@ -52,32 +43,34 @@ export const RouteSummary: React.FC = () => {
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0 pr-4">
           <div className="flex items-center gap-2 mb-3">
-             <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-             <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Resumo do Trajeto</p>
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
+              Resumo do Trajeto
+            </p>
           </div>
-          
+
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">
                 <div className="w-2 h-2 rounded-full bg-blue-500" />
               </div>
               <p className="text-sm font-medium text-gray-300 truncate">
-                {pickupLabel || 'Seu local'}
+                {pickupLabel || "Seu local"}
               </p>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center shrink-0">
                 <MapPin className="w-3.5 h-3.5 text-yellow-500" />
               </div>
               <p className="text-sm font-bold text-white truncate">
-                {destination?.label || 'Destino'}
+                {destination?.label || "Destino"}
               </p>
             </div>
           </div>
         </div>
 
-        <button 
+        <button
           onClick={handleClear}
           className="p-2 bg-zinc-800/50 rounded-full text-gray-400 hover:text-white transition-colors"
         >
@@ -90,7 +83,9 @@ export const RouteSummary: React.FC = () => {
         {isLoading ? (
           <div className="flex items-center justify-center py-4 gap-3">
             <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
-            <span className="text-sm font-bold text-yellow-500 uppercase tracking-wider">Calculando melhor rota...</span>
+            <span className="text-sm font-bold text-yellow-500 uppercase tracking-wider">
+              Calculando melhor rota...
+            </span>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center gap-3 py-2 text-center">
@@ -98,7 +93,7 @@ export const RouteSummary: React.FC = () => {
               <AlertCircle className="w-5 h-5" />
               <p className="text-sm font-medium">{getErrorMessage(error)}</p>
             </div>
-            <button 
+            <button
               onClick={retry}
               className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full text-xs font-bold uppercase tracking-wider text-white active:scale-95 transition-all"
             >
@@ -114,20 +109,26 @@ export const RouteSummary: React.FC = () => {
                   <Navigation className="w-3 h-3" />
                   <span className="text-[10px] font-black uppercase tracking-tight">Distância</span>
                 </div>
-                <p className="text-xl font-black text-white">{formatDistance(route.distanceMeters)}</p>
+                <p className="text-xl font-black text-white">
+                  {formatDistance(route.distanceMeters)}
+                </p>
               </div>
-              
+
               <div className="flex flex-col">
                 <div className="flex items-center gap-1.5 text-gray-400 mb-0.5">
                   <Clock className="w-3 h-3" />
-                  <span className="text-[10px] font-black uppercase tracking-tight">Tempo Estimado</span>
+                  <span className="text-[10px] font-black uppercase tracking-tight">
+                    Tempo Estimado
+                  </span>
                 </div>
-                <p className="text-xl font-black text-white">{formatDuration(route.durationSeconds)}</p>
+                <p className="text-xl font-black text-white">
+                  {formatDuration(route.durationSeconds)}
+                </p>
               </div>
             </div>
 
             {isStale && (
-              <button 
+              <button
                 onClick={refresh}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/10 border border-yellow-500/20 rounded-lg active:scale-95 transition-all"
               >
@@ -136,10 +137,12 @@ export const RouteSummary: React.FC = () => {
               </button>
             )}
           </div>
-        ) : status === 'debouncing' ? (
+        ) : status === "debouncing" ? (
           <div className="flex items-center justify-center py-4 gap-3 opacity-50">
             <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
-            <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">Aguardando...</span>
+            <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">
+              Aguardando...
+            </span>
           </div>
         ) : null}
       </div>

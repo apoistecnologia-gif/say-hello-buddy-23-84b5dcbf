@@ -16,9 +16,7 @@ export async function hasCurrentDriverSubscription(
     .maybeSingle();
 
   if (result.error) {
-    throw new Error(
-      `Falha ao validar a mensalidade: ${result.error.message}`,
-    );
+    throw new Error(`Falha ao validar a mensalidade: ${result.error.message}`);
   }
   return Boolean(result.data);
 }
@@ -38,13 +36,7 @@ export async function currentDriverSubscriptionIds(
     .gt("period_end", now.toISOString());
 
   if (result.error) {
-    throw new Error(
-      `Falha ao validar mensalidades do despacho: ${result.error.message}`,
-    );
+    throw new Error(`Falha ao validar mensalidades do despacho: ${result.error.message}`);
   }
-  return new Set(
-    (result.data ?? [])
-      .map((row) => String(row.driver_id ?? ""))
-      .filter(Boolean),
-  );
+  return new Set((result.data ?? []).map((row) => String(row.driver_id ?? "")).filter(Boolean));
 }

@@ -23,6 +23,7 @@ React** — é só backend.
 ## Passos para publicar
 
 ### 1. Ambiente local
+
 ```bash
 cp .env.example .env
 # preencher todas as chaves (SUPABASE_URL, SERVICE_ROLE_KEY, PUBLISHABLE_KEY,
@@ -31,13 +32,16 @@ npm install
 ```
 
 ### 2. Validar paridade do Supabase novo
+
 ```bash
 node scripts/verify-parity.mjs
 ```
+
 Corrigir tabelas/RPCs/buckets faltantes no dashboard do Supabase antes de
 prosseguir.
 
 ### 3. Deploy das Edge Functions no novo Supabase
+
 ```bash
 supabase login
 supabase link --project-ref wqbtnfbvqtkyywfcqjwa
@@ -49,6 +53,7 @@ supabase functions deploy mercadopago-webhook       # verify_jwt=false
 supabase functions deploy dispatch-broadcast-test
 supabase functions deploy request-driver-payout
 ```
+
 Configurar os secrets no dashboard: `MERCADOPAGO_ACCESS_TOKEN`,
 `MERCADOPAGO_WEBHOOK_SECRET`, `MERCADOPAGO_BASE_URL`, `CRON_SECRET`,
 `SUPABASE_SERVICE_ROLE_KEY`.
@@ -56,6 +61,7 @@ Configurar os secrets no dashboard: `MERCADOPAGO_ACCESS_TOKEN`,
 ### 4. Deploy do backend TanStack (agnóstico)
 
 **Opção A — Vercel (Node runtime):**
+
 ```bash
 npm i -g vercel
 vercel link
@@ -64,6 +70,7 @@ vercel deploy --prod
 ```
 
 **Opção B — Cloudflare Workers:**
+
 ```bash
 npm i -g wrangler
 # adicionar wrangler.toml apontando para .output/server; ver docs TanStack Start.
@@ -71,14 +78,18 @@ wrangler deploy
 ```
 
 **Opção C — Node self-hosted (Fly.io / Railway / VPS):**
+
 ```bash
 npm run build
 node .output/server/index.mjs   # porta padrão 3000
 ```
+
 Publicar atrás de HTTPS (Caddy/Nginx/Cloudflare Tunnel).
 
 ### 5. Configurar CRON no Supabase novo
+
 No SQL Editor:
+
 ```sql
 select cron.schedule(
   'activate_scheduled_rides', '* * * * *',
@@ -97,20 +108,24 @@ select cron.schedule(
 ```
 
 ### 6. Configurar Auth do Supabase novo
+
 - Providers → habilitar **Email/Password** e **Google** (client id/secret).
 - URL de redirect: as URLs finais dos APKs / painel admin.
 - Trigger `handle_new_user` em `auth.users` (já parte do schema exportado).
 - Templates de e-mail — copiar do projeto antigo se aplicável.
 
 ### 7. Teste de fumaça antes de promover
+
 ```bash
 curl https://SUA-URL/api/public/health
 # deve retornar { ok: true, env: { supabaseUrl: true, ... } }
 ```
+
 Testar um cadastro/login de motorista end-to-end via APK apontando
 temporariamente para essa URL.
 
 ### 8. Só depois: troca de MOBILE_REMOTE_BASE nos APKs
+
 Peça no chat da Lovable a troca de `MOBILE_REMOTE_BASE` (arquivo
 `src/lib/mobileFetchProxy.ts`) e `.env.mobile` para a URL final.
 

@@ -16,7 +16,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   public override state: State = {
     hasError: false,
     error: null,
-    errorInfo: null
+    errorInfo: null,
   };
 
   public static getDerivedStateFromError(error: Error): State {
@@ -39,7 +39,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
           <div className="w-20 h-20 rounded-full bg-red-500/10 flex items-center justify-center mb-6">
             <AlertTriangle className="text-red-500" size={40} />
           </div>
-          
+
           <h1 className="text-2xl font-black mb-2">Ops! Algo deu errado</h1>
           <p className="text-zinc-400 text-sm font-medium mb-8 max-w-xs">
             Ocorreu um erro inesperado na inicialização do aplicativo.
@@ -56,14 +56,14 @@ export class GlobalErrorBoundary extends Component<Props, State> {
             )}
           </div>
 
-          <Button 
+          <Button
             onClick={this.handleReset}
             className="bg-apois-yellow text-black font-black w-full h-14 rounded-2xl flex items-center justify-center gap-2"
           >
             <RefreshCcw size={18} />
             Recarregar Aplicativo
           </Button>
-          
+
           <p className="mt-8 text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
             Diagnóstico APOIS v1.0
           </p>

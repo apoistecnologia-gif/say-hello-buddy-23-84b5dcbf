@@ -26,10 +26,12 @@ export const BottomNavigation = () => {
             }`}
           >
             <item.icon size={22} strokeWidth={isActive ? 3 : 2} />
-            <span className={cn(
-              "text-[9px] font-black uppercase tracking-widest",
-              isActive ? "text-apois-yellow" : "text-zinc-600"
-            )}>
+            <span
+              className={cn(
+                "text-[9px] font-black uppercase tracking-widest",
+                isActive ? "text-apois-yellow" : "text-zinc-600",
+              )}
+            >
               {item.label}
             </span>
           </Link>

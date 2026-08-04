@@ -42,13 +42,7 @@ export interface RouteResult {
   requestKey: string;
 }
 
-export type RouteStatus = 
-  | 'idle' 
-  | 'loading' 
-  | 'success' 
-  | 'failed' 
-  | 'debouncing' 
-  | 'stale';
+export type RouteStatus = "idle" | "loading" | "success" | "failed" | "debouncing" | "stale";
 
 export interface RouteError {
   code: string;

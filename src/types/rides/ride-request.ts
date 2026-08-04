@@ -1,13 +1,13 @@
-export type RideRequestStatus = 
-  | "idle" 
-  | "reviewing" 
-  | "validating" 
-  | "submitting" 
-  | "success" 
-  | "reused" 
-  | "blocked" 
-  | "timeout_unknown" 
-  | "network_error" 
+export type RideRequestStatus =
+  | "idle"
+  | "reviewing"
+  | "validating"
+  | "submitting"
+  | "success"
+  | "reused"
+  | "blocked"
+  | "timeout_unknown"
+  | "network_error"
   | "failed";
 
 export interface RideRequestPayload {

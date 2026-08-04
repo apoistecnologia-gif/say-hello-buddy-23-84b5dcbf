@@ -5,11 +5,11 @@ import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { useDestinationHistory } from "@/hooks/use-destination-history";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { placesService } from "@/services/places/places-service";
-import { 
-  ArrowLeft, 
-  X, 
-  MapPin, 
-  Loader2, 
+import {
+  ArrowLeft,
+  X,
+  MapPin,
+  Loader2,
   AlertCircle,
   Home,
   Briefcase,
@@ -18,7 +18,7 @@ import {
   Plus,
   Trash2,
   Map as MapIcon,
-  Check
+  Check,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/buscar-destino")({
   validateSearch: (search: Record<string, unknown>) => ({
-    stop: search['stop'] === true || search['stop'] === "true",
+    stop: search["stop"] === true || search["stop"] === "true",
   }),
   component: BuscarDestinoPage,
 });
@@ -40,21 +40,9 @@ function BuscarDestinoPage() {
   const { pickupLabel } = usePickupAddress();
   const { setDestination } = useDestination();
   const { addStop } = useRideStops();
-  const { 
-    recent, 
-    favorites, 
-    addToHistory, 
-  } = useDestinationHistory();
-  const {
-    query,
-    suggestions,
-    status,
-    isLoading,
-    error,
-    setQuery,
-    clearQuery,
-    reset
-  } = useDestinationSearch();
+  const { recent, favorites, addToHistory } = useDestinationHistory();
+  const { query, suggestions, status, isLoading, error, setQuery, clearQuery, reset } =
+    useDestinationSearch();
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(true);
@@ -86,7 +74,7 @@ function BuscarDestinoPage() {
         label: details.label,
         subLabel: details.subLabel || "",
         formattedAddress: details.formattedAddress,
-        source: details.source === 'google_places' ? 'google_places' : 'recent'
+        source: details.source === "google_places" ? "google_places" : "recent",
       });
     } else {
       setDestination(details);
@@ -96,7 +84,7 @@ function BuscarDestinoPage() {
 
   const handleSelectSuggestion = async (suggestion: PlaceSuggestion) => {
     if (isSelecting) return;
-    
+
     setIsSelecting(true);
     try {
       const details = await placesService.selectPrediction(suggestion);
@@ -114,12 +102,12 @@ function BuscarDestinoPage() {
     handleFinalSelection(item);
   };
 
-  const handleQuickAction = async (type: 'home' | 'briefcase') => {
-    const existing = favorites.find(f => f.icon === type);
+  const handleQuickAction = async (type: "home" | "briefcase") => {
+    const existing = favorites.find((f) => f.icon === type);
     if (existing) {
       handleSelectHistoryItem(existing as DestinationAddress);
     } else {
-      toast.info(`Pesquise o endereço para definir sua ${type === 'home' ? 'Casa' : 'Trabalho'}.`);
+      toast.info(`Pesquise o endereço para definir sua ${type === "home" ? "Casa" : "Trabalho"}.`);
       inputRef.current?.focus();
     }
   };
@@ -135,15 +123,18 @@ function BuscarDestinoPage() {
 
   const getFavoriteIcon = (iconName?: string) => {
     switch (iconName) {
-      case 'home': return <Home className="w-5 h-5 text-blue-400" />;
-      case 'briefcase': return <Briefcase className="w-5 h-5 text-orange-400" />;
-      default: return <Heart className="w-5 h-5 text-red-400" />;
+      case "home":
+        return <Home className="w-5 h-5 text-blue-400" />;
+      case "briefcase":
+        return <Briefcase className="w-5 h-5 text-orange-400" />;
+      default:
+        return <Heart className="w-5 h-5 text-red-400" />;
     }
   };
 
-  const homeFav = favorites.find(f => f.icon === 'home');
-  const workFav = favorites.find(f => f.icon === 'briefcase');
-  const otherFavs = favorites.filter(f => f.icon !== 'home' && f.icon !== 'briefcase');
+  const homeFav = favorites.find((f) => f.icon === "home");
+  const workFav = favorites.find((f) => f.icon === "briefcase");
+  const otherFavs = favorites.filter((f) => f.icon !== "home" && f.icon !== "briefcase");
 
   return (
     <div className="flex flex-col min-h-screen bg-transparent relative">
@@ -151,7 +142,7 @@ function BuscarDestinoPage() {
       <AnimatePresence>
         {isPickingOnMap && (
           <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-50">
-            <motion.div 
+            <motion.div
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -20, opacity: 0 }}
@@ -169,7 +160,7 @@ function BuscarDestinoPage() {
       {/* Botão de confirmação no mapa */}
       {isPickingOnMap && (
         <div className="fixed bottom-10 left-5 right-5 z-50">
-          <Button 
+          <Button
             onClick={handleConfirmMapSelection}
             className="w-full h-16 bg-apois-yellow text-black font-black text-lg rounded-2xl shadow-2xl active:scale-95 transition-all"
           >
@@ -178,16 +169,12 @@ function BuscarDestinoPage() {
         </div>
       )}
 
-      <BottomSheet 
-        isOpen={isBottomSheetOpen} 
-        onClose={handleClose}
-        preventClose={isSelecting}
-      >
+      <BottomSheet isOpen={isBottomSheetOpen} onClose={handleClose} preventClose={isSelecting}>
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="sticky top-0 bg-[#1a1a1a] pt-2 pb-4 z-30">
             <div className="flex items-center gap-3 mb-6">
-              <button 
+              <button
                 onClick={handleClose}
                 aria-label="Voltar"
                 className="p-2 -ml-2 text-white active:bg-white/10 rounded-full transition-colors"
@@ -195,7 +182,7 @@ function BuscarDestinoPage() {
                 <ArrowLeft className="w-6 h-6" />
               </button>
               <h1 className="text-xl font-bold text-white">
-                {isStopSelection ? 'Adicionar Parada' : 'Para onde vamos?'}
+                {isStopSelection ? "Adicionar Parada" : "Para onde vamos?"}
               </h1>
             </div>
 
@@ -203,9 +190,11 @@ function BuscarDestinoPage() {
               <div className="flex items-center gap-4 px-4 py-3 bg-[#2a2a2a] rounded-xl border border-gray-700/30 opacity-70">
                 <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Ponto de partida</p>
+                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">
+                    Ponto de partida
+                  </p>
                   <p className="text-sm font-medium text-gray-300 truncate">
-                    {pickupLabel || 'Buscando sua localização...'}
+                    {pickupLabel || "Buscando sua localização..."}
                   </p>
                 </div>
               </div>
@@ -240,21 +229,31 @@ function BuscarDestinoPage() {
               {query.length < 2 ? (
                 <motion.div key="history" className="space-y-6">
                   <div className="flex gap-4 overflow-x-auto pb-2 px-1">
-                    <button onClick={() => handleQuickAction('home')} className="flex flex-col items-center gap-2 min-w-[80px]">
+                    <button
+                      onClick={() => handleQuickAction("home")}
+                      className="flex flex-col items-center gap-2 min-w-[80px]"
+                    >
                       <div className="w-14 h-14 rounded-full bg-[#2a2a2a] flex items-center justify-center">
-                        <Home className={homeFav ? 'text-blue-400' : 'text-gray-600'} />
+                        <Home className={homeFav ? "text-blue-400" : "text-gray-600"} />
                       </div>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{homeFav ? 'Casa' : 'Add Casa'}</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                        {homeFav ? "Casa" : "Add Casa"}
+                      </span>
                     </button>
-                    <button onClick={() => handleQuickAction('briefcase')} className="flex flex-col items-center gap-2 min-w-[80px]">
+                    <button
+                      onClick={() => handleQuickAction("briefcase")}
+                      className="flex flex-col items-center gap-2 min-w-[80px]"
+                    >
                       <div className="w-14 h-14 rounded-full bg-[#2a2a2a] flex items-center justify-center">
-                        <Briefcase className={workFav ? 'text-orange-400' : 'text-gray-600'} />
+                        <Briefcase className={workFav ? "text-orange-400" : "text-gray-600"} />
                       </div>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">{workFav ? 'Trampo' : 'Add Trampo'}</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                        {workFav ? "Trampo" : "Add Trampo"}
+                      </span>
                     </button>
                   </div>
 
-                  <button 
+                  <button
                     onClick={() => {
                       setIsBottomSheetOpen(false);
                       setIsPickingOnMap(true);
@@ -268,9 +267,13 @@ function BuscarDestinoPage() {
                   </button>
 
                   <section>
-                    <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1 mb-3">Favoritos</h2>
+                    <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1 mb-3">
+                      Favoritos
+                    </h2>
                     {favorites.length === 0 ? (
-                      <p className="text-xs text-gray-500 px-1 py-2 italic">Você ainda não possui favoritos.</p>
+                      <p className="text-xs text-gray-500 px-1 py-2 italic">
+                        Você ainda não possui favoritos.
+                      </p>
                     ) : (
                       <div className="space-y-1">
                         {favorites.map((item) => (
@@ -283,8 +286,12 @@ function BuscarDestinoPage() {
                               {getFavoriteIcon(item.icon)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-bold text-white text-sm truncate">{item.nickname || item.label}</p>
-                              <p className="text-xs text-gray-500 truncate">{item.formattedAddress}</p>
+                              <p className="font-bold text-white text-sm truncate">
+                                {item.nickname || item.label}
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">
+                                {item.formattedAddress}
+                              </p>
                             </div>
                           </button>
                         ))}
@@ -294,7 +301,9 @@ function BuscarDestinoPage() {
 
                   {recent.length > 0 && (
                     <section>
-                      <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1 mb-3">Recentes</h2>
+                      <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1 mb-3">
+                        Recentes
+                      </h2>
                       <div className="space-y-1">
                         {recent.map((item) => (
                           <button
@@ -307,7 +316,9 @@ function BuscarDestinoPage() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-bold text-white text-sm truncate">{item.label}</p>
-                              <p className="text-xs text-gray-500 truncate">{item.formattedAddress}</p>
+                              <p className="text-xs text-gray-500 truncate">
+                                {item.formattedAddress}
+                              </p>
                             </div>
                           </button>
                         ))}
@@ -317,24 +328,28 @@ function BuscarDestinoPage() {
                 </motion.div>
               ) : (
                 <motion.div key="results" className="space-y-1">
-                  {status === 'loading' && (
+                  {status === "loading" && (
                     <div className="flex flex-col items-center py-10 gap-3">
                       <Loader2 className="w-8 h-8 text-apois-yellow animate-spin" />
                       <p className="text-sm text-gray-500">Buscando endereços...</p>
                     </div>
                   )}
 
-                  {status === 'empty' && (
+                  {status === "empty" && (
                     <div className="flex flex-col items-center py-10 gap-2">
                       <AlertCircle className="w-8 h-8 text-gray-600" />
                       <p className="text-sm text-gray-500">Nenhum endereço encontrado.</p>
                     </div>
                   )}
 
-                  {status === 'failed' && (
+                  {status === "failed" && (
                     <div className="flex flex-col items-center py-10 gap-4">
                       <p className="text-sm text-red-400">Não foi possível pesquisar agora.</p>
-                      <Button onClick={() => setQuery(query)} variant="outline" className="border-red-500/50 text-red-400">
+                      <Button
+                        onClick={() => setQuery(query)}
+                        variant="outline"
+                        className="border-red-500/50 text-red-400"
+                      >
                         Tentar novamente
                       </Button>
                     </div>
@@ -350,7 +365,9 @@ function BuscarDestinoPage() {
                         <MapPin className="w-5 h-5 text-apois-yellow" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-white text-sm truncate">{suggestion.primaryText}</p>
+                        <p className="font-bold text-white text-sm truncate">
+                          {suggestion.primaryText}
+                        </p>
                         <p className="text-xs text-gray-500 truncate">{suggestion.secondaryText}</p>
                       </div>
                     </button>

@@ -1,4 +1,5 @@
 # Auditoria técnica MOVVI / APOIS VAMO
+
 Data: 01/08/2026
 
 ## Escopo auditado

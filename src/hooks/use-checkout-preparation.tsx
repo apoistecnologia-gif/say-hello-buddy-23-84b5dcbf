@@ -12,9 +12,13 @@ interface CheckoutPreparationContextType {
   canProceed: boolean;
 }
 
-const CheckoutPreparationContext = createContext<CheckoutPreparationContextType | undefined>(undefined);
+const CheckoutPreparationContext = createContext<CheckoutPreparationContextType | undefined>(
+  undefined,
+);
 
-export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { user } = useAuth();
   const { route } = useRoute();
   const { selectedCategory } = useRideCategories();
@@ -24,13 +28,14 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
 
   const checkout = useMemo(() => {
     const blockingReasons: string[] = [];
-    
+
     if (!user) blockingReasons.push("user_not_authenticated");
     if (!route) blockingReasons.push("route_missing");
     if (!selectedCategory) blockingReasons.push("category_missing");
-    if (pricingStatus !== "success" || !estimate || !estimate.available) blockingReasons.push("pricing_invalid");
+    if (pricingStatus !== "success" || !estimate || !estimate.available)
+      blockingReasons.push("pricing_invalid");
     if (!selectedMethod) blockingReasons.push("payment_method_missing");
-    
+
     // Wallet block rule
     if (walletState === "blocked") {
       blockingReasons.push("passenger_debt_block");
@@ -46,7 +51,7 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
 
     const baseFare = estimate?.estimatedPrice || 0;
     const extrasTotal = 0;
-    
+
     // AUTHORITY: No coupon discount applied here
     const finalTotal = baseFare;
 
@@ -56,15 +61,17 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
       discountTotal: 0,
       finalTotal,
       readiness: blockingReasons.length === 0,
-      blockingReasons
+      blockingReasons,
     };
   }, [user, route, selectedCategory, estimate, pricingStatus, selectedMethod, walletState, wallet]);
 
   return (
-    <CheckoutPreparationContext.Provider value={{ 
-      checkout, 
-      canProceed: checkout.readiness 
-    }}>
+    <CheckoutPreparationContext.Provider
+      value={{
+        checkout,
+        canProceed: checkout.readiness,
+      }}
+    >
       {children}
     </CheckoutPreparationContext.Provider>
   );
@@ -72,6 +79,7 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
 
 export const useCheckoutPreparation = () => {
   const context = useContext(CheckoutPreparationContext);
-  if (!context) throw new Error("useCheckoutPreparation must be used within CheckoutPreparationProvider");
+  if (!context)
+    throw new Error("useCheckoutPreparation must be used within CheckoutPreparationProvider");
   return context;
 };

@@ -16,8 +16,7 @@ function headers(req: Request) {
     "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin)
       ? origin
       : "https://admin.movvidriver.com.br",
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Content-Type": "application/json",
     Vary: "Origin",

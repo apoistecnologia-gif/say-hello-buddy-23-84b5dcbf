@@ -35,7 +35,7 @@ class ActiveRideService {
       "procurar_motorista",
       "motorista_a_caminho",
       "motorista_chegou",
-      "em_viagem"
+      "em_viagem",
     ];
 
     const { data, error } = await (supabase as any)
@@ -62,7 +62,7 @@ class ActiveRideService {
           event: "UPDATE",
           schema: "public",
           table: "rides",
-          filter: `id=eq.${rideId}`
+          filter: `id=eq.${rideId}`,
         },
         (payload: any) => {
           const newRide = payload.new as ActiveRide;
@@ -73,10 +73,10 @@ class ActiveRideService {
             this.lastUpdateTimestamp = updateTimestamp;
             onUpdate(this.normalizeRide(newRide));
           }
-        }
+        },
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
+        if (status === "SUBSCRIBED") {
           console.log(`[Realtime] Subscribed to ride ${rideId}`);
         }
       });
@@ -94,24 +94,33 @@ class ActiveRideService {
   private normalizeRide(data: any): ActiveRide {
     return {
       ...data,
-      origin: typeof data.origin === 'string' ? JSON.parse(data.origin) : data.origin,
-      destination: typeof data.destination === 'string' ? JSON.parse(data.destination) : data.destination,
-      intermediates: data.intermediates ? (typeof data.intermediates === 'string' ? JSON.parse(data.intermediates) : data.intermediates) : [],
+      origin: typeof data.origin === "string" ? JSON.parse(data.origin) : data.origin,
+      destination:
+        typeof data.destination === "string" ? JSON.parse(data.destination) : data.destination,
+      intermediates: data.intermediates
+        ? typeof data.intermediates === "string"
+          ? JSON.parse(data.intermediates)
+          : data.intermediates
+        : [],
     } as ActiveRide;
   }
 
   public getActionAvailability(status: RideStatus, ride: ActiveRide): any {
-    const isTerminal = ["finalizada", "cancelada_passageiro", "cancelada_motorista"].includes(status);
-    
+    const isTerminal = ["finalizada", "cancelada_passageiro", "cancelada_motorista"].includes(
+      status,
+    );
+
     return {
       canCancel: ["procurar_motorista", "motorista_a_caminho", "motorista_chegou"].includes(status),
-      canContactDriver: !!ride.driver_id && ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
+      canContactDriver:
+        !!ride.driver_id &&
+        ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
       canOpenSafety: ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
       canRate: status === "finalizada" && !ride.passenger_rating,
       canRequestAgain: isTerminal,
       canReturnHome: isTerminal,
       canViewReceipt: status === "finalizada",
-      canShareRide: !!ride.share_token && !isTerminal
+      canShareRide: !!ride.share_token && !isTerminal,
     };
   }
 }

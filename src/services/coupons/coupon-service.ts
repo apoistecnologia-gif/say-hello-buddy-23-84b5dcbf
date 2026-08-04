@@ -7,18 +7,18 @@ import { RideCategoryCode } from "@/types/pricing";
  */
 class CouponService {
   async validateCoupon(
-    _code: string, 
+    _code: string,
     _userId: string,
     _categoryKey: RideCategoryCode,
-    _estimatedFare: number
+    _estimatedFare: number,
   ): Promise<CouponValidationResult> {
     // Honesty policy: Coupons are not yet integrated with the server
-    return { 
-      valid: false, 
-      code: _code, 
-      discount_type: "fixed", 
-      discount_value: 0, 
-      message: "Cupons estarão disponíveis após integração com o servidor." 
+    return {
+      valid: false,
+      code: _code,
+      discount_type: "fixed",
+      discount_value: 0,
+      message: "Cupons estarão disponíveis após integração com o servidor.",
     };
   }
 }

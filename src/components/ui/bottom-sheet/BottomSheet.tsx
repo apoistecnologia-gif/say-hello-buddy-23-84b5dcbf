@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence, useDragControls, useAnimation } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import React, { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence, useDragControls, useAnimation } from "framer-motion";
+import { cn } from "@/lib/utils";
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -14,7 +14,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   isOpen,
   onClose,
   children,
-  preventClose = false
+  preventClose = false,
 }) => {
   const controls = useAnimation();
   const dragControls = useDragControls();
@@ -29,10 +29,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   const handleDragEnd = async (_: any, info: any) => {
     const shouldClose = info.offset.y > 100 || info.velocity.y > 500;
-    
+
     if (shouldClose && !preventClose) {
       setIsClosing(true);
-      await controls.start({ y: '100%' });
+      await controls.start({ y: "100%" });
       onClose();
     } else {
       controls.start({ y: 0 });
@@ -54,10 +54,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
           {/* Sheet */}
           <motion.div
-            initial={{ y: '100%' }}
+            initial={{ y: "100%" }}
             animate={controls}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
             drag="y"
             dragControls={dragControls}
             dragListener={false}
@@ -68,12 +68,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               "fixed bottom-0 left-0 right-0 z-[60]",
               "bg-[#1a1a1a] rounded-t-[32px] overflow-hidden shadow-[0_-8px_30px_rgba(0,0,0,0.5)]",
               "flex flex-col",
-              "h-auto max-h-[92vh]"
+              "h-auto max-h-[92vh]",
             )}
-            style={{ paddingBottom: 'calc(84px + env(safe-area-inset-bottom))' }}
+            style={{ paddingBottom: "calc(84px + env(safe-area-inset-bottom))" }}
           >
             {/* Handle Bar Area */}
-            <div 
+            <div
               className="w-full flex justify-center py-4 cursor-grab active:cursor-grabbing"
               onPointerDown={(e) => dragControls.start(e)}
             >
@@ -81,9 +81,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto px-4 pb-8">
-              {children}
-            </div>
+            <div className="flex-1 overflow-y-auto px-4 pb-8">{children}</div>
           </motion.div>
         </>
       )}

@@ -15,19 +15,14 @@
 // das edge functions.
 // -----------------------------------------------------------------------------
 
-import {
-  assert,
-  assertEquals,
-} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.108.2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 if (!SUPABASE_URL || !SERVICE_ROLE) {
-  throw new Error(
-    "SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios para o teste.",
-  );
+  throw new Error("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios para o teste.");
 }
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -99,137 +94,133 @@ async function cleanup(drivers: CreatedDriver[], rideId?: string) {
   }
 }
 
-Deno.test(
-  "broadcast dispatch — todos os motoristas recebem a oferta simultaneamente",
-  async () => {
-    const drivers: CreatedDriver[] = [];
-    let rideId: string | undefined;
-    try {
-      // Cria um passageiro (precisa de auth.user real por FK em rides.passenger_id).
-      const paxEmail = `dispatch-test-pax-${crypto.randomUUID()}@movvi.test`;
-      const pax = await admin.auth.admin.createUser({
-        email: paxEmail,
-        password: "Test1234!",
-        email_confirm: true,
-        user_metadata: { role: "passenger", name: "Pax Test" },
-      });
-      if (pax.error || !pax.data.user) {
-        throw new Error("Falha ao criar passageiro: " + pax.error?.message);
-      }
-      drivers.push({ authId: pax.data.user.id, email: paxEmail });
+Deno.test("broadcast dispatch — todos os motoristas recebem a oferta simultaneamente", async () => {
+  const drivers: CreatedDriver[] = [];
+  let rideId: string | undefined;
+  try {
+    // Cria um passageiro (precisa de auth.user real por FK em rides.passenger_id).
+    const paxEmail = `dispatch-test-pax-${crypto.randomUUID()}@movvi.test`;
+    const pax = await admin.auth.admin.createUser({
+      email: paxEmail,
+      password: "Test1234!",
+      email_confirm: true,
+      user_metadata: { role: "passenger", name: "Pax Test" },
+    });
+    if (pax.error || !pax.data.user) {
+      throw new Error("Falha ao criar passageiro: " + pax.error?.message);
+    }
+    drivers.push({ authId: pax.data.user.id, email: paxEmail });
 
-      // Cria 3 motoristas elegíveis.
-      const d1 = await createTestDriver("A");
-      const d2 = await createTestDriver("B");
-      const d3 = await createTestDriver("C");
-      drivers.push(d1, d2, d3);
+    // Cria 3 motoristas elegíveis.
+    const d1 = await createTestDriver("A");
+    const d2 = await createTestDriver("B");
+    const d3 = await createTestDriver("C");
+    drivers.push(d1, d2, d3);
 
-      const candidateIds = [d1.authId, d2.authId, d3.authId];
+    const candidateIds = [d1.authId, d2.authId, d3.authId];
 
-      // Insere a corrida diretamente no estado procurar_motorista com
-      // os 3 candidatos visíveis e a janela de 60s aberta.
-      const requestExpiresAt = new Date(Date.now() + 60_000).toISOString();
-      const ins = await admin
+    // Insere a corrida diretamente no estado procurar_motorista com
+    // os 3 candidatos visíveis e a janela de 60s aberta.
+    const requestExpiresAt = new Date(Date.now() + 60_000).toISOString();
+    const ins = await admin
+      .from("rides")
+      .insert({
+        passenger_id: pax.data.user.id,
+        category: "carros",
+        status: "procurar_motorista",
+        origin_lat: ORIGIN.lat,
+        origin_lng: ORIGIN.lng,
+        origin_name: "Origem teste",
+        destination_lat: DEST.lat,
+        destination_lng: DEST.lng,
+        destination_name: "Destino teste",
+        distance_km: 5,
+        duration_min: 12,
+        estimated_price: 25,
+        candidate_driver_ids: candidateIds,
+        offered_driver_ids: candidateIds,
+        request_expires_at: requestExpiresAt,
+      })
+      .select("*")
+      .single();
+    if (ins.error) throw new Error("Insert ride falhou: " + ins.error.message);
+    rideId = ins.data.id as string;
+
+    // ▶ Invariante #1: broadcast simultâneo.
+    const seen = ins.data.candidate_driver_ids as string[];
+    assertEquals(
+      [...seen].sort(),
+      [...candidateIds].sort(),
+      "Todos os 3 motoristas devem aparecer em candidate_driver_ids",
+    );
+    assertEquals(ins.data.accepted_driver_id, null);
+    assertEquals(ins.data.driver_id, null);
+
+    // ▶ Invariante #2: aceite atômico. Disparamos 3 UPDATEs em paralelo,
+    // cada um reproduzindo EXATAMENTE o filtro de `aceitarCorrida`.
+    const tryAccept = async (driverId: string) => {
+      const res = await admin
         .from("rides")
-        .insert({
-          passenger_id: pax.data.user.id,
-          category: "carros",
-          status: "procurar_motorista",
-          origin_lat: ORIGIN.lat,
-          origin_lng: ORIGIN.lng,
-          origin_name: "Origem teste",
-          destination_lat: DEST.lat,
-          destination_lng: DEST.lng,
-          destination_name: "Destino teste",
-          distance_km: 5,
-          duration_min: 12,
-          estimated_price: 25,
-          candidate_driver_ids: candidateIds,
-          offered_driver_ids: candidateIds,
-          request_expires_at: requestExpiresAt,
+        .update({
+          driver_id: driverId,
+          accepted_driver_id: driverId,
+          status: "motorista_a_caminho",
+          accepted_at: new Date().toISOString(),
+          current_offer_driver_id: null,
+          offered_driver_ids: [],
+          safety_code: String(Math.floor(1000 + Math.random() * 9000)),
         })
+        .eq("id", rideId!)
+        .eq("status", "procurar_motorista")
+        .is("accepted_driver_id", null)
+        .gt("request_expires_at", new Date().toISOString())
+        .contains("candidate_driver_ids", [driverId])
+        .not("rejected_driver_ids", "cs", `{${driverId}}`)
         .select("*")
         .single();
-      if (ins.error)
-        throw new Error("Insert ride falhou: " + ins.error.message);
-      rideId = ins.data.id as string;
+      return { driverId, error: res.error, data: res.data };
+    };
 
-      // ▶ Invariante #1: broadcast simultâneo.
-      const seen = ins.data.candidate_driver_ids as string[];
+    const results = await Promise.all(candidateIds.map(tryAccept));
+    const winners = results.filter((r) => !r.error && r.data);
+    const losers = results.filter((r) => r.error);
+
+    assertEquals(
+      winners.length,
+      1,
+      `Exatamente 1 motorista deve vencer o aceite, recebido ${winners.length}.`,
+    );
+    assertEquals(
+      losers.length,
+      2,
+      `Exatamente 2 motoristas devem falhar, recebido ${losers.length}.`,
+    );
+    for (const l of losers) {
+      // PostgREST PGRST116 = "JSON object requested, multiple (or no) rows".
+      // `aceitarCorrida` traduz esse código para a mensagem de UI:
+      // "Esta corrida já foi aceita por outro motorista."
       assertEquals(
-        [...seen].sort(),
-        [...candidateIds].sort(),
-        "Todos os 3 motoristas devem aparecer em candidate_driver_ids",
+        l.error?.code,
+        "PGRST116",
+        `Motorista perdedor deveria receber PGRST116, recebido ${l.error?.code} (${l.error?.message})`,
       );
-      assertEquals(ins.data.accepted_driver_id, null);
-      assertEquals(ins.data.driver_id, null);
-
-      // ▶ Invariante #2: aceite atômico. Disparamos 3 UPDATEs em paralelo,
-      // cada um reproduzindo EXATAMENTE o filtro de `aceitarCorrida`.
-      const tryAccept = async (driverId: string) => {
-        const res = await admin
-          .from("rides")
-          .update({
-            driver_id: driverId,
-            accepted_driver_id: driverId,
-            status: "motorista_a_caminho",
-            accepted_at: new Date().toISOString(),
-            current_offer_driver_id: null,
-            offered_driver_ids: [],
-            safety_code: String(Math.floor(1000 + Math.random() * 9000)),
-          })
-          .eq("id", rideId!)
-          .eq("status", "procurar_motorista")
-          .is("accepted_driver_id", null)
-          .gt("request_expires_at", new Date().toISOString())
-          .contains("candidate_driver_ids", [driverId])
-          .not("rejected_driver_ids", "cs", `{${driverId}}`)
-          .select("*")
-          .single();
-        return { driverId, error: res.error, data: res.data };
-      };
-
-      const results = await Promise.all(candidateIds.map(tryAccept));
-      const winners = results.filter((r) => !r.error && r.data);
-      const losers = results.filter((r) => r.error);
-
-      assertEquals(
-        winners.length,
-        1,
-        `Exatamente 1 motorista deve vencer o aceite, recebido ${winners.length}.`,
-      );
-      assertEquals(
-        losers.length,
-        2,
-        `Exatamente 2 motoristas devem falhar, recebido ${losers.length}.`,
-      );
-      for (const l of losers) {
-        // PostgREST PGRST116 = "JSON object requested, multiple (or no) rows".
-        // `aceitarCorrida` traduz esse código para a mensagem de UI:
-        // "Esta corrida já foi aceita por outro motorista."
-        assertEquals(
-          l.error?.code,
-          "PGRST116",
-          `Motorista perdedor deveria receber PGRST116, recebido ${l.error?.code} (${l.error?.message})`,
-        );
-      }
-
-      // ▶ Invariante #3: leitura final consistente.
-      const finalRow = await admin
-        .from("rides")
-        .select("driver_id, accepted_driver_id, status")
-        .eq("id", rideId!)
-        .single();
-      assertEquals(finalRow.error, null);
-      assertEquals(finalRow.data!.status, "motorista_a_caminho");
-      assertEquals(finalRow.data!.driver_id, winners[0].driverId);
-      assertEquals(finalRow.data!.accepted_driver_id, winners[0].driverId);
-      assert(
-        candidateIds.includes(finalRow.data!.accepted_driver_id as string),
-        "O motorista que venceu deve ser um dos candidatos originais.",
-      );
-    } finally {
-      await cleanup(drivers, rideId);
     }
-  },
-);
+
+    // ▶ Invariante #3: leitura final consistente.
+    const finalRow = await admin
+      .from("rides")
+      .select("driver_id, accepted_driver_id, status")
+      .eq("id", rideId!)
+      .single();
+    assertEquals(finalRow.error, null);
+    assertEquals(finalRow.data!.status, "motorista_a_caminho");
+    assertEquals(finalRow.data!.driver_id, winners[0].driverId);
+    assertEquals(finalRow.data!.accepted_driver_id, winners[0].driverId);
+    assert(
+      candidateIds.includes(finalRow.data!.accepted_driver_id as string),
+      "O motorista que venceu deve ser um dos candidatos originais.",
+    );
+  } finally {
+    await cleanup(drivers, rideId);
+  }
+});

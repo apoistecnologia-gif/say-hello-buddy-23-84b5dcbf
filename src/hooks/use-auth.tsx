@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 
-export type AuthState = "initializing" | "authenticated" | "unauthenticated" | "configuration_error" | "connection_error";
+export type AuthState =
+  "initializing" | "authenticated" | "unauthenticated" | "configuration_error" | "connection_error";
 
 interface AuthContextType {
   user: User | null;
@@ -32,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       setProfile(null);
       setAuthState("unauthenticated");
-      
+
       // Clear sensitive memory/local storage if needed
       window.localStorage.removeItem("apois-last-location");
     } catch (err) {
@@ -51,14 +52,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .single();
 
         if (error) throw error;
-        
+
         if (data) {
           setProfile(data);
           return;
         }
       } catch (err) {
         console.warn(`[AuthProvider] Profile fetch attempt failed (${retries} left):`, err);
-        await new Promise(res => setTimeout(res, 1000));
+        await new Promise((res) => setTimeout(res, 1000));
       }
       retries--;
     }
@@ -66,9 +67,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshSession = useCallback(async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
       if (error) throw error;
-      
+
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -92,8 +96,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initAuth = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
         if (!mounted) return;
 
         if (sessionError) {
@@ -126,12 +133,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
-      
+
       console.log(`[AuthProvider] Auth event: ${event}`);
-      
-      if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+
+      if (event === "SIGNED_OUT" || event === "USER_UPDATED") {
         // Handle explicit sign out or user deletion/update
         if (!newSession) {
           setSession(null);
@@ -146,13 +155,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(newSession.user);
         fetchProfile(newSession.user.id);
         setAuthState("authenticated");
-      } else if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN') {
+      } else if (event !== "INITIAL_SESSION" && event !== "SIGNED_IN") {
         setSession(null);
         setUser(null);
         setProfile(null);
         setAuthState("unauthenticated");
       }
-      
+
       setIsLoading(false);
     });
 
@@ -170,14 +179,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     error,
     signOut,
-    refreshSession
+    refreshSession,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = () => {

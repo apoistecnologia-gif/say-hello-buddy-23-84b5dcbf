@@ -29,7 +29,7 @@ function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const normalizedEmail = email.trim().toLowerCase();
-    
+
     if (!normalizedEmail || !password) {
       toast.error("Por favor, preencha todos os campos.");
       return;
@@ -66,9 +66,9 @@ function LoginPage() {
       <div className="w-full max-w-[400px] flex flex-col items-center">
         {/* LOGOMARCA OFICIAL */}
         <div className="mb-8 flex justify-center w-full">
-          <img 
-            src={logo} 
-            alt="APOIS" 
+          <img
+            src={logo}
+            alt="APOIS"
             className="w-32 h-auto object-contain max-w-[180px]"
             loading="eager"
           />
@@ -83,7 +83,9 @@ function LoginPage() {
         {/* FORMULÁRIO */}
         <form onSubmit={handleLogin} className="w-full space-y-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">E-mail</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">
+              E-mail
+            </label>
             <Input
               type="email"
               placeholder="seu@email.com"
@@ -97,7 +99,9 @@ function LoginPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">Senha</label>
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 ml-1">
+              Senha
+            </label>
             <div className="relative">
               <Input
                 type={showPassword ? "text" : "password"}
@@ -121,8 +125,8 @@ function LoginPage() {
           </div>
 
           <div className="flex justify-end pt-1">
-            <Link 
-              to="/recuperar-senha" 
+            <Link
+              to="/recuperar-senha"
               className="text-sm font-semibold text-apois-yellow hover:text-apois-yellow/80 active:opacity-70 transition-colors"
             >
               Esqueci minha senha
@@ -142,8 +146,8 @@ function LoginPage() {
         {/* CRIAR CONTA */}
         <div className="mt-10 text-center flex flex-col gap-1">
           <span className="text-zinc-500 text-sm">Ainda não tem uma conta?</span>
-          <Link 
-            to="/cadastro" 
+          <Link
+            to="/cadastro"
             className="text-apois-yellow font-black uppercase text-sm tracking-widest hover:text-apois-yellow/80 active:opacity-70 transition-colors"
           >
             Criar minha conta

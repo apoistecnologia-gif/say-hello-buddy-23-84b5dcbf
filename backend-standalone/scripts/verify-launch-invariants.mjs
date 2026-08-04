@@ -37,17 +37,14 @@ requireText("supabase/functions/request-ride/index.ts", [
   "SEARCH_TIMEOUT_SECONDS",
   "period_start.is.null",
 ]);
-requireText(
-  "supabase/migrations/20260726010000_round2_finance_dispatch_compliance.sql",
-  [
-    "ranked_live_rides",
-    "ux_rides_one_live_passenger",
-    "ux_subscriptions_provider_payment_id",
-    "NEW.cancelled_by IS DISTINCT FROM NEW.passenger_id",
-    "search_expires_at = scheduled_for + interval '15 minutes'",
-    "account_deletion_requests",
-  ],
-);
+requireText("supabase/migrations/20260726010000_round2_finance_dispatch_compliance.sql", [
+  "ranked_live_rides",
+  "ux_rides_one_live_passenger",
+  "ux_subscriptions_provider_payment_id",
+  "NEW.cancelled_by IS DISTINCT FROM NEW.passenger_id",
+  "search_expires_at = scheduled_for + interval '15 minutes'",
+  "account_deletion_requests",
+]);
 requireText("supabase/functions/delete-my-account/index.ts", [
   "removeStorageFolder",
   "anonymize_user",

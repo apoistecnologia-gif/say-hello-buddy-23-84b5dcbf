@@ -24,8 +24,7 @@ const MP_BASE_URL = (
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -44,9 +43,8 @@ async function mpFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
       "Content-Type": "application/json",
       Authorization: `Bearer ${MP_TOKEN}`,
       "X-Idempotency-Key":
-        (init.headers as Record<string, string> | undefined)?.[
-          "X-Idempotency-Key"
-        ] ?? crypto.randomUUID(),
+        (init.headers as Record<string, string> | undefined)?.["X-Idempotency-Key"] ??
+        crypto.randomUUID(),
       ...(init.headers ?? {}),
     },
   });
@@ -73,14 +71,11 @@ type FeeRow = {
 
 Deno.serve(async (req) => {
   try {
-    if (req.method === "OPTIONS")
-      return new Response(null, { headers: corsHeaders });
-    if (req.method !== "POST")
-      return json({ error: "method_not_allowed" }, 405);
+    if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer "))
-      return json({ error: "unauthorized" }, 401);
+    if (!authHeader.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
 
     const userClient = createClient(SUPABASE_URL, ANON_KEY, {
       global: { headers: { Authorization: authHeader } },
@@ -114,21 +109,18 @@ Deno.serve(async (req) => {
     if (payload.feeId) feeQuery = feeQuery.eq("id", payload.feeId).limit(1);
 
     const { data: feeRow, error: feeErr } = await feeQuery.maybeSingle();
-    if (feeErr)
-      return json({ error: "fee_lookup_failed", detail: feeErr.message }, 500);
+    if (feeErr) return json({ error: "fee_lookup_failed", detail: feeErr.message }, 500);
     if (!feeRow) return json({ error: "fee_not_found_or_paid" }, 404);
     const fee = feeRow as FeeRow;
 
-    if (Number(fee.fee_amount) <= 0)
-      return json({ error: "fee_amount_invalid" }, 422);
+    if (Number(fee.fee_amount) <= 0) return json({ error: "fee_amount_invalid" }, 422);
 
     // Idempotência: se já existe QR válido, devolve o existente.
     const now = Date.now();
     const stillValid =
       fee.mp_payment_id &&
       fee.mp_qr_code &&
-      (!fee.mp_expires_at ||
-        new Date(fee.mp_expires_at).getTime() > now + 60_000);
+      (!fee.mp_expires_at || new Date(fee.mp_expires_at).getTime() > now + 60_000);
     if (stillValid) {
       return json({
         ok: true,
@@ -149,9 +141,7 @@ Deno.serve(async (req) => {
       .eq("auth_user_id", userId)
       .maybeSingle();
     const email =
-      usr?.email ??
-      userRes?.user?.email ??
-      `passageiro-${userId.slice(0, 8)}@movvi.app`;
+      usr?.email ?? userRes?.user?.email ?? `passageiro-${userId.slice(0, 8)}@movvi.app`;
     const [firstName, ...rest] = String(usr?.name ?? "Passageiro MOVVI")
       .trim()
       .split(/\s+/);
@@ -222,9 +212,6 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     console.error("[create-fee-charge] unexpected", e);
-    return json(
-      { error: "unexpected_error", detail: String(e).slice(0, 300) },
-      500,
-    );
+    return json({ error: "unexpected_error", detail: String(e).slice(0, 300) }, 500);
   }
 });

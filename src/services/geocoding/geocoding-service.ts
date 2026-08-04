@@ -1,13 +1,13 @@
-import { supabase } from '@/integrations/supabase/client';
-import { 
-  GeocodeCoordinates, 
-  PickupAddress, 
-  GeocodeError, 
+import { supabase } from "@/integrations/supabase/client";
+import {
+  GeocodeCoordinates,
+  PickupAddress,
+  GeocodeError,
   GeocodeErrorCode,
   GEOCODE_MESSAGES_PT,
   AddressPrecision,
-  AddressConfidence
-} from '../../types/geocoding';
+  AddressConfidence,
+} from "../../types/geocoding";
 
 interface GeocodeCacheEntry {
   address: PickupAddress;
@@ -40,8 +40,8 @@ class GeocodingService {
     const cacheKey = this.getCacheKey(coords.lat, coords.lng);
     const cached = this.cache.get(cacheKey);
 
-    if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
-      return { ...cached.address, source: 'cache' };
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return { ...cached.address, source: "cache" };
     }
 
     // Cancel existing pending request for this specific position if exists
@@ -54,15 +54,18 @@ class GeocodingService {
 
     try {
       // 1. Primary Reverse Geocoding
-      const { data: response, error } = await supabase.functions.invoke('passenger-geocode-reverse', {
-        body: coords,
-        headers: {
-          'X-Abort-Signal': 'true' // Custom header or just omit signal for now if types don't support it directly in invoke
-        }
-      });
+      const { data: response, error } = await supabase.functions.invoke(
+        "passenger-geocode-reverse",
+        {
+          body: coords,
+          headers: {
+            "X-Abort-Signal": "true", // Custom header or just omit signal for now if types don't support it directly in invoke
+          },
+        },
+      );
 
       if (error) {
-        throw new Error(error.message || 'geocode_empty_result');
+        throw new Error(error.message || "geocode_empty_result");
       }
 
       const geo = response.geo || response;
@@ -70,34 +73,38 @@ class GeocodingService {
 
       // 2. Conditional POI Check
       // If we don't have a street name or it looks very generic, try nearest POI
-      const needsPoi = !pickupAddress.components?.rua || 
-                      pickupAddress.precision === 'approximate' || 
-                      pickupAddress.isApproximate;
+      const needsPoi =
+        !pickupAddress.components?.rua ||
+        pickupAddress.precision === "approximate" ||
+        pickupAddress.isApproximate;
 
       if (needsPoi) {
         try {
-          const { data: poiResponse, error: poiError } = await supabase.functions.invoke('passenger-geocode-nearest-poi', {
-            body: coords
-          });
+          const { data: poiResponse, error: poiError } = await supabase.functions.invoke(
+            "passenger-geocode-nearest-poi",
+            {
+              body: coords,
+            },
+          );
 
           if (!poiError && poiResponse && poiResponse.ok && poiResponse.nearestPoi) {
             pickupAddress = {
               ...pickupAddress,
               nearestPoi: poiResponse.nearestPoi,
-              subLabel: `${poiResponse.nearestPoi}${pickupAddress.subLabel ? ` • ${pickupAddress.subLabel}` : ''}`
+              subLabel: `${poiResponse.nearestPoi}${pickupAddress.subLabel ? ` • ${pickupAddress.subLabel}` : ""}`,
             };
           }
         } catch (poiErr) {
-          console.warn('POI resolution failed, continuing with base address', poiErr);
+          console.warn("POI resolution failed, continuing with base address", poiErr);
         }
       }
 
       // Update Cache
       this.addToCache(cacheKey, pickupAddress);
-      
+
       return pickupAddress;
     } catch (error: any) {
-      if (error.message === 'geocode_cancelled') throw error;
+      if (error.message === "geocode_cancelled") throw error;
       throw this.normalizeError(error.message);
     } finally {
       this.pendingRequests.delete(cacheKey);
@@ -106,18 +113,24 @@ class GeocodingService {
 
   private transformToPickupAddress(coords: GeocodeCoordinates, data: any): PickupAddress {
     const components = data.components || {};
-    
+
     // Priority logic for main label
-    const label = data.pickupLabel || 
-                 data.pickupShortLabel || 
-                 data.address || 
-                 (components.rua ? `${components.rua}${components.numero ? `, ${components.numero}` : ''}` : null) ||
-                 data.region ||
-                 'Endereço não identificado';
+    const label =
+      data.pickupLabel ||
+      data.pickupShortLabel ||
+      data.address ||
+      (components.rua
+        ? `${components.rua}${components.numero ? `, ${components.numero}` : ""}`
+        : null) ||
+      data.region ||
+      "Endereço não identificado";
 
     // Priority logic for subLabel
-    const subLabel = data.pickupSubLabel || 
-                    (components.bairro ? `${components.bairro}${components.cidade ? ` • ${components.cidade}` : ''}` : components.cidade);
+    const subLabel =
+      data.pickupSubLabel ||
+      (components.bairro
+        ? `${components.bairro}${components.cidade ? ` • ${components.cidade}` : ""}`
+        : components.cidade);
 
     return {
       latitude: coords.lat,
@@ -125,16 +138,17 @@ class GeocodingService {
       label,
       subLabel: subLabel || undefined,
       shortLabel: data.pickupShortLabel,
-      precision: (data.precision as AddressPrecision) || (data.approximate ? 'approximate' : 'exact'),
-      confidence: (data.confidence as AddressConfidence) || 'medium',
-      isApproximate: !!data.approximate || data.precision === 'approximate',
-      source: 'gps',
+      precision:
+        (data.precision as AddressPrecision) || (data.approximate ? "approximate" : "exact"),
+      confidence: (data.confidence as AddressConfidence) || "medium",
+      isApproximate: !!data.approximate || data.precision === "approximate",
+      source: "gps",
       timestamp: Date.now(),
       components,
       address: data.address,
       nearestPoi: data.nearestPoi,
       plusCode: data.plusCode,
-      geocodedPosition: data.geocodedLat ? { lat: data.geocodedLat, lng: data.geocodedLng } : null
+      geocodedPosition: data.geocodedLat ? { lat: data.geocodedLat, lng: data.geocodedLng } : null,
     };
   }
 
@@ -148,15 +162,17 @@ class GeocodingService {
 
   public clearCache() {
     this.cache.clear();
-    this.pendingRequests.forEach(c => c.abort());
+    this.pendingRequests.forEach((c) => c.abort());
     this.pendingRequests.clear();
   }
 
   public normalizeError(code: string): GeocodeError {
-    const validCode = (GEOCODE_MESSAGES_PT[code as GeocodeErrorCode] ? code : 'geocode_unknown') as GeocodeErrorCode;
+    const validCode = (
+      GEOCODE_MESSAGES_PT[code as GeocodeErrorCode] ? code : "geocode_unknown"
+    ) as GeocodeErrorCode;
     return {
       code: validCode,
-      message: GEOCODE_MESSAGES_PT[validCode]
+      message: GEOCODE_MESSAGES_PT[validCode],
     };
   }
 }

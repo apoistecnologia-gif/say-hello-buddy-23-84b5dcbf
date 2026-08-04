@@ -1,23 +1,30 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
-import { getCorsHeaders } from '../_shared/cors.ts'
-import { calculateServerFare } from '../_shared/pricing.ts'
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
+import { calculateServerFare } from "../_shared/pricing.ts";
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: getCorsHeaders(req) });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
 
   try {
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
     );
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: getCorsHeaders(req) });
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseClient.auth.getUser();
+    if (authError || !user)
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: getCorsHeaders(req),
+      });
 
     // Use service role for database queries as it needs to read all rules
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
 
     const input = await req.json();
@@ -30,9 +37,7 @@ Deno.serve(async (req) => {
 
     if (catError) throw catError;
 
-    const { data: rules, error: ruleError } = await supabaseAdmin
-      .from("tariff_rules")
-      .select("*");
+    const { data: rules, error: ruleError } = await supabaseAdmin.from("tariff_rules").select("*");
 
     if (ruleError) throw ruleError;
 
@@ -40,15 +45,21 @@ Deno.serve(async (req) => {
     const min = durationSeconds / 60;
 
     const estimates = (categories || [])
-      .filter(cat => !categoryIds || categoryIds.includes(cat.id))
-      .map(cat => {
-        const catRules = rules?.filter(r => r.category_id === cat.id || r.category_key === cat.code);
+      .filter((cat) => !categoryIds || categoryIds.includes(cat.id))
+      .map((cat) => {
+        const catRules = rules?.filter(
+          (r) => r.category_id === cat.id || r.category_key === cat.code,
+        );
         if (!catRules?.length) {
-          return { categoryId: cat.id, available: false, unavailableReason: "Sem regras de tarifa" };
+          return {
+            categoryId: cat.id,
+            available: false,
+            unavailableReason: "Sem regras de tarifa",
+          };
         }
 
         const tariff: Record<string, number> = {};
-        catRules.forEach(r => {
+        catRules.forEach((r) => {
           tariff[r.field_key] = Number(r.value);
         });
 
@@ -58,7 +69,7 @@ Deno.serve(async (req) => {
             distanceKm: km,
             durationMin: min,
             tariff,
-            serviceDetails
+            serviceDetails,
           });
 
           return {
@@ -68,18 +79,20 @@ Deno.serve(async (req) => {
             estimatedPrice: breakdown.total,
             basePrice: breakdown.base,
             extras: breakdown.extras,
-            currency: "BRL"
+            currency: "BRL",
           };
         } catch (err) {
           return { categoryId: cat.id, available: false, unavailableReason: err.message };
         }
       });
 
-    return new Response(JSON.stringify({ ok: true, estimates, pricingVersion: "v2-edge" }), { 
-      headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify({ ok: true, estimates, pricingVersion: "v2-edge" }), {
+      headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
     });
-
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: getCorsHeaders(req) });
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: getCorsHeaders(req),
+    });
   }
-})
+});

@@ -4,19 +4,19 @@ export const ROUTE_CONFIG = {
   CACHE_MAX_ENTRIES: 10,
   RELEVANT_MOVE_THRESHOLD_METERS: 30, // 30m distance to trigger recalculation
   DEBOUNCE_MS: 1500,
-  
+
   STYLE: {
-    STROKE_COLOR: '#FFB800', // Yellow
+    STROKE_COLOR: "#FFB800", // Yellow
     STROKE_WEIGHT: 6,
     STROKE_OPACITY: 0.8,
   },
-  
+
   MAP_PADDING: {
     TOP: 100,
     RIGHT: 50,
     BOTTOM: 350, // More padding for bottom sheet
-    LEFT: 50
-  }
+    LEFT: 50,
+  },
 };
 
 export const ROUTE_ERROR_MESSAGES: Record<string, string> = {

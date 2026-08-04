@@ -1,9 +1,9 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: 'com.apois.passageiro',
-  appName: 'APOIS Passageiro',
-  webDir: 'dist',
+  appId: "com.apois.passageiro",
+  appName: "APOIS Passageiro",
+  webDir: "dist",
   bundledWebRuntime: false,
   plugins: {
     SplashScreen: {

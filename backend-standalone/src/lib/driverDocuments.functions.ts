@@ -20,10 +20,18 @@ type DriverDocPatch = {
 
 function setSlot(patch: DriverDocPatch, slot: Slot, value: string | null) {
   switch (slot) {
-    case "selfie": patch.selfie_url = value; break;
-    case "cnh_front": patch.cnh_url = value; break;
-    case "cnh_back": patch.cnh_back_url = value; break;
-    case "crlv": patch.vehicle_document_url = value; break;
+    case "selfie":
+      patch.selfie_url = value;
+      break;
+    case "cnh_front":
+      patch.cnh_url = value;
+      break;
+    case "cnh_back":
+      patch.cnh_back_url = value;
+      break;
+    case "crlv":
+      patch.vehicle_document_url = value;
+      break;
   }
 }
 
@@ -52,7 +60,9 @@ export const updateDriverDocument = createServerFn({ method: "POST" })
 
     const existing = await supabaseAdmin
       .from("drivers")
-      .select("user_id, selfie_url, cnh_url, cnh_back_url, vehicle_document_url, documents_status, approval_status")
+      .select(
+        "user_id, selfie_url, cnh_url, cnh_back_url, vehicle_document_url, documents_status, approval_status",
+      )
       .eq("user_id", userId)
       .maybeSingle();
     if (existing.error) throw new Error("Falha ao ler cadastro do motorista.");
@@ -114,10 +124,13 @@ export const removeDriverDocument = createServerFn({ method: "POST" })
     if (!existing.data) throw new Error("Cadastro de motorista não encontrado.");
 
     const currentPath =
-      data.slot === "selfie" ? existing.data.selfie_url
-      : data.slot === "cnh_front" ? existing.data.cnh_url
-      : data.slot === "cnh_back" ? existing.data.cnh_back_url
-      : existing.data.vehicle_document_url;
+      data.slot === "selfie"
+        ? existing.data.selfie_url
+        : data.slot === "cnh_front"
+          ? existing.data.cnh_url
+          : data.slot === "cnh_back"
+            ? existing.data.cnh_back_url
+            : existing.data.vehicle_document_url;
 
     if (currentPath && currentPath.startsWith(`${userId}/`)) {
       await supabaseAdmin.storage.from(bucketForSlot(data.slot)).remove([currentPath]);

@@ -7,8 +7,7 @@ const FIREBASE_B64 = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_B64") ?? "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -39,9 +38,7 @@ type PushBody = {
 function readServiceAccount(): ServiceAccount {
   if (!FIREBASE_B64) throw new Error("firebase_secret_missing");
   return JSON.parse(
-    new TextDecoder().decode(
-      Uint8Array.from(atob(FIREBASE_B64), (c) => c.charCodeAt(0)),
-    ),
+    new TextDecoder().decode(Uint8Array.from(atob(FIREBASE_B64), (c) => c.charCodeAt(0))),
   );
 }
 
@@ -58,17 +55,14 @@ async function accessToken(account: ServiceAccount): Promise<string> {
     .setIssuedAt(now)
     .setExpirationTime(now + 3600)
     .sign(key);
-  const response = await fetch(
-    account.token_uri ?? "https://oauth2.googleapis.com/token",
-    {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-        assertion,
-      }),
-    },
-  );
+  const response = await fetch(account.token_uri ?? "https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion,
+    }),
+  });
   const result = await response.json();
   if (!response.ok || !result.access_token)
     throw new Error(`firebase_oauth_failed:${JSON.stringify(result)}`);
@@ -77,10 +71,8 @@ async function accessToken(account: ServiceAccount): Promise<string> {
 
 Deno.serve(async (req) => {
   try {
-    if (req.method === "OPTIONS")
-      return new Response(null, { headers: corsHeaders });
-    if (req.method !== "POST")
-      return json({ error: "method_not_allowed" }, 405);
+    if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
     const authorization = req.headers.get("Authorization") ?? "";
     const token = authorization.replace(/^Bearer\s+/i, "").trim();
     if (!token) return json({ error: "unauthorized" }, 401);
@@ -98,11 +90,7 @@ Deno.serve(async (req) => {
 
     const input = (await req.json()) as PushBody;
     const userIds = [
-      ...new Set(
-        (input.user_ids ?? []).filter(
-          (id) => typeof id === "string" && id.length > 20,
-        ),
-      ),
+      ...new Set((input.user_ids ?? []).filter((id) => typeof id === "string" && id.length > 20)),
     ].slice(0, 50);
     if (!userIds.length || !input.event || !input.title)
       return json({ error: "invalid_payload" }, 422);
@@ -111,9 +99,7 @@ Deno.serve(async (req) => {
       if (!input.ride_id) return json({ error: "ride_required" }, 403);
       const { data: ride } = await admin
         .from("rides")
-        .select(
-          "passenger_id,driver_id,candidate_driver_ids,offered_driver_ids",
-        )
+        .select("passenger_id,driver_id,candidate_driver_ids,offered_driver_ids")
         .eq("id", input.ride_id)
         .maybeSingle();
       if (!ride) return json({ error: "ride_not_found" }, 404);
@@ -125,11 +111,7 @@ Deno.serve(async (req) => {
           ...((ride.offered_driver_ids ?? []) as string[]),
         ].filter(Boolean),
       );
-      if (
-        !callerId ||
-        !participants.has(callerId) ||
-        userIds.some((id) => !participants.has(id))
-      ) {
+      if (!callerId || !participants.has(callerId) || userIds.some((id) => !participants.has(id))) {
         return json({ error: "forbidden" }, 403);
       }
     }
@@ -138,18 +120,13 @@ Deno.serve(async (req) => {
       .from("user_notification_preferences")
       .select("user_id,ride_updates,ride_requests")
       .in("user_id", userIds);
-    const preferenceMap = new Map(
-      (preferences ?? []).map((p) => [p.user_id, p]),
-    );
+    const preferenceMap = new Map((preferences ?? []).map((p) => [p.user_id, p]));
     const requestEvent = input.event === "driver.new_ride_request";
     const allowedUsers = userIds.filter((id) => {
       const pref = preferenceMap.get(id);
-      return requestEvent
-        ? pref?.ride_requests !== false
-        : pref?.ride_updates !== false;
+      return requestEvent ? pref?.ride_requests !== false : pref?.ride_updates !== false;
     });
-    if (!allowedUsers.length)
-      return json({ ok: true, sent: 0, suppressed: userIds.length });
+    if (!allowedUsers.length) return json({ ok: true, sent: 0, suppressed: userIds.length });
 
     const { data: tokenRows, error: tokenError } = await admin
       .from("user_notification_tokens")
@@ -157,8 +134,7 @@ Deno.serve(async (req) => {
       .in("user_id", allowedUsers)
       .eq("platform", "android");
     if (tokenError) throw tokenError;
-    if (!tokenRows?.length)
-      return json({ ok: true, sent: 0, no_tokens: allowedUsers.length });
+    if (!tokenRows?.length) return json({ ok: true, sent: 0, no_tokens: allowedUsers.length });
 
     const account = readServiceAccount();
     const bearer = await accessToken(account);

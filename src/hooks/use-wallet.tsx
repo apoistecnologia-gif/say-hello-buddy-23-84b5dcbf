@@ -33,7 +33,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       setIsLoading(true);
       const data = await walletService.getWallet(user.id);
-      
+
       if (!data) {
         setWallet(null);
         setState("not_found");
@@ -41,11 +41,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const normalizedWallet: WalletSummary = {
           ...data,
           available_balance: data.balance,
-          status: data.isBlocked ? "blocked" : "active"
+          status: data.isBlocked ? "blocked" : "active",
         };
         setWallet(normalizedWallet);
         setState(data.isBlocked ? "blocked" : "available");
-
       }
       setError(null);
     } catch (err) {
@@ -65,10 +64,15 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       .channel("wallet_changes")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "passenger_wallets", filter: `passenger_id=eq.${user.id}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "passenger_wallets",
+          filter: `passenger_id=eq.${user.id}`,
+        },
         () => {
           loadWallet();
-        }
+        },
       )
       .subscribe();
 

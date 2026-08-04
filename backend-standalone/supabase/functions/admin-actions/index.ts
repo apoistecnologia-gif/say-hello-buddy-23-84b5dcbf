@@ -19,12 +19,7 @@ const ASSIGNABLE_ROLES = new Set([
   "support",
   "readonly",
 ]);
-const APPROVAL_STATUSES = new Set([
-  "aprovado",
-  "reprovado",
-  "bloqueado",
-  "em_analise",
-]);
+const APPROVAL_STATUSES = new Set(["aprovado", "reprovado", "bloqueado", "em_analise"]);
 const SUBSCRIPTION_STATUSES = new Set([
   "active",
   "inactive",
@@ -36,12 +31,7 @@ const SUBSCRIPTION_STATUSES = new Set([
   "cancelled",
 ]);
 const PAYMENT_STATUSES = new Set(["paid", "unpaid", "pending", "refunded"]);
-const COUPON_TYPES = new Set([
-  "percent",
-  "fixed",
-  "first_ride",
-  "free_delivery",
-]);
+const COUPON_TYPES = new Set(["percent", "fixed", "first_ride", "free_delivery"]);
 const AUDIENCES = new Set([
   "all",
   "drivers",
@@ -51,8 +41,7 @@ const AUDIENCES = new Set([
   "driver",
   "passenger",
 ]);
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const KEY_RE = /^[a-z0-9_]+$/;
 const COLOR_RE = /^#[0-9a-f]{3,8}$/i;
 const MAX_RECIPIENTS = 50_000;
@@ -63,13 +52,10 @@ type AdminClient = ReturnType<typeof createClient>;
 
 function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get("origin") ?? "";
-  const allowed = ALLOWED_ORIGINS.has(origin)
-    ? origin
-    : "https://admin.movvidriver.com.br";
+  const allowed = ALLOWED_ORIGINS.has(origin) ? origin : "https://admin.movvidriver.com.br";
   return {
     "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     Vary: "Origin",
   };
@@ -87,8 +73,7 @@ function fail(message: string, status = 400): never {
 }
 
 function object(value: unknown): JsonMap {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    fail("invalid_payload");
+  if (!value || typeof value !== "object" || Array.isArray(value)) fail("invalid_payload");
   return value as JsonMap;
 }
 
@@ -110,29 +95,14 @@ function uuid(value: unknown, name = "id"): string {
   return out;
 }
 
-function numberValue(
-  value: unknown,
-  name: string,
-  min = 0,
-  max = 1_000_000,
-): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isFinite(value) ||
-    value < min ||
-    value > max
-  ) {
+function numberValue(value: unknown, name: string, min = 0, max = 1_000_000): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) {
     fail(`invalid_${name}`);
   }
   return value;
 }
 
-function integer(
-  value: unknown,
-  name: string,
-  min = 0,
-  max = 10_000_000,
-): number {
+function integer(value: unknown, name: string, min = 0, max = 10_000_000): number {
   const out = numberValue(value, name, min, max);
   if (!Number.isInteger(out)) fail(`invalid_${name}`);
   return out;
@@ -156,9 +126,7 @@ function isoOrNull(value: unknown, name: string): string | null {
   return out;
 }
 
-async function ensureOk(result: {
-  error: { message: string } | null;
-}): Promise<void> {
+async function ensureOk(result: { error: { message: string } | null }): Promise<void> {
   if (result.error) fail(result.error.message, 422);
 }
 
@@ -167,12 +135,9 @@ async function resolveRecipients(
   audience: string,
   filter: string | null,
 ): Promise<string[]> {
-  const needsFilter = ["city", "category", "driver", "passenger"].includes(
-    audience,
-  );
+  const needsFilter = ["city", "category", "driver", "passenger"].includes(audience);
   if (needsFilter && !filter) fail("missing_filter");
-  if (audience === "driver" || audience === "passenger")
-    return [uuid(filter, "filter")];
+  if (audience === "driver" || audience === "passenger") return [uuid(filter, "filter")];
 
   if (audience === "drivers") {
     const { data, error } = await admin
@@ -290,17 +255,11 @@ async function runAction(
       return { ok: true };
     }
     case "category.delete": {
-      await ensureOk(
-        await admin.from("ride_categories").delete().eq("id", uuid(p.id)),
-      );
+      await ensureOk(await admin.from("ride_categories").delete().eq("id", uuid(p.id)));
       return { ok: true };
     }
     case "category.reorder": {
-      if (
-        !Array.isArray(p.updates) ||
-        p.updates.length < 1 ||
-        p.updates.length > 100
-      ) {
+      if (!Array.isArray(p.updates) || p.updates.length < 1 || p.updates.length > 100) {
         fail("invalid_updates");
       }
       for (const raw of p.updates) {
@@ -317,14 +276,12 @@ async function runAction(
       return { ok: true };
     }
     case "pricing.upsert": {
-      if (!Array.isArray(p.rows) || p.rows.length < 1 || p.rows.length > 200)
-        fail("invalid_rows");
+      if (!Array.isArray(p.rows) || p.rows.length < 1 || p.rows.length > 200) fail("invalid_rows");
       const rows = p.rows.map((raw) => {
         const row = object(raw);
         const categoryKey = text(row.category_key, "category_key", 64);
         const fieldKey = text(row.field_key, "field_key", 64);
-        if (!KEY_RE.test(categoryKey) || !KEY_RE.test(fieldKey))
-          fail("invalid_key");
+        if (!KEY_RE.test(categoryKey) || !KEY_RE.test(fieldKey)) fail("invalid_key");
         return {
           category_key: categoryKey,
           field_key: fieldKey,
@@ -332,24 +289,18 @@ async function runAction(
         };
       });
       await ensureOk(
-        await admin
-          .from("tariff_rules")
-          .upsert(rows, { onConflict: "category_key,field_key" }),
+        await admin.from("tariff_rules").upsert(rows, { onConflict: "category_key,field_key" }),
       );
       return { ok: true, count: rows.length };
     }
     case "pricing.delete": {
-      await ensureOk(
-        await admin.from("tariff_rules").delete().eq("id", uuid(p.id)),
-      );
+      await ensureOk(await admin.from("tariff_rules").delete().eq("id", uuid(p.id)));
       return { ok: true };
     }
     case "coupon.create": {
       const code = text(p.code, "code", 40, 2).toUpperCase();
       await ensureOk(
-        await admin
-          .from("coupons")
-          .insert({ code, type: "percent", value: 10, enabled: true }),
+        await admin.from("coupons").insert({ code, type: "percent", value: 10, enabled: true }),
       );
       return { ok: true };
     }
@@ -374,11 +325,7 @@ async function runAction(
               p.usage_limit === null || p.usage_limit === undefined
                 ? null
                 : integer(p.usage_limit, "usage_limit"),
-            scope_category: optionalText(
-              p.scope_category,
-              "scope_category",
-              64,
-            ),
+            scope_category: optionalText(p.scope_category, "scope_category", 64),
             enabled: booleanValue(p.enabled, "enabled"),
           })
           .eq("id", id),
@@ -415,13 +362,9 @@ async function runAction(
     }
     case "driver.set_suspension": {
       const patch = {
-        suspended_at: booleanValue(p.suspend, "suspend")
-          ? new Date().toISOString()
-          : null,
+        suspended_at: booleanValue(p.suspend, "suspend") ? new Date().toISOString() : null,
       };
-      await ensureOk(
-        await admin.from("drivers").update(patch).eq("id", uuid(p.id)),
-      );
+      await ensureOk(await admin.from("drivers").update(patch).eq("id", uuid(p.id)));
       return { ok: true, patch };
     }
     case "driver.subscription_update": {
@@ -432,15 +375,8 @@ async function runAction(
           "subscription_status",
           SUBSCRIPTION_STATUSES,
         ),
-        payment_status: enumValue(
-          p.payment_status,
-          "payment_status",
-          PAYMENT_STATUSES,
-        ),
-        subscription_expires_at: isoOrNull(
-          p.subscription_expires_at,
-          "subscription_expires_at",
-        ),
+        payment_status: enumValue(p.payment_status, "payment_status", PAYMENT_STATUSES),
+        subscription_expires_at: isoOrNull(p.subscription_expires_at, "subscription_expires_at"),
         subscription_grace_days: integer(
           p.subscription_grace_days,
           "subscription_grace_days",
@@ -477,9 +413,7 @@ async function runAction(
       return data;
     }
     case "driver.note_delete": {
-      await ensureOk(
-        await admin.from("admin_driver_notes").delete().eq("id", uuid(p.id)),
-      );
+      await ensureOk(await admin.from("admin_driver_notes").delete().eq("id", uuid(p.id)));
       return { ok: true };
     }
     case "driver.documents_signed_urls": {
@@ -503,9 +437,7 @@ async function runAction(
       for (const [field, bucket] of Object.entries(buckets)) {
         const path = driver[field as keyof typeof driver] as string | null;
         if (!path) continue;
-        const signed = await admin.storage
-          .from(bucket)
-          .createSignedUrl(path, 600);
+        const signed = await admin.storage.from(bucket).createSignedUrl(path, 600);
         if (!signed.error) out[field] = signed.data?.signedUrl ?? null;
       }
       return out;
@@ -566,19 +498,14 @@ async function runAction(
       return data;
     }
     case "passenger.note_delete": {
-      await ensureOk(
-        await admin.from("admin_passenger_notes").delete().eq("id", uuid(p.id)),
-      );
+      await ensureOk(await admin.from("admin_passenger_notes").delete().eq("id", uuid(p.id)));
       return { ok: true };
     }
     case "admin.role_grant": {
       const role = enumValue(p.role, "role", ASSIGNABLE_ROLES);
       const { error } = await admin
         .from("user_roles")
-        .upsert(
-          { user_id: uuid(p.userId, "userId"), role },
-          { onConflict: "user_id,role" },
-        );
+        .upsert({ user_id: uuid(p.userId, "userId"), role }, { onConflict: "user_id,role" });
       if (error) fail(error.message, 422);
       return { ok: true };
     }
@@ -589,11 +516,7 @@ async function runAction(
         fail("cannot_revoke_self_admin", 409);
       }
       await ensureOk(
-        await admin
-          .from("user_roles")
-          .delete()
-          .eq("user_id", userId)
-          .eq("role", role),
+        await admin.from("user_roles").delete().eq("user_id", userId).eq("role", role),
       );
       return { ok: true };
     }
@@ -602,9 +525,7 @@ async function runAction(
       const body = text(p.body, "body", 2000);
       const audience = enumValue(p.audience, "audience", AUDIENCES);
       const filter = optionalText(p.filter, "filter", 120);
-      const recipients = Array.from(
-        new Set(await resolveRecipients(admin, audience, filter)),
-      );
+      const recipients = Array.from(new Set(await resolveRecipients(admin, audience, filter)));
       if (recipients.length === 0) fail("no_recipients");
       if (recipients.length > MAX_RECIPIENTS) fail("too_many_recipients");
       for (let i = 0; i < recipients.length; i += INSERT_BATCH) {
@@ -635,8 +556,7 @@ async function runAction(
         .createSignedUrl("movvi-drive-source.zip", 300, {
           download: "movvi-drive-source.zip",
         });
-      if (signed.error || !signed.data?.signedUrl)
-        fail("file_unavailable", 404);
+      if (signed.error || !signed.data?.signedUrl) fail("file_unavailable", 404);
       return { url: signed.data.signedUrl };
     }
     case "subscription.plan_create": {
@@ -649,18 +569,8 @@ async function runAction(
             p.promotional_price === null || p.promotional_price === undefined
               ? null
               : numberValue(p.promotional_price, "promotional_price"),
-          billing_cycle_days: integer(
-            p.billing_cycle_days,
-            "billing_cycle_days",
-            1,
-            365,
-          ),
-          grace_period_days: integer(
-            p.grace_period_days,
-            "grace_period_days",
-            0,
-            90,
-          ),
+          billing_cycle_days: integer(p.billing_cycle_days, "billing_cycle_days", 1, 365),
+          grace_period_days: integer(p.grace_period_days, "grace_period_days", 0, 90),
           enabled: booleanValue(p.enabled, "enabled"),
         })
         .select("*")
@@ -680,18 +590,8 @@ async function runAction(
               p.promotional_price === null || p.promotional_price === undefined
                 ? null
                 : numberValue(p.promotional_price, "promotional_price"),
-            billing_cycle_days: integer(
-              p.billing_cycle_days,
-              "billing_cycle_days",
-              1,
-              365,
-            ),
-            grace_period_days: integer(
-              p.grace_period_days,
-              "grace_period_days",
-              0,
-              90,
-            ),
+            billing_cycle_days: integer(p.billing_cycle_days, "billing_cycle_days", 1, 365),
+            grace_period_days: integer(p.grace_period_days, "grace_period_days", 0, 90),
             enabled: booleanValue(p.enabled, "enabled"),
           })
           .eq("id", id),
@@ -706,9 +606,7 @@ async function runAction(
         .eq("plan_id", id);
       if (countError) fail(countError.message, 422);
       if ((count ?? 0) > 0) fail("plan_in_use", 409);
-      await ensureOk(
-        await admin.from("subscription_plans").delete().eq("id", id),
-      );
+      await ensureOk(await admin.from("subscription_plans").delete().eq("id", id));
       return { ok: true };
     }
     case "subscription.note_add": {
@@ -725,12 +623,7 @@ async function runAction(
       return data;
     }
     case "subscription.note_delete": {
-      await ensureOk(
-        await admin
-          .from("admin_subscription_notes")
-          .delete()
-          .eq("id", uuid(p.id)),
-      );
+      await ensureOk(await admin.from("admin_subscription_notes").delete().eq("id", uuid(p.id)));
       return { ok: true };
     }
     case "subscription.auto_suspend": {
@@ -818,9 +711,7 @@ async function runAction(
         .maybeSingle();
       return {
         supabase_project: new URL(SUPABASE_URL).hostname.split(".")[0],
-        mercadopago_token_configured: Boolean(
-          Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")?.trim(),
-        ),
+        mercadopago_token_configured: Boolean(Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")?.trim()),
         mercadopago_webhook_secret_configured: Boolean(
           Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")?.trim(),
         ),
@@ -835,10 +726,8 @@ async function runAction(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS")
-    return new Response(null, { headers: corsHeaders(req) });
-  if (req.method !== "POST")
-    return json(req, { ok: false, error: "method_not_allowed" }, 405);
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders(req) });
+  if (req.method !== "POST") return json(req, { ok: false, error: "method_not_allowed" }, 405);
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -849,11 +738,9 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: userResult, error: userError } =
-      await userClient.auth.getUser();
+    const { data: userResult, error: userError } = await userClient.auth.getUser();
     const userId = userResult.user?.id;
-    if (userError || !userId)
-      return json(req, { ok: false, error: "unauthorized" }, 401);
+    if (userError || !userId) return json(req, { ok: false, error: "unauthorized" }, 401);
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -864,10 +751,8 @@ Deno.serve(async (req) => {
       .eq("user_id", userId)
       .in("role", ADMIN_ROLES)
       .limit(1);
-    if (roleError)
-      return json(req, { ok: false, error: "role_check_failed" }, 500);
-    if (!roleRows?.length)
-      return json(req, { ok: false, error: "forbidden" }, 403);
+    if (roleError) return json(req, { ok: false, error: "role_check_failed" }, 500);
+    if (!roleRows?.length) return json(req, { ok: false, error: "forbidden" }, 403);
 
     let requestBody: { action?: unknown; payload?: unknown };
     try {
@@ -876,12 +761,7 @@ Deno.serve(async (req) => {
       return json(req, { ok: false, error: "invalid_json" }, 400);
     }
     const action = text(requestBody.action, "action", 100);
-    const data = await runAction(
-      admin,
-      userId,
-      action,
-      requestBody.payload ?? {},
-    );
+    const data = await runAction(admin, userId, action, requestBody.payload ?? {});
     const payload = object(requestBody.payload ?? {});
     const entityId =
       typeof payload.id === "string"
@@ -891,10 +771,7 @@ Deno.serve(async (req) => {
           : typeof payload.ticketId === "string"
             ? payload.ticketId
             : null;
-    const forwardedFor = req.headers
-      .get("x-forwarded-for")
-      ?.split(",")[0]
-      ?.trim();
+    const forwardedFor = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
     const auditResult = await admin.from("admin_audit_logs").insert({
       actor_id: userId,
       action,
@@ -913,8 +790,7 @@ Deno.serve(async (req) => {
       typeof error === "object" && error && "status" in error
         ? Number((error as { status: unknown }).status) || 400
         : 400;
-    const message =
-      error instanceof Error ? error.message : "admin_action_failed";
+    const message = error instanceof Error ? error.message : "admin_action_failed";
     console.error("[admin-actions]", message);
     return json(req, { ok: false, error: message }, status);
   }

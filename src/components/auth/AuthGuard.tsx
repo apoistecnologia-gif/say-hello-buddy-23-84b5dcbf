@@ -11,7 +11,7 @@ const PUBLIC_PATHS = [
   "/_public/login",
   "/_public/cadastro",
   "/_public/recuperar-senha",
-  "/_public/redefinir-senha"
+  "/_public/redefinir-senha",
 ];
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -19,7 +19,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isPublicPath = PUBLIC_PATHS.some(path => location.pathname === path || location.pathname === `/_public${path}`);
+  const isPublicPath = PUBLIC_PATHS.some(
+    (path) => location.pathname === path || location.pathname === `/_public${path}`,
+  );
 
   useEffect(() => {
     // Only redirect if we are certain about the state
@@ -44,7 +46,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6 text-center">
         <Loader2 className="animate-spin text-apois-yellow mb-4" size={32} />
-        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">Verificando autenticação...</p>
+        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">
+          Verificando autenticação...
+        </p>
       </div>
     );
   }

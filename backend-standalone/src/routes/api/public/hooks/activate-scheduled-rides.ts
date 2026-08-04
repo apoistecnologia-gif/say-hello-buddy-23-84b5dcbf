@@ -20,21 +20,14 @@ function normalizeCategory(value: unknown): string {
     .toLowerCase();
 }
 
-function distanceKm(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
+function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const radius = 6371;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
   const s1 = Math.sin(dLat / 2);
   const s2 = Math.sin(dLng / 2);
   const value =
-    s1 * s1 +
-    Math.cos((a.lat * Math.PI) / 180) *
-      Math.cos((b.lat * Math.PI) / 180) *
-      s2 *
-      s2;
+    s1 * s1 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * s2 * s2;
   return 2 * radius * Math.asin(Math.sqrt(value));
 }
 
@@ -67,9 +60,7 @@ async function sendRidePush(
 async function dispatchScheduledRide(ride: any): Promise<string[]> {
   const { data: drivers, error: driverError } = await supabaseAdmin
     .from("drivers")
-    .select(
-      "user_id,category,is_online,approval_status,current_lat,current_lng,last_location_at",
-    );
+    .select("user_id,category,is_online,approval_status,current_lat,current_lng,last_location_at");
   if (driverError) throw new Error(driverError.message);
 
   const driverIds = (drivers ?? [])
@@ -99,9 +90,7 @@ async function dispatchScheduledRide(ride: any): Promise<string[]> {
 
   const { data: assignedRides, error: assignedError } = await supabaseAdmin
     .from("rides")
-    .select(
-      "id,driver_id,status,destination_lat,destination_lng,queued_after_ride_id",
-    )
+    .select("id,driver_id,status,destination_lat,destination_lng,queued_after_ride_id")
     .in("status", ["motorista_a_caminho", "motorista_chegou", "em_viagem"])
     .not("driver_id", "is", null);
 
@@ -118,9 +107,7 @@ async function dispatchScheduledRide(ride: any): Promise<string[]> {
   }
 
   const rejected = new Set<string>(
-    Array.isArray(ride.rejected_driver_ids)
-      ? ride.rejected_driver_ids.map(String)
-      : [],
+    Array.isArray(ride.rejected_driver_ids) ? ride.rejected_driver_ids.map(String) : [],
   );
 
   const now = Date.now();
@@ -137,19 +124,14 @@ async function dispatchScheduledRide(ride: any): Promise<string[]> {
       const driverId = String(driver.user_id ?? "");
       if (!driverId || rejected.has(driverId)) return false;
       if (!entitledDrivers.has(driverId)) return false;
-      if (!driver.is_online || driver.approval_status !== "aprovado")
-        return false;
+      if (!driver.is_online || driver.approval_status !== "aprovado") return false;
       if (normalizeCategory(driver.category) !== category) return false;
-      if (
-        !finiteNumber(driver.current_lat) ||
-        !finiteNumber(driver.current_lng)
-      ) {
+      if (!finiteNumber(driver.current_lat) || !finiteNumber(driver.current_lng)) {
         return false;
       }
 
       if (driver.last_location_at) {
-        const ageSeconds =
-          (now - new Date(driver.last_location_at).getTime()) / 1000;
+        const ageSeconds = (now - new Date(driver.last_location_at).getTime()) / 1000;
         if (ageSeconds > MAX_GPS_AGE_SECONDS) return false;
       }
 
@@ -162,10 +144,7 @@ async function dispatchScheduledRide(ride: any): Promise<string[]> {
       if (isShortRide && preference?.accept_short === false) return false;
       if (!isShortRide && preference?.accept_long === false) return false;
 
-      if (
-        ["cash", "dinheiro"].includes(paymentMethod) &&
-        preference?.accept_cash === false
-      ) {
+      if (["cash", "dinheiro"].includes(paymentMethod) && preference?.accept_cash === false) {
         return false;
       }
       if (paymentMethod === "pix" && preference?.accept_pix === false) {
@@ -192,9 +171,7 @@ async function dispatchScheduledRide(ride: any): Promise<string[]> {
       const driverId = String(driver.user_id);
       const active = activeByDriver.get(driverId);
       const reference =
-        active &&
-        finiteNumber(active.destination_lat) &&
-        finiteNumber(active.destination_lng)
+        active && finiteNumber(active.destination_lat) && finiteNumber(active.destination_lng)
           ? {
               lat: Number(active.destination_lat),
               lng: Number(active.destination_lng),
@@ -209,12 +186,7 @@ async function dispatchScheduledRide(ride: any): Promise<string[]> {
         km: distanceKm(origin, reference),
         maxRadiusKm: Math.max(
           1,
-          Math.min(
-            50,
-            Number(
-              (preferencesByDriver.get(driverId) as any)?.max_radius_km ?? 10,
-            ),
-          ),
+          Math.min(50, Number((preferencesByDriver.get(driverId) as any)?.max_radius_km ?? 10)),
         ),
       };
     });
@@ -223,9 +195,7 @@ async function dispatchScheduledRide(ride: any): Promise<string[]> {
 
   for (const radius of RADII_KM) {
     const within = eligible
-      .filter(
-        (driver) => driver.km <= radius && driver.km <= driver.maxRadiusKm,
-      )
+      .filter((driver) => driver.km <= radius && driver.km <= driver.maxRadiusKm)
       .sort((a, b) => a.km - b.km);
 
     if (within.length) {
@@ -243,9 +213,7 @@ async function dispatchScheduledRide(ride: any): Promise<string[]> {
       candidate_driver_ids: ids,
       offered_driver_ids: ids,
       current_offer_driver_id: null,
-      request_expires_at: new Date(
-        Date.now() + REQUEST_TIMEOUT_SECONDS * 1000,
-      ).toISOString(),
+      request_expires_at: new Date(Date.now() + REQUEST_TIMEOUT_SECONDS * 1000).toISOString(),
       dispatch_attempts: Number(ride.dispatch_attempts ?? 0) + 1,
     } as any)
     .eq("id", ride.id)
@@ -259,9 +227,7 @@ async function dispatchScheduledRide(ride: any): Promise<string[]> {
   return ids;
 }
 
-export const Route = createFileRoute(
-  "/api/public/hooks/activate-scheduled-rides",
-)({
+export const Route = createFileRoute("/api/public/hooks/activate-scheduled-rides")({
   server: {
     handlers: {
       POST: async ({ request }) => {
@@ -279,15 +245,10 @@ export const Route = createFileRoute(
           return json({ error: "unauthorized" }, 401);
         }
 
-        const activation = await supabaseAdmin.rpc(
-          "activate_due_scheduled_rides",
-        );
+        const activation = await supabaseAdmin.rpc("activate_due_scheduled_rides");
 
         if (activation.error) {
-          console.error(
-            "[scheduled-rides] activation failed",
-            activation.error,
-          );
+          console.error("[scheduled-rides] activation failed", activation.error);
           return json(
             {
               error: "rpc_failed",
@@ -297,18 +258,13 @@ export const Route = createFileRoute(
           );
         }
 
-        const activatedIds = (
-          (activation.data as { activated_ride_id: string }[] | null) ?? []
-        )
+        const activatedIds = ((activation.data as { activated_ride_id: string }[] | null) ?? [])
           .map((row) => row.activated_ride_id)
           .filter(Boolean);
 
         let activatedRides: any[] = [];
         if (activatedIds.length) {
-          const result = await supabaseAdmin
-            .from("rides")
-            .select("*")
-            .in("id", activatedIds);
+          const result = await supabaseAdmin.from("rides").select("*").in("id", activatedIds);
 
           if (result.error) {
             return json(
@@ -323,17 +279,14 @@ export const Route = createFileRoute(
         }
 
         const nowIso = new Date().toISOString();
-        const scheduledExpiryCutoff = new Date(
-          Date.now() - 15 * 60 * 1000,
-        ).toISOString();
+        const scheduledExpiryCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
         const expiredResult = await supabaseAdmin
           .from("rides")
           .update({
             status: "cancelada_passageiro",
             cancelled_at: nowIso,
             cancelled_by: null,
-            cancel_reason:
-              "Nenhum motorista disponível para o horário agendado.",
+            cancel_reason: "Nenhum motorista disponível para o horário agendado.",
             candidate_driver_ids: [],
             offered_driver_ids: [],
             current_offer_driver_id: null,
@@ -379,19 +332,13 @@ export const Route = createFileRoute(
           .eq("status", "procurar_motorista")
           .not("scheduled_for", "is", null)
           .is("accepted_driver_id", null)
-          .lte(
-            "scheduled_for",
-            new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-          )
+          .lte("scheduled_for", new Date(Date.now() + 15 * 60 * 1000).toISOString())
           .gt("scheduled_for", scheduledExpiryCutoff)
           .or(`request_expires_at.is.null,request_expires_at.lt.${nowIso}`)
           .limit(100);
 
         if (retryResult.error) {
-          return json(
-            { error: "retry_load_failed", detail: retryResult.error.message },
-            500,
-          );
+          return json({ error: "retry_load_failed", detail: retryResult.error.message }, 500);
         }
 
         const ridesById = new Map<string, any>();

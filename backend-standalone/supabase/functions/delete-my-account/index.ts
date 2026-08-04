@@ -5,8 +5,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -23,9 +22,7 @@ async function removeStorageFolder(
   userId: string,
 ) {
   while (true) {
-    const listed = await admin.storage
-      .from(bucket)
-      .list(userId, { limit: 100, offset: 0 });
+    const listed = await admin.storage.from(bucket).list(userId, { limit: 100, offset: 0 });
     if (listed.error) {
       if (/bucket not found/i.test(listed.error.message)) return;
       throw new Error(`storage_list_${bucket}:${listed.error.message}`);
@@ -36,8 +33,7 @@ async function removeStorageFolder(
     if (!files.length) return;
     if (files.length) {
       const removed = await admin.storage.from(bucket).remove(files);
-      if (removed.error)
-        throw new Error(`storage_remove_${bucket}:${removed.error.message}`);
+      if (removed.error) throw new Error(`storage_remove_${bucket}:${removed.error.message}`);
     }
     if ((listed.data ?? []).length < 100) return;
   }
@@ -54,13 +50,10 @@ async function deleteRowsByUser(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS")
-    return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  const token = (req.headers.get("Authorization") ?? "")
-    .replace(/^Bearer\s+/i, "")
-    .trim();
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return json({ error: "unauthorized" }, 401);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -74,12 +67,7 @@ Deno.serve(async (req) => {
     .from("rides")
     .select("id,status")
     .or(`passenger_id.eq.${userId},driver_id.eq.${userId}`)
-    .in("status", [
-      "procurar_motorista",
-      "motorista_a_caminho",
-      "motorista_chegou",
-      "em_viagem",
-    ])
+    .in("status", ["procurar_motorista", "motorista_a_caminho", "motorista_chegou", "em_viagem"])
     .limit(1)
     .maybeSingle();
   if (rideError) return json({ error: "active_ride_check_failed" }, 500);
@@ -87,8 +75,7 @@ Deno.serve(async (req) => {
     return json(
       {
         error: "active_ride_exists",
-        message:
-          "Finalize ou cancele a corrida ativa antes de excluir a conta.",
+        message: "Finalize ou cancele a corrida ativa antes de excluir a conta.",
       },
       409,
     );
@@ -106,17 +93,13 @@ Deno.serve(async (req) => {
     .insert({ user_id: userId, role, status: "requested" })
     .select("id")
     .single();
-  if (requestError || !requestRow)
-    return json({ error: "deletion_request_failed" }, 500);
+  if (requestError || !requestRow) return json({ error: "deletion_request_failed" }, 500);
 
   try {
     await Promise.all(
-      [
-        "profile-photos",
-        "driver-selfies",
-        "driver-cnh",
-        "vehicle-documents",
-      ].map((bucket) => removeStorageFolder(admin, bucket, userId)),
+      ["profile-photos", "driver-selfies", "driver-cnh", "vehicle-documents"].map((bucket) =>
+        removeStorageFolder(admin, bucket, userId),
+      ),
     );
 
     for (const [table, column] of [
@@ -155,8 +138,7 @@ Deno.serve(async (req) => {
         deleted_at: new Date().toISOString(),
       })
       .eq("auth_user_id", userId);
-    if (userUpdate.error)
-      throw new Error(`anonymize_user:${userUpdate.error.message}`);
+    if (userUpdate.error) throw new Error(`anonymize_user:${userUpdate.error.message}`);
     if (driver) {
       const driverUpdate = await admin
         .from("drivers")
@@ -196,16 +178,12 @@ Deno.serve(async (req) => {
           blocked_at: new Date().toISOString(),
         })
         .eq("user_id", userId);
-      if (driverUpdate.error)
-        throw new Error(`anonymize_driver:${driverUpdate.error.message}`);
+      if (driverUpdate.error) throw new Error(`anonymize_driver:${driverUpdate.error.message}`);
     }
 
     // Soft delete disables authentication while keeping foreign-key integrity
     // for legally required ride and financial records.
-    const { error: deleteError } = await admin.auth.admin.deleteUser(
-      userId,
-      true,
-    );
+    const { error: deleteError } = await admin.auth.admin.deleteUser(userId, true);
     if (deleteError) throw deleteError;
 
     const completed = await admin
@@ -215,8 +193,7 @@ Deno.serve(async (req) => {
         completed_at: new Date().toISOString(),
       })
       .eq("id", requestRow.id);
-    if (completed.error)
-      throw new Error(`complete_request:${completed.error.message}`);
+    if (completed.error) throw new Error(`complete_request:${completed.error.message}`);
     return json({ ok: true });
   } catch (error) {
     await admin

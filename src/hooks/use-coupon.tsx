@@ -22,7 +22,7 @@ export const CouponProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       code,
       discount_type: "fixed",
       discount_value: 0,
-      message: "Cupons estarão disponíveis após integração com o servidor."
+      message: "Cupons estarão disponíveis após integração com o servidor.",
     });
   };
 
@@ -32,13 +32,15 @@ export const CouponProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <CouponContext.Provider value={{ 
-      coupon, 
-      status, 
-      validateCoupon, 
-      removeCoupon,
-      isAvailable: false // Honesty flag
-    }}>
+    <CouponContext.Provider
+      value={{
+        coupon,
+        status,
+        validateCoupon,
+        removeCoupon,
+        isAvailable: false, // Honesty flag
+      }}
+    >
       {children}
     </CouponContext.Provider>
   );

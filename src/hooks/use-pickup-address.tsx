@@ -27,7 +27,7 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const refreshAddress = useCallback(async () => {
     if (!location || !location.latitude || !location.longitude) return;
-    
+
     setIsLoading(true);
     setStatus("identifying");
     setError(null);
@@ -36,13 +36,13 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
         console.log(`[usePickupAddress] Requesting geocoding...`);
       }
       const formattedAddress = await getReverseGeocoding(location);
-      
+
       if (import.meta.env.DEV) {
         console.log(`[usePickupAddress] Geocoding success`);
       }
-      
+
       setAddress(formattedAddress);
-      
+
       // Basic parsing for label/short label
       const parts = formattedAddress.split(",");
       if (parts.length > 0) {
@@ -63,7 +63,6 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [location]);
 
-
   useEffect(() => {
     if (location) {
       refreshAddress();
@@ -71,17 +70,18 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [location, refreshAddress]);
 
   return (
-    <PickupAddressContext.Provider value={{ 
-      address, 
-      pickupLabel, 
-      pickupShortLabel, 
-      pickupPlaceId, 
-      isLoading, 
-      status, 
-      error,
-      refreshAddress
-    }}>
-
+    <PickupAddressContext.Provider
+      value={{
+        address,
+        pickupLabel,
+        pickupShortLabel,
+        pickupPlaceId,
+        isLoading,
+        status,
+        error,
+        refreshAddress,
+      }}
+    >
       {children}
     </PickupAddressContext.Provider>
   );

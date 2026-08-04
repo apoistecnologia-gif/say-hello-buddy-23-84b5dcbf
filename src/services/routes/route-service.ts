@@ -29,19 +29,22 @@ class RouteService {
     this.abortController = new AbortController();
 
     try {
-      const { data: response, error } = await supabase.functions.invoke('passenger-routes-compute', {
-        body: request,
-      });
+      const { data: response, error } = await supabase.functions.invoke(
+        "passenger-routes-compute",
+        {
+          body: request,
+        },
+      );
 
       if (error || !response) {
-        throw new Error(error?.message || 'Falha ao calcular rota');
+        throw new Error(error?.message || "Falha ao calcular rota");
       }
 
       const routeData = response as RouteResponse;
       this.cache.set(cacheKey, { data: routeData, timestamp: Date.now() });
       return routeData;
     } catch (err: any) {
-      if (err.name === 'AbortError' || err.message === 'geocode_cancelled') throw err;
+      if (err.name === "AbortError" || err.message === "geocode_cancelled") throw err;
       console.error("[RouteService] Error computing route via backend:", err);
       throw err;
     } finally {

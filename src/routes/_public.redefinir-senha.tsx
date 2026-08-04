@@ -22,7 +22,7 @@ function RedefinirSenhaPage() {
     // Verificar se o usuário está em um fluxo de recuperação de senha
     // O Supabase coloca tokens na URL que se transformam em sessão
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session || window.location.hash.includes('access_token=')) {
+      if (session || window.location.hash.includes("access_token=")) {
         setIsValidSession(true);
       } else {
         toast.error("Link de recuperação inválido ou expirado.");

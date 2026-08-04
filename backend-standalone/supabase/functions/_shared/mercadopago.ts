@@ -44,19 +44,12 @@ function appSettingNumber(value: unknown): number | null {
 }
 
 export function mercadoPagoBaseUrl(): string {
-  const configured = Deno.env
-    .get("MERCADOPAGO_BASE_URL")
-    ?.trim()
-    .replace(/\/+$/, "");
-  return configured === OFFICIAL_MP_BASE_URL
-    ? configured
-    : OFFICIAL_MP_BASE_URL;
+  const configured = Deno.env.get("MERCADOPAGO_BASE_URL")?.trim().replace(/\/+$/, "");
+  return configured === OFFICIAL_MP_BASE_URL ? configured : OFFICIAL_MP_BASE_URL;
 }
 
 export function driverReturnUrl(): string {
-  const configured = Deno.env
-    .get("MOVVI_DRIVER_SUBSCRIPTION_RETURN_URL")
-    ?.trim();
+  const configured = Deno.env.get("MOVVI_DRIVER_SUBSCRIPTION_RETURN_URL")?.trim();
   if (configured?.startsWith("https://")) return configured;
   return "https://app.movvidriver.com.br/motorista/assinatura";
 }
@@ -74,16 +67,9 @@ export async function loadBillingPlan(admin: any): Promise<BillingPlan> {
   if (plan) {
     return {
       id: plan.id,
-      amount: positiveNumber(
-        plan.promotional_price ?? plan.price,
-        DEFAULT_MONTHLY_FEE,
-      ),
-      billingDays: Math.round(
-        positiveNumber(plan.billing_cycle_days, DEFAULT_BILLING_DAYS),
-      ),
-      graceDays: Math.round(
-        positiveNumber(plan.grace_period_days, DEFAULT_GRACE_DAYS),
-      ),
+      amount: positiveNumber(plan.promotional_price ?? plan.price, DEFAULT_MONTHLY_FEE),
+      billingDays: Math.round(positiveNumber(plan.billing_cycle_days, DEFAULT_BILLING_DAYS)),
+      graceDays: Math.round(positiveNumber(plan.grace_period_days, DEFAULT_GRACE_DAYS)),
     };
   }
 
@@ -104,10 +90,7 @@ export async function loadBillingPlan(admin: any): Promise<BillingPlan> {
   };
 }
 
-export async function findReusablePendingCharge(
-  admin: any,
-  driverUserId: string,
-) {
+export async function findReusablePendingCharge(admin: any, driverUserId: string) {
   const now = new Date().toISOString();
   const { data, error } = await admin
     .from("subscriptions")
@@ -190,8 +173,7 @@ export async function createMonthlyPreference(args: {
     }),
   });
   const text = await response.text();
-  if (!response.ok)
-    throw new Error(`MP_HTTP_${response.status}:${text.slice(0, 300)}`);
+  if (!response.ok) throw new Error(`MP_HTTP_${response.status}:${text.slice(0, 300)}`);
   const preference = JSON.parse(text) as Preference;
   return {
     preference,
@@ -210,9 +192,7 @@ export async function persistPendingCharge(args: {
   chargeId: string;
 }) {
   const now = new Date();
-  const periodEnd = new Date(
-    now.getTime() + args.plan.billingDays * 86_400_000,
-  );
+  const periodEnd = new Date(now.getTime() + args.plan.billingDays * 86_400_000);
   const dueDate = new Date(now.getTime() + args.plan.graceDays * 86_400_000);
 
   const { error: staleError } = await args.admin
@@ -224,8 +204,7 @@ export async function persistPendingCharge(args: {
     })
     .eq("driver_id", args.driver.user_id)
     .eq("status", "pending");
-  if (staleError)
-    throw new Error(`STALE_CHARGE_CLOSE_FAILED:${staleError.message}`);
+  if (staleError) throw new Error(`STALE_CHARGE_CLOSE_FAILED:${staleError.message}`);
 
   const subscriptionPatch = {
     plan_id: args.plan.id,
@@ -246,16 +225,10 @@ export async function persistPendingCharge(args: {
     ...subscriptionPatch,
   });
   if (subscriptionResult.error) {
-    throw new Error(
-      `SUBSCRIPTION_WRITE_FAILED:${subscriptionResult.error.message}`,
-    );
+    throw new Error(`SUBSCRIPTION_WRITE_FAILED:${subscriptionResult.error.message}`);
   }
 
-  const currentPaid = await findCurrentPaidSubscription(
-    args.admin,
-    args.driver.user_id,
-    now,
-  );
+  const currentPaid = await findCurrentPaidSubscription(args.admin, args.driver.user_id, now);
   const billingStatusPatch = currentPaid
     ? {}
     : {
@@ -276,8 +249,7 @@ export async function persistPendingCharge(args: {
       last_invoice_url: args.initPoint,
     })
     .eq("id", args.driver.id);
-  if (driverResult.error)
-    throw new Error(`DRIVER_WRITE_FAILED:${driverResult.error.message}`);
+  if (driverResult.error) throw new Error(`DRIVER_WRITE_FAILED:${driverResult.error.message}`);
 
   await args.admin.from("driver_payment_events").insert({
     driver_id: args.driver.id,

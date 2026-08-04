@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import { 
-  ActiveRide, 
-  RideStatus, 
-  RideScreenState, 
-  RideActionAvailability 
+import {
+  ActiveRide,
+  RideStatus,
+  RideScreenState,
+  RideActionAvailability,
 } from "@/types/rides/active-ride";
 import { activeRideService } from "@/services/rides/active-ride-service";
 import { useAuth } from "@/hooks/use-auth";
@@ -30,17 +30,17 @@ const ActiveRideContext = createContext<ActiveRideContextType | undefined>(undef
 export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [ride, setRide] = useState<ActiveRide | null>(null);
-  const [screenState, setScreenState] = useState<RideScreenState>('idle');
+  const [screenState, setScreenState] = useState<RideScreenState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [lastUpdateAt, setLastUpdateAt] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   const currentRideIdRef = useRef<string | null>(null);
 
   const clearRide = useCallback(() => {
     activeRideService.unsubscribe();
     setRide(null);
-    setScreenState('idle');
+    setScreenState("idle");
     setError(null);
     currentRideIdRef.current = null;
   }, []);
@@ -48,45 +48,48 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const handleUpdate = useCallback((updatedRide: ActiveRide) => {
     setRide(updatedRide);
     setLastUpdateAt(new Date());
-    
+
     // Update screen state based on status
-    if (updatedRide.status === "finalizada") setScreenState('completed');
-    else if (updatedRide.status.startsWith("cancelada")) setScreenState('cancelled');
-    else setScreenState('active');
+    if (updatedRide.status === "finalizada") setScreenState("completed");
+    else if (updatedRide.status.startsWith("cancelada")) setScreenState("cancelled");
+    else setScreenState("active");
   }, []);
 
-  const loadRide = useCallback(async (rideId: string) => {
-    if (!user) return;
-    
-    setIsRefreshing(true);
-    if (screenState === 'idle') setScreenState('loading');
-    
-    try {
-      const data = await activeRideService.getRideById(rideId, user.id);
-      currentRideIdRef.current = rideId;
-      setRide(data);
-      setLastUpdateAt(new Date());
-      
-      if (data.status === "finalizada") setScreenState('completed');
-      else if (data.status.startsWith("cancelada")) setScreenState('cancelled');
-      else {
-        setScreenState('active');
-        activeRideService.subscribeToRide(rideId, handleUpdate);
+  const loadRide = useCallback(
+    async (rideId: string) => {
+      if (!user) return;
+
+      setIsRefreshing(true);
+      if (screenState === "idle") setScreenState("loading");
+
+      try {
+        const data = await activeRideService.getRideById(rideId, user.id);
+        currentRideIdRef.current = rideId;
+        setRide(data);
+        setLastUpdateAt(new Date());
+
+        if (data.status === "finalizada") setScreenState("completed");
+        else if (data.status.startsWith("cancelada")) setScreenState("cancelled");
+        else {
+          setScreenState("active");
+          activeRideService.subscribeToRide(rideId, handleUpdate);
+        }
+
+        setError(null);
+      } catch (err: any) {
+        console.error("[useActiveRide] Error loading ride:", err);
+        if (err.message === "not_found") setScreenState("not_found");
+        else if (err.message === "unauthorized") setScreenState("unauthorized");
+        else {
+          setScreenState("failed");
+          setError("Não foi possível carregar os dados da corrida.");
+        }
+      } finally {
+        setIsRefreshing(false);
       }
-      
-      setError(null);
-    } catch (err: any) {
-      console.error("[useActiveRide] Error loading ride:", err);
-      if (err.message === "not_found") setScreenState('not_found');
-      else if (err.message === "unauthorized") setScreenState('unauthorized');
-      else {
-        setScreenState('failed');
-        setError("Não foi possível carregar os dados da corrida.");
-      }
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [user, screenState, handleUpdate]);
+    },
+    [user, screenState, handleUpdate],
+  );
 
   const refreshRide = useCallback(async () => {
     if (currentRideIdRef.current) {
@@ -114,25 +117,29 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return () => activeRideService.unsubscribe();
   }, []);
 
-  const actionAvailability = ride ? activeRideService.getActionAvailability(ride.status, ride) : null;
+  const actionAvailability = ride
+    ? activeRideService.getActionAvailability(ride.status, ride)
+    : null;
 
   return (
-    <ActiveRideContext.Provider value={{
-      ride,
-      status: ride?.status || null,
-      screenState,
-      isInitialLoading: screenState === 'loading',
-      isRefreshing,
-      isRealtimeConnected: !!ride, // Simplified
-      lastUpdateAt,
-      error,
-      actionAvailability,
-      loadRide,
-      refreshRide,
-      clearRide,
-      retry,
-      recoverActiveRide
-    }}>
+    <ActiveRideContext.Provider
+      value={{
+        ride,
+        status: ride?.status || null,
+        screenState,
+        isInitialLoading: screenState === "loading",
+        isRefreshing,
+        isRealtimeConnected: !!ride, // Simplified
+        lastUpdateAt,
+        error,
+        actionAvailability,
+        loadRide,
+        refreshRide,
+        clearRide,
+        retry,
+        recoverActiveRide,
+      }}
+    >
       {children}
     </ActiveRideContext.Provider>
   );

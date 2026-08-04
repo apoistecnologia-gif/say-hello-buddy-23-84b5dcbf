@@ -7,8 +7,13 @@ export type FareBreakdown = {
 };
 
 function yes(value: unknown): boolean {
-  return value === true || ["sim", "yes", "true", "1"].includes(
-    String(value ?? "").trim().toLowerCase(),
+  return (
+    value === true ||
+    ["sim", "yes", "true", "1"].includes(
+      String(value ?? "")
+        .trim()
+        .toLowerCase(),
+    )
   );
 }
 
@@ -96,8 +101,6 @@ export function calculateServerFare(args: {
   return {
     base: rounded(base),
     extras,
-    total: rounded(
-      base + Object.values(extras).reduce((sum, amount) => sum + amount, 0),
-    ),
+    total: rounded(base + Object.values(extras).reduce((sum, amount) => sum + amount, 0)),
   };
 }

@@ -1,51 +1,57 @@
-﻿import { createServer } from 'node:http';
-import { Readable } from 'node:stream';
-import { extname, join, normalize, resolve } from 'node:path';
-import { existsSync, statSync, createReadStream } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import app from './dist/server/server.js';
+﻿import { createServer } from "node:http";
+import { Readable } from "node:stream";
+import { extname, join, normalize, resolve } from "node:path";
+import { existsSync, statSync, createReadStream } from "node:fs";
+import { fileURLToPath } from "node:url";
+import app from "./dist/server/server.js";
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const clientDir = resolve(__dirname, 'dist', 'client');
-const port = Number.parseInt(process.env.PORT || '3000', 10);
-const host = process.env.HOST || '0.0.0.0';
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const clientDir = resolve(__dirname, "dist", "client");
+const port = Number.parseInt(process.env.PORT || "3000", 10);
+const host = process.env.HOST || "0.0.0.0";
 
 const mimeTypes = {
-  '.css': 'text/css; charset=utf-8',
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.map': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.txt': 'text/plain; charset=utf-8',
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".map": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".txt": "text/plain; charset=utf-8",
 };
 
 function tryServeStatic(req, res) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  if (req.method !== "GET" && req.method !== "HEAD") return false;
 
-  const requestUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+  const requestUrl = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
   const pathname = decodeURIComponent(requestUrl.pathname);
-  if (pathname === '/' || pathname.endsWith('/')) return false;
+  if (pathname === "/" || pathname.endsWith("/")) return false;
 
-  const relative = normalize(pathname).replace(/^([/\\])+/, '');
+  const relative = normalize(pathname).replace(/^([/\\])+/, "");
   const filePath = resolve(join(clientDir, relative));
   if (!filePath.startsWith(clientDir) || !existsSync(filePath) || !statSync(filePath).isFile()) {
     return false;
   }
 
   res.statusCode = 200;
-  res.setHeader('Content-Type', mimeTypes[extname(filePath).toLowerCase()] || 'application/octet-stream');
-  res.setHeader('Cache-Control', pathname.includes('/assets/') ? 'public, max-age=31536000, immutable' : 'public, max-age=3600');
+  res.setHeader(
+    "Content-Type",
+    mimeTypes[extname(filePath).toLowerCase()] || "application/octet-stream",
+  );
+  res.setHeader(
+    "Cache-Control",
+    pathname.includes("/assets/") ? "public, max-age=31536000, immutable" : "public, max-age=3600",
+  );
 
-  if (req.method === 'HEAD') {
+  if (req.method === "HEAD") {
     res.end();
   } else {
     createReadStream(filePath).pipe(res);
@@ -54,9 +60,12 @@ function tryServeStatic(req, res) {
 }
 
 function toWebRequest(req) {
-  const protocol = req.headers['x-forwarded-proto']?.toString().split(',')[0].trim() || 'http';
-  const hostHeader = req.headers['x-forwarded-host']?.toString().split(',')[0].trim() || req.headers.host || 'localhost';
-  const url = new URL(req.url || '/', `${protocol}://${hostHeader}`);
+  const protocol = req.headers["x-forwarded-proto"]?.toString().split(",")[0].trim() || "http";
+  const hostHeader =
+    req.headers["x-forwarded-host"]?.toString().split(",")[0].trim() ||
+    req.headers.host ||
+    "localhost";
+  const url = new URL(req.url || "/", `${protocol}://${hostHeader}`);
 
   const headers = new Headers();
   for (const [name, value] of Object.entries(req.headers)) {
@@ -68,11 +77,11 @@ function toWebRequest(req) {
     }
   }
 
-  const method = req.method || 'GET';
+  const method = req.method || "GET";
   const init = { method, headers };
-  if (method !== 'GET' && method !== 'HEAD') {
+  if (method !== "GET" && method !== "HEAD") {
     init.body = Readable.toWeb(req);
-    init.duplex = 'half';
+    init.duplex = "half";
   }
 
   return new Request(url, init);
@@ -82,15 +91,16 @@ async function sendWebResponse(webResponse, res) {
   res.statusCode = webResponse.status;
   res.statusMessage = webResponse.statusText || res.statusMessage;
 
-  const setCookies = typeof webResponse.headers.getSetCookie === 'function'
-    ? webResponse.headers.getSetCookie()
-    : [];
+  const setCookies =
+    typeof webResponse.headers.getSetCookie === "function"
+      ? webResponse.headers.getSetCookie()
+      : [];
 
   for (const [name, value] of webResponse.headers.entries()) {
-    if (name.toLowerCase() === 'set-cookie') continue;
+    if (name.toLowerCase() === "set-cookie") continue;
     res.setHeader(name, value);
   }
-  if (setCookies.length > 0) res.setHeader('set-cookie', setCookies);
+  if (setCookies.length > 0) res.setHeader("set-cookie", setCookies);
 
   if (!webResponse.body) {
     res.end();
@@ -104,37 +114,36 @@ const server = createServer(async (req, res) => {
   try {
     const origin = req.headers.origin;
 
-    const allowedOrigins = new Set((process.env.CORS_ALLOWED_ORIGINS || "")
-      .split(",")
-      .map(o => o.trim())
-      .filter(Boolean));
-    
+    const allowedOrigins = new Set(
+      (process.env.CORS_ALLOWED_ORIGINS || "")
+        .split(",")
+        .map((o) => o.trim())
+        .filter(Boolean),
+    );
+
     // Add default development and official origins
     [
-      'http://localhost:8080',
-      'http://localhost:3000',
-      'https://say-hello-buddy-23.lovable.app',
-      'https://preview--say-hello-buddy-23.lovable.app',
-      'https://say-hello-buddy-23-84b5dcbf.lovable.app'
-    ].forEach(o => allowedOrigins.add(o));
+      "http://localhost:8080",
+      "http://localhost:3000",
+      "https://say-hello-buddy-23.lovable.app",
+      "https://preview--say-hello-buddy-23.lovable.app",
+      "https://say-hello-buddy-23-84b5dcbf.lovable.app",
+    ].forEach((o) => allowedOrigins.add(o));
 
     if (origin && allowedOrigins.has(origin)) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-      res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Vary', 'Origin');
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Vary", "Origin");
     }
 
-    res.setHeader(
-      'Access-Control-Allow-Methods',
-      'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    );
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
 
     res.setHeader(
-      'Access-Control-Allow-Headers',
-      'Content-Type, Authorization, X-Requested-With, X-TSR-ServerFn, X-TSR-ServerFn-Payload',
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, X-Requested-With, X-TSR-ServerFn, X-TSR-ServerFn-Payload",
     );
 
-    if (req.method === 'OPTIONS') {
+    if (req.method === "OPTIONS") {
       res.statusCode = 204;
       res.end();
       return;
@@ -146,12 +155,12 @@ const server = createServer(async (req, res) => {
     const response = await app.fetch(request);
     await sendWebResponse(response, res);
   } catch (error) {
-    console.error('Unhandled request error:', error);
+    console.error("Unhandled request error:", error);
     if (!res.headersSent) {
       res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
     }
-    res.end(JSON.stringify({ ok: false, error: 'Internal Server Error' }));
+    res.end(JSON.stringify({ ok: false, error: "Internal Server Error" }));
   }
 });
 
@@ -163,13 +172,11 @@ function shutdown(signal) {
   console.log(`${signal} received, shutting down...`);
   server.close((error) => {
     if (error) {
-      console.error('Error while shutting down:', error);
+      console.error("Error while shutting down:", error);
       process.exitCode = 1;
     }
   });
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
-
-
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
