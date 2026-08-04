@@ -76,6 +76,7 @@ function CadastroPage() {
           data: {
             full_name: name,
             phone: phone,
+            role: 'passenger',
           },
         },
       });
