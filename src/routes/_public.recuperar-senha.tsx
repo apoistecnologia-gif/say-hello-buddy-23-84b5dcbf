@@ -26,8 +26,8 @@ function RecuperarSenhaPage() {
     try {
       // O Supabase Auth lida com a recuperação de senha
       // O redirectUrl deve ser configurado para apontar para /redefinir-senha
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/redefinir-senha`,
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/#/redefinir-senha`,
       });
 
       if (error) {
