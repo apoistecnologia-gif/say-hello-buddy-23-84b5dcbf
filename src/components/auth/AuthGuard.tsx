@@ -42,12 +42,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   // For non-public routes, show a localized loading if initializing
   if (authState === "initializing") {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black">
-        <Loader2 className="text-apois-yellow animate-spin" size={32} />
-        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mt-4">Validando Sessão...</p>
-      </div>
-    );
+    return null;
   }
 
   // If not authenticated and not on a public path, we show an escape button while waiting for the useEffect redirect

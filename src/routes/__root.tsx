@@ -16,7 +16,6 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   return (
     <GlobalErrorBoundary>
-      <StartupTimeout>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <AuthGuard>
@@ -24,7 +23,6 @@ function RootComponent() {
             </AuthGuard>
           </AuthProvider>
         </QueryClientProvider>
-      </StartupTimeout>
     </GlobalErrorBoundary>
   );
 }
