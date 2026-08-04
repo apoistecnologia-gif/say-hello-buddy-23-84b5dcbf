@@ -12,6 +12,8 @@ export interface WalletSummary {
   passenger_id: string;
   balance: number;
   is_blocked: boolean;
+  available_balance?: number;
+  status?: string;
   blocked_reason: string | null;
 }
 

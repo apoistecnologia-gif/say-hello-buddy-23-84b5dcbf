@@ -6,6 +6,7 @@ interface PaymentMethodsContextType {
   methods: PaymentMethod[];
   selectedMethod: PaymentMethodKey | null;
   setSelectedMethod: (key: PaymentMethodKey) => void;
+  selectMethod: (key: PaymentMethodKey) => void;
   isLoading: boolean;
 }
 
@@ -16,7 +17,7 @@ const DEFAULT_METHODS: PaymentMethod[] = [
   { key: "credit_card", label: "Cartão de Crédito", icon: "credit-card", description: "Pague no app", enabled: true },
   { key: "debit_card", label: "Cartão de Débito", icon: "credit-card", description: "Débito online", enabled: true },
   { key: "cash", label: "Dinheiro", icon: "banknote", description: "Pague ao motorista", enabled: true },
-  { key: "wallet", label: "Carteira APOIS", icon: "wallet", description: "Saldo em conta", enabled: false }, // Disabled for STO-011
+  { key: "wallet", label: "Carteira APOIS", icon: "wallet", description: "Saldo em conta", enabled: false }, 
   { key: "corporate", label: "Corporativo", icon: "building", description: "Conta empresa", enabled: false },
 ];
 
@@ -43,6 +44,7 @@ export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = (
       methods: DEFAULT_METHODS, 
       selectedMethod, 
       setSelectedMethod: handleSelect, 
+      selectMethod: handleSelect,
       isLoading: false 
     }}>
       {children}
