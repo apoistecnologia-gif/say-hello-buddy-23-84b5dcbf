@@ -126,12 +126,51 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
-          <Outlet />
-          <BottomNavigation />
-        </div>
+        <AuthGuard>
+          <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
+            <Outlet />
+            <BottomNavigation />
+          </div>
+        </AuthGuard>
       </AuthProvider>
     </QueryClientProvider>
   );
+}
+
+function AuthGuard({ children }: { children: ReactNode }) {
+  const { user, isLoading, passenger, isPassengerLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const publicRoutes = ['/login', '/cadastro', '/recuperar-senha', '/redefinir-senha'];
+  const isPublicRoute = publicRoutes.includes(location.pathname);
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (!user && !isPublicRoute) {
+        navigate({ to: '/login' });
+      } else if (user && isPublicRoute) {
+        navigate({ to: '/inicio' });
+      }
+    }
+  }, [user, isLoading, isPublicRoute, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // Se estiver logado, mas não tiver perfil (e não for rota pública)
+  // No Android, o trigger deve ter criado o perfil, então se não existe, talvez algo falhou ou é incompleto
+  if (user && !passenger && !isPassengerLoading && !isPublicRoute && location.pathname !== '/cadastro') {
+     // Poderia redirecionar para uma tela de "Concluir Cadastro"
+     // Por agora, vamos permitir passar ou logar o erro
+     console.warn("User logged in but passenger profile missing");
+  }
+
+  return <>{children}</>;
 }
 
