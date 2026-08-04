@@ -18,14 +18,14 @@ class PricingService {
   public async estimateFare(category: RideCategory, route: any): Promise<number> {
     if (!route || !route.distanceMeters || !route.durationSeconds) return 0;
 
-    const { data: tariff, error } = await supabase
+    const { data: tariff, error } = await (supabase
       .from("tariff_rules" as any)
-      .select("*")
+      .select("*") as any)
       .eq("category_id", category.id)
       .single();
 
     if (error || !tariff) {
-      console.warn(\`[Pricing] No tariff found for category \${category.key}, using defaults.\`);
+      console.warn(`[Pricing] No tariff found for category ${category.key}, using defaults.`);
       return this.calculateLocal(PRICING_CONFIG.DEFAULT_TARIFF, route);
     }
 
