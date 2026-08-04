@@ -4,7 +4,7 @@ import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     TanStackRouterVite({
       routesDirectory: "./src/routes",
@@ -19,17 +19,18 @@ export default defineConfig({
     },
     tsconfigPaths: true,
   },
-  base: "/", // Reset to root for internal preview consistency
+  // Use relative base for Capacitor builds, absolute for development/preview
+  base: mode === "capacitor" ? "./" : "/",
   build: {
     outDir: "dist",
     emptyOutDir: true,
     assetsDir: "assets",
-    sourcemap: false,
-    minify: "terser",
+    sourcemap: mode === "development",
+    minify: mode === "production" ? "terser" : false,
   },
   server: {
     port: 8080,
     strictPort: true,
     host: true,
   },
-});
+}));
