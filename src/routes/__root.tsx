@@ -14,6 +14,7 @@ import { LocationProvider } from "@/hooks/use-location";
 import { PickupAddressProvider } from "@/hooks/use-pickup-address";
 import { DestinationProvider } from "@/hooks/use-destination";
 import { DestinationHistoryProvider } from "@/hooks/use-destination-history";
+import { RouteProvider } from "@/hooks/use-route";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { initializeNativePlatform, hideSplashScreen, setupBackButton } from "@/lib/platform/native";
 
@@ -151,12 +152,14 @@ function RootComponent() {
           <PickupAddressProvider>
             <DestinationProvider>
               <DestinationHistoryProvider>
-                <AuthGuard>
+                <RouteProvider>
+                  <AuthGuard>
                   <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
                     <Outlet />
                     <BottomNavigation />
                   </div>
                 </AuthGuard>
+                </RouteProvider>
               </DestinationHistoryProvider>
             </DestinationProvider>
           </PickupAddressProvider>

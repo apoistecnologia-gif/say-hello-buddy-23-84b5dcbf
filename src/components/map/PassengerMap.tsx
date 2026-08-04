@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation } from '../../hooks/use-location';
 import { useDestination } from '../../hooks/use-destination';
+import { useRoute } from '../../hooks/use-route';
 import { mapService } from '../../services/maps/map-service';
 import { MapState, MapError } from '../../types/map';
 import { Button } from '../ui/button';
@@ -16,6 +17,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({ className }) => {
   const [mapId] = useState(`map-${Math.random().toString(36).substr(2, 9)}`);
   const { currentPosition, permissionStatus, isLoading: isLocationLoading } = useLocation();
   const { destination, hasDestination } = useDestination();
+  const { route } = useRoute();
   const [state, setState] = useState<MapState>('idle');
   const [error, setError] = useState<MapError | null>(null);
   const mapInitialized = useRef(false);
@@ -114,13 +116,25 @@ const PassengerMap: React.FC<PassengerMapProps> = ({ className }) => {
     updateMarkers();
   }, [currentPosition, destination, hasDestination, state, mapId]);
 
+  // Handle Route Polyline
+  useEffect(() => {
+    if (state === 'ready' && route?.decodedPoints) {
+      mapService.upsertRoutePolyline(mapId, route.decodedPoints);
+      mapService.fitRouteBounds(mapId, route.decodedPoints);
+    } else if (state === 'ready' && !route) {
+      mapService.removeRoutePolyline(mapId);
+    }
+  }, [state, route, mapId]);
+
   const handleRecenter = useCallback(async () => {
     if (!currentPosition || state !== 'ready') return;
     
     mapService.resetCameraMovementState();
     const pickupCoord = { lat: currentPosition.latitude, lng: currentPosition.longitude };
 
-    if (hasDestination && destination) {
+    if (route?.decodedPoints) {
+      await mapService.fitRouteBounds(mapId, route.decodedPoints);
+    } else if (hasDestination && destination) {
       const destCoord = { lat: destination.latitude, lng: destination.longitude };
       await mapService.fitPickupAndDestination(mapId, pickupCoord, destCoord);
     } else {

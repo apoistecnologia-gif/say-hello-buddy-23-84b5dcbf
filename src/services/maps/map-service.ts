@@ -1,6 +1,7 @@
 import { GoogleMap, MapType } from '@capacitor/google-maps';
 import { MapCameraPosition, MapCoordinates, MapError, MapErrorCode, MAP_MESSAGES_PT, MapBounds } from '../../types/map';
 import { MAP_STYLE_DARK, DEFAULT_ZOOM } from './map-config';
+import { ROUTE_CONFIG } from '../routes/route-config';
 
 class MapService {
   private static instance: MapService;
@@ -8,6 +9,7 @@ class MapService {
   private passengerMarkerId: Map<string, string> = new Map();
   private destinationMarkerId: Map<string, string> = new Map();
   private cameraMovedByUser: boolean = false;
+  private routePolylineId: Map<string, string> = new Map();
 
   private constructor() {}
 
@@ -56,6 +58,7 @@ class MapService {
       this.maps.delete(mapId);
       this.passengerMarkerId.delete(mapId);
       this.destinationMarkerId.delete(mapId);
+      this.routePolylineId.delete(mapId);
     }
   }
 
@@ -164,6 +167,75 @@ class MapService {
         lng: (pickup.lng + destination.lng) / 2
       };
       await this.setCamera(mapId, { coordinate: center, zoom: 12 });
+    }
+  }
+
+  public async upsertRoutePolyline(
+    mapId: string,
+    points: MapCoordinates[]
+  ): Promise<void> {
+    const map = this.maps.get(mapId);
+    if (!map) return;
+
+    try {
+      const existingId = this.routePolylineId.get(mapId);
+      if (existingId) {
+        await map.removePolylines([existingId]);
+      }
+
+      const polylineIds = await map.addPolylines([{
+        path: points,
+        strokeColor: ROUTE_CONFIG.STYLE.STROKE_COLOR,
+        strokeWeight: ROUTE_CONFIG.STYLE.STROKE_WEIGHT,
+        strokeOpacity: ROUTE_CONFIG.STYLE.STROKE_OPACITY,
+      } as any]);
+
+      if (polylineIds.length > 0) {
+        const polylineId = polylineIds[0] as string | undefined;
+        if (polylineId) this.routePolylineId.set(mapId, polylineId);
+      }
+    } catch (error) {
+      console.error('Error upserting route polyline:', error);
+    }
+  }
+
+  public async removeRoutePolyline(mapId: string): Promise<void> {
+    const map = this.maps.get(mapId);
+    if (!map) return;
+
+    const id = this.routePolylineId.get(mapId);
+    if (id) {
+      await map.removePolylines([id]);
+      this.routePolylineId.delete(mapId);
+    }
+  }
+
+  public async fitRouteBounds(
+    mapId: string,
+    points: MapCoordinates[]
+  ): Promise<void> {
+    const map = this.maps.get(mapId);
+    if (!map || points.length < 2 || this.cameraMovedByUser) return;
+
+    try {
+      let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+      
+      points.forEach(p => {
+        if (p.lat < minLat) minLat = p.lat;
+        if (p.lat > maxLat) maxLat = p.lat;
+        if (p.lng < minLng) minLng = p.lng;
+        if (p.lng > maxLng) maxLng = p.lng;
+      });
+
+      const bounds: MapBounds = {
+        northeast: { lat: maxLat, lng: maxLng },
+        southwest: { lat: minLat, lng: minLng }
+      };
+
+      // @ts-ignore
+      await map.fitBounds(bounds, ROUTE_CONFIG.MAP_PADDING.BOTTOM);
+    } catch (e) {
+      console.error('Error fitting route bounds:', e);
     }
   }
 
