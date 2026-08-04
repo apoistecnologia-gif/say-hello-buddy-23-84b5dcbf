@@ -19,7 +19,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   driverLocation,
   isStatic 
 }) => {
-  const { location, permissionStatus } = useLocation();
+  const { location, permissionState } = useLocation();
   const { route } = useRoute();
   const { orderedStops } = useRideStops();
   const { destination: globalDestination } = useDestination();

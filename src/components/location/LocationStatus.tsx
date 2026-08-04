@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { MapPin, ShieldAlert, RefreshCw } from "lucide-react";
 
 export const LocationStatus: React.FC = () => {
-  const { location, isLoading, error, permissionStatus, requestPermission, refreshPosition } = useLocation();
+  const { location, isLoading, error, permissionState, requestPermission, refreshPosition } = useLocation();
 
-  if (permissionStatus?.location === "denied") {
+  if (permissionState === "denied") {
     return (
       <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex flex-col gap-3">
         <div className="flex items-center gap-3">
