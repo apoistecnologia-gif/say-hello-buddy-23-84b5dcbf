@@ -7,7 +7,7 @@ import { useDestination } from "@/hooks/use-destination";
 interface PassengerMapProps {
   origin?: { lat: number; lng: number };
   destination?: { lat: number; lng: number };
-  encodedPolyline?: string;
+  encodedPolyline: string | undefined;
   driverLocation?: { lat: number; lng: number; heading?: number };
   isStatic?: boolean;
 }
