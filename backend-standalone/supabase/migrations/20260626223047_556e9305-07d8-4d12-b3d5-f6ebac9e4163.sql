@@ -1,0 +1,1 @@
+ALTER TABLE public.drivers ADD COLUMN IF NOT EXISTS rejection_reason text;

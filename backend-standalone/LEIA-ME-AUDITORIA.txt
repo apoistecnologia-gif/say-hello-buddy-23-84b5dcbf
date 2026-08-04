@@ -1,0 +1,21 @@
+APOIS / MOVVI — ENTREGA DA AUDITORIA CRÍTICA
+Data: 01/08/2026
+
+Arquivos principais:
+- backend-auditado: publicar no GitHub/Render após aplicar a migration.
+- motorista-auditado: compilar um APK novo; não reutilizar android/ antigo.
+- PATCH: contém apenas os arquivos alterados.
+- AUDITORIA: relatório com causas e prioridades.
+
+ORDEM:
+1. Supabase SQL Editor: executar
+   supabase/migrations/20260801113000_fix_driver_accept_reject_queue.sql
+2. Backend: npm install; npm run build; npm run typecheck; commit/push/deploy.
+3. Render: configurar GOOGLE_ROUTES_API_KEY com Routes API habilitada.
+4. Motorista: npm install; npm run build:motorista; npm run sync:motorista.
+5. Compilar android/app/build/outputs/apk/debug/app-debug.apk.
+
+IMPORTANTE:
+- movvi-backend(11).zip não é uma base válida: action.ts está truncado.
+- O pacote motorista auditado não traz android/ ativo nem dist/ antigos.
+  O sync recria android/ a partir de android-motorista/.

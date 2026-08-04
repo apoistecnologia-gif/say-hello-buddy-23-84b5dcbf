@@ -1,0 +1,34 @@
+project_id = "wqbtnfbvqtkyywfcqjwa"
+
+[functions.mercadopago-webhook]
+verify_jwt = false
+
+[functions.approve-driver-and-create-mercadopago-subscription]
+verify_jwt = true
+
+[functions.create-my-mercadopago-subscription]
+verify_jwt = true
+
+[functions.create-cancellation-fee-charge]
+verify_jwt = true
+
+[functions.request-driver-payout]
+verify_jwt = true
+
+[functions.regenerate-driver-mercadopago-charge]
+verify_jwt = true
+
+[functions.mercadopago-health]
+verify_jwt = true
+
+[functions.request-ride]
+verify_jwt = false
+
+[functions.send-ride-push]
+verify_jwt = false
+
+[functions.delete-my-account]
+verify_jwt = false
+
+[functions.admin-actions]
+verify_jwt = true

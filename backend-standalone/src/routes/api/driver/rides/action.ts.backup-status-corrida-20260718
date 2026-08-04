@@ -1,0 +1,240 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
+
+const inputSchema = z.object({
+  action: z.enum(["accept", "reject", "arrive", "start", "complete", "cancel", "rate"]),
+  rideId: z.string().uuid(),
+  safety_code: z.string().trim().regex(/^\d{4}$/).optional(),
+  motivo: z.string().max(500).optional(),
+  stars: z.number().int().min(1).max(5).optional(),
+  comment: z.string().max(500).nullable().optional(),
+});
+
+function json(body: unknown, status = 200) {
+  return Response.json(body, { status });
+}
+
+async function authenticatedUser(request: Request) {
+  const header = request.headers.get("authorization") ?? "";
+  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
+  if (!token) return null;
+  const result = await supabaseAdmin.auth.getUser(token);
+  return result.data.user ?? null;
+}
+
+async function transition(
+  rideId: string,
+  userId: string,
+  from: string | string[],
+  to: string,
+  extra: Record<string, unknown> = {},
+) {
+  let query = supabaseAdmin
+    .from("rides")
+    .update({ status: to, ...extra } as any)
+    .eq("id", rideId)
+    .eq("driver_id", userId);
+  query = Array.isArray(from) ? query.in("status", from) : query.eq("status", from);
+  const result = await query.select("*").maybeSingle();
+  if (result.error) throw new Error(result.error.message);
+  if (!result.data) throw new Error("A corrida já mudou de estado ou não pertence a este motorista.");
+  return result.data;
+}
+
+async function finalFare(category: string, distance: unknown, duration: unknown) {
+  const tariffs = await supabaseAdmin
+    .from("tariff_rules")
+    .select("field_key,value")
+    .eq("category_key", category);
+  if (tariffs.error) throw new Error("Falha ao carregar tarifa: " + tariffs.error.message);
+  const values: Record<string, number> = {};
+  for (const row of tariffs.data ?? []) values[String(row.field_key)] = Number(row.value ?? 0);
+  const raw =
+    (values.base_fare ?? 0) +
+    (values.per_km ?? 0) * Math.max(0, Number(distance ?? 0)) +
+    (values.per_min ?? 0) * Math.max(0, Number(duration ?? 0));
+  return Math.round(Math.max(values.min_fare ?? 0, raw) * 100) / 100;
+}
+
+export const Route = createFileRoute("/api/driver/rides/action")({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        const user = await authenticatedUser(request);
+        if (!user) return json({ ok: false, error: "Sessão inválida. Entre novamente." }, 401);
+
+        let input: z.infer<typeof inputSchema>;
+        try {
+          input = inputSchema.parse(await request.json());
+        } catch (error) {
+          return json({ ok: false, error: "Dados da ação inválidos.", detail: String(error) }, 400);
+        }
+
+        const driverResult = await supabaseAdmin
+          .from("drivers")
+          .select("approval_status,subscription_status,name,phone,vehicle_model,vehicle_plate,vehicle_color,current_lat,current_lng,photo_url")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (driverResult.error || !driverResult.data) {
+          return json({ ok: false, error: "Cadastro de motorista não encontrado." }, 403);
+        }
+        const driver = driverResult.data as any;
+        if (driver.approval_status !== "aprovado") {
+          return json({ ok: false, error: "Motorista ainda não aprovado." }, 403);
+        }
+        if (driver.subscription_status && driver.subscription_status !== "active") {
+          return json({ ok: false, error: "Mensalidade do motorista não está ativa." }, 403);
+        }
+
+        try {
+          if (input.action === "accept") {
+            const current = await supabaseAdmin
+              .from("rides")
+              .select("passenger_id,status,accepted_driver_id,candidate_driver_ids,rejected_driver_ids,request_expires_at")
+              .eq("id", input.rideId)
+              .maybeSingle();
+            if (current.error || !current.data) throw new Error("Corrida não encontrada.");
+            const ride = current.data as any;
+            const candidates = Array.isArray(ride.candidate_driver_ids) ? ride.candidate_driver_ids : [];
+            const rejected = Array.isArray(ride.rejected_driver_ids) ? ride.rejected_driver_ids : [];
+            if (ride.status !== "procurar_motorista" || ride.accepted_driver_id) {
+              throw new Error("Esta corrida já foi aceita ou cancelada.");
+            }
+            if (!candidates.includes(user.id) || rejected.includes(user.id)) {
+              throw new Error("Esta corrida não está mais disponível para você.");
+            }
+            if (!ride.request_expires_at || new Date(ride.request_expires_at).getTime() <= Date.now()) {
+              throw new Error("A oferta expirou. Aguarde uma nova chamada.");
+            }
+
+            let passengerPhotoUrl: string | null = null;
+            if (ride.passenger_id) {
+              const profile = await supabaseAdmin
+                .from("users")
+                .select("avatar_url")
+                .eq("auth_user_id", ride.passenger_id)
+                .maybeSingle();
+              passengerPhotoUrl = (profile.data as any)?.avatar_url ?? null;
+            }
+            const vehicle = [driver.vehicle_color, driver.vehicle_model, driver.vehicle_plate]
+              .filter((value) => value && String(value).trim())
+              .join(" • ") || null;
+            const safetyCode = String(Math.floor(1000 + Math.random() * 9000));
+            const accepted = await supabaseAdmin
+              .from("rides")
+              .update({
+                driver_id: user.id,
+                accepted_driver_id: user.id,
+                status: "motorista_a_caminho",
+                accepted_at: new Date().toISOString(),
+                current_offer_driver_id: null,
+                offered_driver_ids: [],
+                driver_name: driver.name ?? null,
+                driver_phone: driver.phone ?? null,
+                driver_vehicle: vehicle,
+                driver_lat: driver.current_lat ?? null,
+                driver_lng: driver.current_lng ?? null,
+                driver_photo_url: driver.photo_url ?? null,
+                passenger_photo_url: passengerPhotoUrl,
+                safety_code: safetyCode,
+              } as any)
+              .eq("id", input.rideId)
+              .eq("status", "procurar_motorista")
+              .is("accepted_driver_id", null)
+              .gt("request_expires_at", new Date().toISOString())
+              .contains("candidate_driver_ids", [user.id])
+              .select("*")
+              .maybeSingle();
+            if (accepted.error) throw new Error(accepted.error.message);
+            if (!accepted.data) throw new Error("Outro motorista aceitou esta corrida primeiro.");
+            return json({ ok: true, data: accepted.data });
+          }
+
+          if (input.action === "reject") {
+            const current = await supabaseAdmin
+              .from("rides")
+              .select("status,accepted_driver_id,candidate_driver_ids,rejected_driver_ids,offered_driver_ids")
+              .eq("id", input.rideId)
+              .maybeSingle();
+            if (current.error || !current.data) throw new Error("Corrida não encontrada.");
+            const ride = current.data as any;
+            if (ride.status !== "procurar_motorista" || ride.accepted_driver_id) {
+              throw new Error("A corrida não está mais aguardando motorista.");
+            }
+            const candidates = Array.isArray(ride.candidate_driver_ids) ? ride.candidate_driver_ids : [];
+            if (!candidates.includes(user.id)) throw new Error("Esta corrida não foi ofertada para você.");
+            const rejected = Array.from(new Set([...(ride.rejected_driver_ids ?? []), user.id]));
+            const offered = (Array.isArray(ride.offered_driver_ids) ? ride.offered_driver_ids : [])
+              .filter((id: string) => id !== user.id);
+            const update = await supabaseAdmin
+              .from("rides")
+              .update({ rejected_driver_ids: rejected, offered_driver_ids: offered, current_offer_driver_id: null } as any)
+              .eq("id", input.rideId)
+              .eq("status", "procurar_motorista");
+            if (update.error) throw new Error(update.error.message);
+            return json({ ok: true, data: { ok: true } });
+          }
+
+          if (input.action === "arrive") {
+            return json({ ok: true, data: await transition(input.rideId, user.id, "motorista_a_caminho", "motorista_chegou") });
+          }
+
+          if (input.action === "start") {
+            const current = await supabaseAdmin
+              .from("rides")
+              .select("safety_code,status,driver_id")
+              .eq("id", input.rideId)
+              .maybeSingle();
+            if (current.error || !current.data) throw new Error("Corrida não encontrada.");
+            const ride = current.data as any;
+            if (ride.driver_id !== user.id || ride.status !== "motorista_chegou") {
+              throw new Error("A corrida não está pronta para iniciar.");
+            }
+            if (!input.safety_code || String(ride.safety_code) !== input.safety_code) {
+              throw new Error("Código incorreto. Peça o código ao passageiro.");
+            }
+            return json({ ok: true, data: await transition(input.rideId, user.id, "motorista_chegou", "em_viagem", { started_at: new Date().toISOString() }) });
+          }
+
+          if (input.action === "complete") {
+            const current = await supabaseAdmin
+              .from("rides")
+              .select("category,distance_km,duration_min,driver_id,status")
+              .eq("id", input.rideId)
+              .maybeSingle();
+            if (current.error || !current.data) throw new Error("Corrida não encontrada.");
+            const ride = current.data as any;
+            if (ride.driver_id !== user.id || ride.status !== "em_viagem") throw new Error("A corrida não pode ser finalizada agora.");
+            const price = await finalFare(String(ride.category), ride.distance_km, ride.duration_min);
+            return json({ ok: true, data: await transition(input.rideId, user.id, "em_viagem", "finalizada", { completed_at: new Date().toISOString(), final_price: price }) });
+          }
+
+          if (input.action === "cancel") {
+            return json({ ok: true, data: await transition(input.rideId, user.id, ["motorista_a_caminho", "motorista_chegou"], "cancelada_motorista", {
+              cancelled_at: new Date().toISOString(),
+              cancelled_by: user.id,
+              cancel_reason: input.motivo ?? null,
+            }) });
+          }
+
+          if (!input.stars) throw new Error("Escolha uma nota de 1 a 5.");
+          const rating = await supabaseAdmin
+            .from("rides")
+            .update({ passenger_rating: input.stars, passenger_rating_comment: input.comment ?? null, driver_rated_at: new Date().toISOString() } as any)
+            .eq("id", input.rideId)
+            .eq("driver_id", user.id)
+            .eq("status", "finalizada")
+            .is("driver_rated_at", null)
+            .select("id")
+            .maybeSingle();
+          if (rating.error) throw new Error(rating.error.message);
+          return json({ ok: true, data: { ok: true } });
+        } catch (error) {
+          console.error("[driver-ride-action]", input.action, input.rideId, error);
+          return json({ ok: false, error: error instanceof Error ? error.message : "Falha na ação da corrida." }, 409);
+        }
+      },
+    },
+  },
+});

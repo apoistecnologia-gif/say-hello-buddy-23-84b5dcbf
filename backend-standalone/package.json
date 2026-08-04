@@ -1,0 +1,40 @@
+{
+  "name": "movvi-backend-standalone",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run check:encoding && npm run verify:launch && npm run typecheck && vitest run",
+    "check:encoding": "node scripts/check-text-encoding.mjs",
+    "verify:launch": "node scripts/verify-launch-invariants.mjs",
+    "start": "node server.mjs",
+    "verify:parity": "node scripts/verify-parity.mjs",
+    "supabase:link": "supabase link --project-ref wqbtnfbvqtkyywfcqjwa",
+    "supabase:deploy": "supabase functions deploy --project-ref wqbtnfbvqtkyywfcqjwa"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
+    "@tanstack/react-query": "^5.101.1",
+    "@tanstack/react-router": "1.170.18",
+    "@tanstack/react-start": "1.168.28",
+    "dotenv": "^17.4.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "vite-tsconfig-paths": "^6.0.2",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "babel-plugin-react-compiler": "^19.1.0-rc.3",
+    "supabase": "^2.109.1",
+    "typescript": "^5.7.2",
+    "vite": "^7.0.0",
+    "vitest": "^3.2.4"
+  }
+}
