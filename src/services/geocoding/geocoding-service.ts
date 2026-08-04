@@ -2,7 +2,6 @@ import { apiClient } from '../api/api-client';
 import { 
   GeocodeCoordinates, 
   PickupAddress, 
-  ReverseGeocodeResult, 
   GeocodeError, 
   GeocodeErrorCode,
   GEOCODE_MESSAGES_PT,
