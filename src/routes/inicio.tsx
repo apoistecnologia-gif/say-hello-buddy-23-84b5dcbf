@@ -1,10 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useLocation } from "@/hooks/use-location";
+import { LocationStatus } from "@/components/location/LocationStatus";
+import { MapPin } from "lucide-react";
 
 export const Route = createFileRoute("/inicio")({
   component: InicioPage,
 });
 
 function InicioPage() {
+  const { accuracyQuality } = useLocation();
+
   return (
     <div className="flex flex-col min-h-screen bg-black text-white p-4">
       {/* Search/Address Area */}
