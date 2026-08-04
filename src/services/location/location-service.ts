@@ -111,11 +111,11 @@ export class LocationService {
     return {
       latitude: pos.coords.latitude,
       longitude: pos.coords.longitude,
-      accuracy: pos.coords.accuracy,
-      altitude: pos.coords.altitude,
-      altitudeAccuracy: pos.coords.altitudeAccuracy,
-      heading: pos.coords.heading,
-      speed: pos.coords.speed,
+      accuracy: pos.coords.accuracy ?? null,
+      altitude: pos.coords.altitude ?? null,
+      altitudeAccuracy: pos.coords.altitudeAccuracy ?? null,
+      heading: pos.coords.heading ?? null,
+      speed: pos.coords.speed ?? null,
       timestamp: pos.timestamp
     };
   }
@@ -124,11 +124,11 @@ export class LocationService {
     return {
       latitude: pos.coords.latitude,
       longitude: pos.coords.longitude,
-      accuracy: pos.coords.accuracy,
-      altitude: pos.coords.altitude,
-      altitudeAccuracy: pos.coords.altitudeAccuracy,
-      heading: pos.coords.heading,
-      speed: pos.coords.speed,
+      accuracy: pos.coords.accuracy ?? null,
+      altitude: pos.coords.altitude ?? null,
+      altitudeAccuracy: pos.coords.altitudeAccuracy ?? null,
+      heading: pos.coords.heading ?? null,
+      speed: pos.coords.speed ?? null,
       timestamp: pos.timestamp
     };
   }
