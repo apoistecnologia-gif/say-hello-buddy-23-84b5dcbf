@@ -2,7 +2,6 @@ import React from 'react';
 import { useRoute } from '@/hooks/use-route';
 import { useDestination } from '@/hooks/use-destination';
 import { usePickupAddress } from '@/hooks/use-pickup-address';
-import { ROUTE_ERROR_MESSAGES } from '@/services/routes/route-config';
 import { Loader2, AlertCircle, MapPin, Navigation, Clock, RefreshCw, X } from 'lucide-react';
 
 export const RouteSummary: React.FC = () => {
@@ -18,7 +17,7 @@ export const RouteSummary: React.FC = () => {
   } = useRoute();
   
   const { destination, clearDestination } = useDestination();
-  const { address: pickupAddress, pickupLabel } = usePickupAddress();
+  const { pickupLabel } = usePickupAddress();
 
   if (!destination && !route) return null;
 
@@ -39,6 +38,12 @@ export const RouteSummary: React.FC = () => {
   const handleClear = () => {
     clearDestination();
     clearRoute();
+  };
+
+  const getErrorMessage = (err: unknown): string => {
+    if (typeof err === "string") return err;
+    if (err && typeof err === "object" && "message" in err) return String(err.message);
+    return "Erro desconhecido";
   };
 
   return (
@@ -91,7 +96,7 @@ export const RouteSummary: React.FC = () => {
           <div className="flex flex-col items-center gap-3 py-2 text-center">
             <div className="flex items-center gap-2 text-red-400">
               <AlertCircle className="w-5 h-5" />
-              <p className="text-sm font-medium">{typeof error === "string" ? error : (error as any).message || "Erro desconhecido"}</p>
+              <p className="text-sm font-medium">{getErrorMessage(error)}</p>
             </div>
             <button 
               onClick={retry}

@@ -183,12 +183,12 @@ class MapService {
         await map.removePolylines([existingId]);
       }
 
-      const polylineIds = await map.addPolylines([{
+      const polylineIds = await (map as any).addPolylines([{
         path: points,
         strokeColor: ROUTE_CONFIG.STYLE.STROKE_COLOR,
         strokeWeight: ROUTE_CONFIG.STYLE.STROKE_WEIGHT,
         strokeOpacity: ROUTE_CONFIG.STYLE.STROKE_OPACITY,
-      } as any]);
+      }]);
 
       if (polylineIds.length > 0) {
         const polylineId = polylineIds[0] as string | undefined;

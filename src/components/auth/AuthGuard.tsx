@@ -1,29 +1,47 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 
+const PUBLIC_PATHS = [
+  "/login",
+  "/cadastro",
+  "/recuperar-senha",
+  "/redefinir-senha",
+  "/_public/login",
+  "/_public/cadastro",
+  "/_public/recuperar-senha",
+  "/_public/redefinir-senha"
+];
+
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, authState, isLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const isPublicPath = PUBLIC_PATHS.some(path => location.pathname === path || location.pathname === `/_public${path}`);
 
   useEffect(() => {
-    // Only redirect if not loading, no user, and not already on a public route
-    const isPublicRoute = location.pathname === "/login" || 
-                          location.pathname === "/cadastro" || 
-                          location.pathname === "/recuperar-senha" ||
-                          location.pathname === "/redefinir-senha";
+    // Only redirect if we are certain about the state
+    if (authState === "initializing") return;
 
-    if (!isLoading && !user && !isPublicRoute && !isRedirecting) {
-      console.log("[AuthGuard] No session found, redirecting to /login from:", location.pathname);
-      setIsRedirecting(true);
+    if (authState === "unauthenticated" && !isPublicPath) {
+      console.log("[AuthGuard] Not authenticated, redirecting to /login from:", location.pathname);
       navigate({ to: "/login" });
+    } else if (authState === "authenticated" && isPublicPath) {
+      console.log("[AuthGuard] Authenticated, redirecting to /inicio from public route:", location.pathname);
+      navigate({ to: "/inicio" });
     }
-  }, [user, isLoading, navigate, location.pathname, isRedirecting]);
+  }, [authState, isPublicPath, navigate, location.pathname]);
 
-  if (isLoading) {
+  // Root level AuthGuard should not block public routes EVER
+  // It only handles the global state synchronization
+  if (isPublicPath) {
+    return <>{children}</>;
+  }
+
+  // For non-public routes, show a localized loading if initializing
+  if (authState === "initializing") {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-black">
         <Loader2 className="text-apois-yellow animate-spin" size={32} />
@@ -32,17 +50,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Allow rendering if user exists or if we are on a public route
-  const isPublicRoute = location.pathname === "/login" || 
-                        location.pathname === "/cadastro" || 
-                        location.pathname === "/recuperar-senha" ||
-                        location.pathname === "/redefinir-senha";
-
-  if (!user && !isPublicRoute) {
-    console.log("[AuthGuard] Blocking render (no user, not public route):", location.pathname);
+  // If not authenticated and not on a public path, we show an escape button while waiting for the useEffect redirect
+  if (authState === "unauthenticated") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6">
-        <p className="text-zinc-500 mb-4">Aguardando autenticação...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6 text-center">
+        <p className="text-zinc-500 mb-4">Acesso restrito.</p>
         <button 
           onClick={() => navigate({ to: "/login" })}
           className="text-apois-yellow font-bold uppercase text-[10px] tracking-widest border border-apois-yellow/20 px-4 py-2 rounded-lg"

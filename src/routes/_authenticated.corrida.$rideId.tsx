@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/corrida/$rideId")({
 });
 
 function ActiveRidePage() {
-  const { rideId } = useParams({ from: "/_authenticated/corrida/$rideId" as any });
+  const { rideId } = Route.useParams();
   const navigate = useNavigate();
   const { 
     ride, 
