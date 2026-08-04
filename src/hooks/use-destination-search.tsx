@@ -29,7 +29,7 @@ export function useDestinationSearch() {
   }, []);
 
   const search = useCallback(async (text: string) => {
-    if (text.length < PLACES_CONFIG.MIN_CHARS) {
+    if (text.length < 2) {
       setSuggestions([]);
       setStatus('below_minimum');
       return;
@@ -71,7 +71,7 @@ export function useDestinationSearch() {
       return;
     }
 
-    if (cleanText.length < PLACES_CONFIG.MIN_CHARS) {
+    if (cleanText.length < 2) {
       setStatus('below_minimum');
       return;
     }
@@ -79,7 +79,7 @@ export function useDestinationSearch() {
     setStatus('debouncing');
     debounceTimer.current = setTimeout(() => {
       search(cleanText);
-    }, PLACES_CONFIG.DEBOUNCE_MS);
+    }, 300);
   }, [search, clearQuery]);
 
   const retry = useCallback(() => {
