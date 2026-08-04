@@ -65,12 +65,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             dragElastic={0.2}
             onDragEnd={handleDragEnd}
             className={cn(
-              "fixed bottom-0 left-0 right-0 z-50",
-              "bg-[#1a1a1a] rounded-t-[32px] overflow-hidden shadow-2xl",
+              "fixed bottom-0 left-0 right-0 z-[60]",
+              "bg-[#1a1a1a] rounded-t-[32px] overflow-hidden shadow-[0_-8px_30px_rgba(0,0,0,0.5)]",
               "flex flex-col",
-              "h-[92vh] max-h-[92vh]"
+              "h-auto max-h-[92vh]"
             )}
-            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+            style={{ paddingBottom: 'calc(84px + env(safe-area-inset-bottom))' }}
           >
             {/* Handle Bar Area */}
             <div 
