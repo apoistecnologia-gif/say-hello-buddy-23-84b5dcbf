@@ -17,9 +17,9 @@ class ActiveRideService {
   }
 
   public async getRideById(rideId: string, userId: string): Promise<ActiveRide> {
-    const { data, error } = await supabase
-      .from("rides")
-      .select("*")
+    const { data, error } = await (supabase
+      .from("rides" as any)
+      .select("*") as any)
       .eq("id", rideId)
       .single();
 
@@ -38,9 +38,9 @@ class ActiveRideService {
       "em_viagem"
     ];
 
-    const { data, error } = await supabase
-      .from("rides")
-      .select("*")
+    const { data, error } = await (supabase
+      .from("rides" as any)
+      .select("*") as any)
       .eq("passenger_id", userId)
       .in("status", activeStatuses)
       .order("created_at", { ascending: false })
@@ -57,14 +57,14 @@ class ActiveRideService {
     this.channel = supabase
       .channel(`ride_active_${rideId}`)
       .on(
-        "postgres_changes",
+        "postgres_changes" as any,
         {
           event: "UPDATE",
           schema: "public",
           table: "rides",
           filter: `id=eq.${rideId}`
         },
-        (payload) => {
+        (payload: any) => {
           const newRide = payload.new as any;
           const updateTimestamp = new Date(newRide.updated_at).getTime();
 
@@ -92,8 +92,6 @@ class ActiveRideService {
   }
 
   private normalizeRide(data: any): ActiveRide {
-    // Normalization logic ensures we use real fields identified in audit
-    // and provide defaults where necessary without inventing data.
     return {
       ...data,
       origin: typeof data.origin === 'string' ? JSON.parse(data.origin) : data.origin,
