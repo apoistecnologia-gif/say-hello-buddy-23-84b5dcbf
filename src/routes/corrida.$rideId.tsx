@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "@tanstack/react-router";
 import { useActiveRide } from "@/hooks/rides/use-active-ride";
-import { PassengerMap } from "@/components/home/PassengerMap";
+import PassengerMap from "@/components/map/PassengerMap";
 import { RideStatusHeader } from "@/components/rides/active/RideStatusHeader";
 import { DriverCard } from "@/components/rides/active/DriverCard";
 import { VehicleCard } from "@/components/rides/active/VehicleCard";
@@ -9,7 +9,7 @@ import { SecurityCodeCard } from "@/components/rides/active/SecurityCodeCard";
 import { RideStopsTimeline } from "@/components/rides/active/RideStopsTimeline";
 import { CancellationDialog } from "@/components/rides/active/CancellationDialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Share2, Shield, X, Loader2, Home, RefreshCcw } from "lucide-react";
+import { ChevronLeft, Share2, Shield, X, Search, Home } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -121,11 +121,11 @@ export default function ActiveRidePage() {
         <PassengerMap 
           origin={ride.origin}
           destination={ride.destination}
-          encodedPolyline={ride.encoded_polyline}
+          encodedPolyline={ride.encoded_polyline || undefined}
           driverLocation={ride.driver_latitude && ride.driver_longitude ? {
             lat: ride.driver_latitude,
             lng: ride.driver_longitude,
-            heading: ride.driver_heading
+            heading: ride.driver_heading || 0
           } : undefined}
           isStatic={screenState === 'completed' || screenState === 'cancelled'}
         />
@@ -155,7 +155,7 @@ export default function ActiveRidePage() {
               <>
                 <DriverCard ride={ride} />
                 <VehicleCard ride={ride} />
-                {status === 'motorista_a_caminho' && <SecurityCodeCard code={ride.security_code} />}
+                {status === 'motorista_a_caminho' && <SecurityCodeCard code={ride.security_code || undefined} />}
               </>
             )}
 
