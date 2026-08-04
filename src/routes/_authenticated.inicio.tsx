@@ -20,7 +20,7 @@ import { CheckoutSummary } from "@/components/pricing/CheckoutSummary";
 import { MapPin, ChevronRight, Settings2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/inicio")({
+export const Route = createFileRoute("/_authenticated/inicio")({
   component: InicioPage,
 });
 

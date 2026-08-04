@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/recuperar-senha")({
+export const Route = createFileRoute("/_public/recuperar-senha")({
   component: RecuperarSenhaPage,
 });
 

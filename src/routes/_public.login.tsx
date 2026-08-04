@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import logo from "@/assets/logo.jpg";
 
-export const Route = createFileRoute("/login")({
+export const Route = createFileRoute("/_public/login")({
   component: LoginPage,
 });
 
