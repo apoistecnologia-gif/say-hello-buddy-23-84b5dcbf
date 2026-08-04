@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
   LogOut,
-  User,
+  User as UserIcon,
   Phone,
   Mail,
   ChevronRight,
@@ -15,21 +15,24 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-interface UserProfile {
-  name?: string;
-  avatar_url?: string;
-  phone?: string;
-  average_rating?: number;
-  completed_rides?: number;
-}
-
 export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilPage,
 });
 
 function PerfilPage() {
   const { user, signOut } = useAuth();
-  const profile: UserProfile | null = null;
+  
+  // Explicitly typing as any temporarily to satisfy the "never" inference issue if needed, 
+  // but better to use a proper object for demonstration since the user requested no "as any".
+  // However, TypeScript is inferring 'null' as 'never' because it's never reassigned.
+  const profile: { 
+    name?: string; 
+    avatar_url?: string; 
+    phone?: string; 
+    average_rating?: number | null; 
+    completed_rides?: number; 
+  } | null = null;
+  
   const role = 'passenger';
   const navigate = useNavigate();
 
@@ -74,7 +77,7 @@ function PerfilPage() {
           </p>
 
           <div className="space-y-1">
-            <MenuLink icon={<User size={20} />} label="Dados Pessoais" value={profile?.name} />
+            <MenuLink icon={<UserIcon size={20} />} label="Dados Pessoais" value={profile?.name} />
             <MenuLink icon={<Phone size={20} />} label="Telefone" value={profile?.phone} />
             <MenuLink icon={<Mail size={20} />} label="E-mail" value={user?.email} />
           </div>
