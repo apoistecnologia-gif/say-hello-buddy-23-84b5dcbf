@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { DestinationHistoryItem } from '../types/destinations';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { DestinationHistoryItem, FavoriteIconType } from '../types/destinations';
 import { recentDestinationsService } from '../services/destinations/recent-destinations-service';
 import { favoritesService } from '../services/destinations/favorites-service';
 import { DestinationAddress } from '../types/places';
+import { useAuth } from './use-auth';
 
 interface DestinationHistoryContextType {
   recent: DestinationHistoryItem[];
@@ -10,26 +11,41 @@ interface DestinationHistoryContextType {
   addToHistory: (destination: DestinationAddress) => void;
   toggleFavorite: (id: string) => void;
   removeRecent: (id: string) => void;
+  clearAllRecent: () => Promise<void>;
   updateFavorite: (id: string, updates: Partial<DestinationHistoryItem>) => void;
+  addFavorite: (destination: DestinationAddress, nickname?: string, icon?: FavoriteIconType) => void;
+  removeFavorite: (id: string) => void;
   refresh: () => void;
 }
 
 const DestinationHistoryContext = createContext<DestinationHistoryContextType | undefined>(undefined);
 
 export const DestinationHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [recent, setRecent] = useState<DestinationHistoryItem[]>([]);
   const [favorites, setFavorites] = useState<DestinationHistoryItem[]>([]);
+  const lastUserId = useRef<string | null>(null);
 
   const refresh = useCallback(() => {
+    if (!user) {
+      setRecent([]);
+      setFavorites([]);
+      return;
+    }
     setRecent(recentDestinationsService.getRecent());
     setFavorites(favoritesService.getFavorites());
-  }, []);
+  }, [user]);
 
+  // Handle account change
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (user?.id !== lastUserId.current) {
+      lastUserId.current = user?.id || null;
+      refresh();
+    }
+  }, [user, refresh]);
 
   const addToHistory = useCallback((destination: DestinationAddress) => {
+    if (!user) return;
     const newItem: DestinationHistoryItem = {
       ...destination,
       id: crypto.randomUUID(),
@@ -39,11 +55,10 @@ export const DestinationHistoryProvider: React.FC<{ children: React.ReactNode }>
     };
     recentDestinationsService.addRecent(newItem);
     refresh();
-  }, [refresh]);
+  }, [user, refresh]);
 
   const toggleFavorite = useCallback((id: string) => {
-    // Lógica para alternar favorito
-    // Por enquanto apenas remove se for favorito ou adiciona se vier dos recentes
+    if (!user) return;
     const isFav = favorites.find(f => f.id === id);
     if (isFav) {
       favoritesService.removeFavorite(id);
@@ -54,17 +69,46 @@ export const DestinationHistoryProvider: React.FC<{ children: React.ReactNode }>
       }
     }
     refresh();
-  }, [favorites, recent, refresh]);
+  }, [user, favorites, recent, refresh]);
+
+  const addFavorite = useCallback((destination: DestinationAddress, nickname?: string, icon?: FavoriteIconType) => {
+    if (!user) return;
+    const newItem: DestinationHistoryItem = {
+      ...destination,
+      id: crypto.randomUUID(),
+      nickname,
+      icon,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      favorite: true
+    };
+    favoritesService.addFavorite(newItem);
+    refresh();
+  }, [user, refresh]);
+
+  const removeFavorite = useCallback((id: string) => {
+    if (!user) return;
+    favoritesService.removeFavorite(id);
+    refresh();
+  }, [user, refresh]);
 
   const removeRecent = useCallback((id: string) => {
+    if (!user) return;
     recentDestinationsService.removeRecent(id);
     refresh();
-  }, [refresh]);
+  }, [user, refresh]);
+
+  const clearAllRecent = useCallback(async () => {
+    if (!user) return;
+    recentDestinationsService.clearRecent();
+    refresh();
+  }, [user, refresh]);
 
   const updateFavorite = useCallback((id: string, updates: Partial<DestinationHistoryItem>) => {
+    if (!user) return;
     favoritesService.updateFavorite(id, updates);
     refresh();
-  }, [refresh]);
+  }, [user, refresh]);
 
   return (
     <DestinationHistoryContext.Provider value={{ 
@@ -73,7 +117,10 @@ export const DestinationHistoryProvider: React.FC<{ children: React.ReactNode }>
       addToHistory, 
       toggleFavorite, 
       removeRecent,
+      clearAllRecent,
       updateFavorite,
+      addFavorite,
+      removeFavorite,
       refresh
     }}>
       {children}
