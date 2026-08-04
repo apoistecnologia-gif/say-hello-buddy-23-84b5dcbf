@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/revisar-solicitacao")({
+export const Route = createFileRoute("/_authenticated/revisar-solicitacao")({
   component: RideRequestReviewPage,
 });
 

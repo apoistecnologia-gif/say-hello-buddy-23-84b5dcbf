@@ -9,306 +9,361 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as BuscarDestinoRouteImport } from './routes/buscar-destino'
-import { Route as CadastroRouteImport } from './routes/cadastro'
-import { Route as CarteiraRouteImport } from './routes/carteira'
-import { Route as CorridasRouteImport } from './routes/corridas'
-import { Route as InicioRouteImport } from './routes/inicio'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as NotificacoesRouteImport } from './routes/notificacoes'
-import { Route as PerfilRouteImport } from './routes/perfil'
-import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
-import { Route as RedefinirSenhaRouteImport } from './routes/redefinir-senha'
-import { Route as RevisarSolicitacaoRouteImport } from './routes/revisar-solicitacao'
-import { Route as CorridaRideIdRouteImport } from './routes/corrida.$rideId'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as PublicRouteImport } from './routes/_public'
+import { Route as AuthenticatedBuscarDestinoRouteImport } from './routes/_authenticated.buscar-destino'
+import { Route as AuthenticatedCarteiraRouteImport } from './routes/_authenticated.carteira'
+import { Route as AuthenticatedCorridasRouteImport } from './routes/_authenticated.corridas'
+import { Route as AuthenticatedInicioRouteImport } from './routes/_authenticated.inicio'
+import { Route as AuthenticatedNotificacoesRouteImport } from './routes/_authenticated.notificacoes'
+import { Route as AuthenticatedPerfilRouteImport } from './routes/_authenticated.perfil'
+import { Route as AuthenticatedRevisarSolicitacaoRouteImport } from './routes/_authenticated.revisar-solicitacao'
+import { Route as PublicIndexRouteImport } from './routes/_public.index'
+import { Route as PublicCadastroRouteImport } from './routes/_public.cadastro'
+import { Route as PublicLoginRouteImport } from './routes/_public.login'
+import { Route as PublicRecuperarSenhaRouteImport } from './routes/_public.recuperar-senha'
+import { Route as PublicRedefinirSenhaRouteImport } from './routes/_public.redefinir-senha'
+import { Route as AuthenticatedCorridaRideIdRouteImport } from './routes/_authenticated.corrida.$rideId'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BuscarDestinoRoute = BuscarDestinoRouteImport.update({
-  id: '/buscar-destino',
-  path: '/buscar-destino',
+const PublicRoute = PublicRouteImport.update({
+  id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CadastroRoute = CadastroRouteImport.update({
-  id: '/cadastro',
-  path: '/cadastro',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CarteiraRoute = CarteiraRouteImport.update({
+const AuthenticatedBuscarDestinoRoute =
+  AuthenticatedBuscarDestinoRouteImport.update({
+    id: '/buscar-destino',
+    path: '/buscar-destino',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCarteiraRoute = AuthenticatedCarteiraRouteImport.update({
   id: '/carteira',
   path: '/carteira',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const CorridasRoute = CorridasRouteImport.update({
+const AuthenticatedCorridasRoute = AuthenticatedCorridasRouteImport.update({
   id: '/corridas',
   path: '/corridas',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const InicioRoute = InicioRouteImport.update({
+const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
   id: '/inicio',
   path: '/inicio',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificacoesRoute = NotificacoesRouteImport.update({
-  id: '/notificacoes',
-  path: '/notificacoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PerfilRoute = PerfilRouteImport.update({
+const AuthenticatedNotificacoesRoute =
+  AuthenticatedNotificacoesRouteImport.update({
+    id: '/notificacoes',
+    path: '/notificacoes',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
-const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
+const AuthenticatedRevisarSolicitacaoRoute =
+  AuthenticatedRevisarSolicitacaoRouteImport.update({
+    id: '/revisar-solicitacao',
+    path: '/revisar-solicitacao',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const PublicIndexRoute = PublicIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicCadastroRoute = PublicCadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicLoginRoute = PublicLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicRecuperarSenhaRoute = PublicRecuperarSenhaRouteImport.update({
   id: '/recuperar-senha',
   path: '/recuperar-senha',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PublicRoute,
 } as any)
-const RedefinirSenhaRoute = RedefinirSenhaRouteImport.update({
+const PublicRedefinirSenhaRoute = PublicRedefinirSenhaRouteImport.update({
   id: '/redefinir-senha',
   path: '/redefinir-senha',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => PublicRoute,
 } as any)
-const RevisarSolicitacaoRoute = RevisarSolicitacaoRouteImport.update({
-  id: '/revisar-solicitacao',
-  path: '/revisar-solicitacao',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CorridaRideIdRoute = CorridaRideIdRouteImport.update({
-  id: '/corrida/$rideId',
-  path: '/corrida/$rideId',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedCorridaRideIdRoute =
+  AuthenticatedCorridaRideIdRouteImport.update({
+    id: '/corrida/$rideId',
+    path: '/corrida/$rideId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/buscar-destino': typeof BuscarDestinoRoute
-  '/cadastro': typeof CadastroRoute
-  '/carteira': typeof CarteiraRoute
-  '/corridas': typeof CorridasRoute
-  '/inicio': typeof InicioRoute
-  '/login': typeof LoginRoute
-  '/notificacoes': typeof NotificacoesRoute
-  '/perfil': typeof PerfilRoute
-  '/recuperar-senha': typeof RecuperarSenhaRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
-  '/revisar-solicitacao': typeof RevisarSolicitacaoRoute
-  '/corrida/$rideId': typeof CorridaRideIdRoute
+  '/': typeof PublicIndexRoute
+  '/buscar-destino': typeof AuthenticatedBuscarDestinoRoute
+  '/carteira': typeof AuthenticatedCarteiraRoute
+  '/corridas': typeof AuthenticatedCorridasRoute
+  '/inicio': typeof AuthenticatedInicioRoute
+  '/notificacoes': typeof AuthenticatedNotificacoesRoute
+  '/perfil': typeof AuthenticatedPerfilRoute
+  '/revisar-solicitacao': typeof AuthenticatedRevisarSolicitacaoRoute
+  '/cadastro': typeof PublicCadastroRoute
+  '/login': typeof PublicLoginRoute
+  '/recuperar-senha': typeof PublicRecuperarSenhaRoute
+  '/redefinir-senha': typeof PublicRedefinirSenhaRoute
+  '/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/buscar-destino': typeof BuscarDestinoRoute
-  '/cadastro': typeof CadastroRoute
-  '/carteira': typeof CarteiraRoute
-  '/corridas': typeof CorridasRoute
-  '/inicio': typeof InicioRoute
-  '/login': typeof LoginRoute
-  '/notificacoes': typeof NotificacoesRoute
-  '/perfil': typeof PerfilRoute
-  '/recuperar-senha': typeof RecuperarSenhaRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
-  '/revisar-solicitacao': typeof RevisarSolicitacaoRoute
-  '/corrida/$rideId': typeof CorridaRideIdRoute
+  '/': typeof PublicIndexRoute
+  '/buscar-destino': typeof AuthenticatedBuscarDestinoRoute
+  '/carteira': typeof AuthenticatedCarteiraRoute
+  '/corridas': typeof AuthenticatedCorridasRoute
+  '/inicio': typeof AuthenticatedInicioRoute
+  '/notificacoes': typeof AuthenticatedNotificacoesRoute
+  '/perfil': typeof AuthenticatedPerfilRoute
+  '/revisar-solicitacao': typeof AuthenticatedRevisarSolicitacaoRoute
+  '/cadastro': typeof PublicCadastroRoute
+  '/login': typeof PublicLoginRoute
+  '/recuperar-senha': typeof PublicRecuperarSenhaRoute
+  '/redefinir-senha': typeof PublicRedefinirSenhaRoute
+  '/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/buscar-destino': typeof BuscarDestinoRoute
-  '/cadastro': typeof CadastroRoute
-  '/carteira': typeof CarteiraRoute
-  '/corridas': typeof CorridasRoute
-  '/inicio': typeof InicioRoute
-  '/login': typeof LoginRoute
-  '/notificacoes': typeof NotificacoesRoute
-  '/perfil': typeof PerfilRoute
-  '/recuperar-senha': typeof RecuperarSenhaRoute
-  '/redefinir-senha': typeof RedefinirSenhaRoute
-  '/revisar-solicitacao': typeof RevisarSolicitacaoRoute
-  '/corrida/$rideId': typeof CorridaRideIdRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/_public': typeof PublicRouteWithChildren
+  '/_authenticated/buscar-destino': typeof AuthenticatedBuscarDestinoRoute
+  '/_authenticated/carteira': typeof AuthenticatedCarteiraRoute
+  '/_authenticated/corridas': typeof AuthenticatedCorridasRoute
+  '/_authenticated/inicio': typeof AuthenticatedInicioRoute
+  '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
+  '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
+  '/_authenticated/revisar-solicitacao': typeof AuthenticatedRevisarSolicitacaoRoute
+  '/_public/cadastro': typeof PublicCadastroRoute
+  '/_public/login': typeof PublicLoginRoute
+  '/_public/recuperar-senha': typeof PublicRecuperarSenhaRoute
+  '/_public/redefinir-senha': typeof PublicRedefinirSenhaRoute
+  '/_public/': typeof PublicIndexRoute
+  '/_authenticated/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/buscar-destino'
-    | '/cadastro'
     | '/carteira'
     | '/corridas'
     | '/inicio'
-    | '/login'
     | '/notificacoes'
     | '/perfil'
+    | '/revisar-solicitacao'
+    | '/cadastro'
+    | '/login'
     | '/recuperar-senha'
     | '/redefinir-senha'
-    | '/revisar-solicitacao'
     | '/corrida/$rideId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/buscar-destino'
-    | '/cadastro'
     | '/carteira'
     | '/corridas'
     | '/inicio'
-    | '/login'
     | '/notificacoes'
     | '/perfil'
+    | '/revisar-solicitacao'
+    | '/cadastro'
+    | '/login'
     | '/recuperar-senha'
     | '/redefinir-senha'
-    | '/revisar-solicitacao'
     | '/corrida/$rideId'
   id:
     | '__root__'
-    | '/'
-    | '/buscar-destino'
-    | '/cadastro'
-    | '/carteira'
-    | '/corridas'
-    | '/inicio'
-    | '/login'
-    | '/notificacoes'
-    | '/perfil'
-    | '/recuperar-senha'
-    | '/redefinir-senha'
-    | '/revisar-solicitacao'
-    | '/corrida/$rideId'
+    | '/_authenticated'
+    | '/_public'
+    | '/_authenticated/buscar-destino'
+    | '/_authenticated/carteira'
+    | '/_authenticated/corridas'
+    | '/_authenticated/inicio'
+    | '/_authenticated/notificacoes'
+    | '/_authenticated/perfil'
+    | '/_authenticated/revisar-solicitacao'
+    | '/_public/cadastro'
+    | '/_public/login'
+    | '/_public/recuperar-senha'
+    | '/_public/redefinir-senha'
+    | '/_public/'
+    | '/_authenticated/corrida/$rideId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  BuscarDestinoRoute: typeof BuscarDestinoRoute
-  CadastroRoute: typeof CadastroRoute
-  CarteiraRoute: typeof CarteiraRoute
-  CorridasRoute: typeof CorridasRoute
-  InicioRoute: typeof InicioRoute
-  LoginRoute: typeof LoginRoute
-  NotificacoesRoute: typeof NotificacoesRoute
-  PerfilRoute: typeof PerfilRoute
-  RecuperarSenhaRoute: typeof RecuperarSenhaRoute
-  RedefinirSenhaRoute: typeof RedefinirSenhaRoute
-  RevisarSolicitacaoRoute: typeof RevisarSolicitacaoRoute
-  CorridaRideIdRoute: typeof CorridaRideIdRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  PublicRoute: typeof PublicRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthenticatedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/buscar-destino': {
-      id: '/buscar-destino'
+    '/_public': {
+      id: '/_public'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PublicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/buscar-destino': {
+      id: '/_authenticated/buscar-destino'
       path: '/buscar-destino'
       fullPath: '/buscar-destino'
-      preLoaderRoute: typeof BuscarDestinoRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedBuscarDestinoRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/cadastro': {
-      id: '/cadastro'
-      path: '/cadastro'
-      fullPath: '/cadastro'
-      preLoaderRoute: typeof CadastroRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/carteira': {
-      id: '/carteira'
+    '/_authenticated/carteira': {
+      id: '/_authenticated/carteira'
       path: '/carteira'
       fullPath: '/carteira'
-      preLoaderRoute: typeof CarteiraRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedCarteiraRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/corridas': {
-      id: '/corridas'
+    '/_authenticated/corridas': {
+      id: '/_authenticated/corridas'
       path: '/corridas'
       fullPath: '/corridas'
-      preLoaderRoute: typeof CorridasRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedCorridasRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/inicio': {
-      id: '/inicio'
+    '/_authenticated/inicio': {
+      id: '/_authenticated/inicio'
       path: '/inicio'
       fullPath: '/inicio'
-      preLoaderRoute: typeof InicioRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedInicioRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notificacoes': {
-      id: '/notificacoes'
+    '/_authenticated/notificacoes': {
+      id: '/_authenticated/notificacoes'
       path: '/notificacoes'
       fullPath: '/notificacoes'
-      preLoaderRoute: typeof NotificacoesRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedNotificacoesRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/perfil': {
-      id: '/perfil'
+    '/_authenticated/perfil': {
+      id: '/_authenticated/perfil'
       path: '/perfil'
       fullPath: '/perfil'
-      preLoaderRoute: typeof PerfilRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedPerfilRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/recuperar-senha': {
-      id: '/recuperar-senha'
-      path: '/recuperar-senha'
-      fullPath: '/recuperar-senha'
-      preLoaderRoute: typeof RecuperarSenhaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/redefinir-senha': {
-      id: '/redefinir-senha'
-      path: '/redefinir-senha'
-      fullPath: '/redefinir-senha'
-      preLoaderRoute: typeof RedefinirSenhaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/revisar-solicitacao': {
-      id: '/revisar-solicitacao'
+    '/_authenticated/revisar-solicitacao': {
+      id: '/_authenticated/revisar-solicitacao'
       path: '/revisar-solicitacao'
       fullPath: '/revisar-solicitacao'
-      preLoaderRoute: typeof RevisarSolicitacaoRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedRevisarSolicitacaoRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
-    '/corrida/$rideId': {
-      id: '/corrida/$rideId'
+    '/_public/': {
+      id: '/_public/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof PublicIndexRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/cadastro': {
+      id: '/_public/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof PublicCadastroRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/login': {
+      id: '/_public/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof PublicLoginRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/recuperar-senha': {
+      id: '/_public/recuperar-senha'
+      path: '/recuperar-senha'
+      fullPath: '/recuperar-senha'
+      preLoaderRoute: typeof PublicRecuperarSenhaRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/redefinir-senha': {
+      id: '/_public/redefinir-senha'
+      path: '/redefinir-senha'
+      fullPath: '/redefinir-senha'
+      preLoaderRoute: typeof PublicRedefinirSenhaRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_authenticated/corrida/$rideId': {
+      id: '/_authenticated/corrida/$rideId'
       path: '/corrida/$rideId'
       fullPath: '/corrida/$rideId'
-      preLoaderRoute: typeof CorridaRideIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedCorridaRideIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
     }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedBuscarDestinoRoute: typeof AuthenticatedBuscarDestinoRoute
+  AuthenticatedCarteiraRoute: typeof AuthenticatedCarteiraRoute
+  AuthenticatedCorridasRoute: typeof AuthenticatedCorridasRoute
+  AuthenticatedInicioRoute: typeof AuthenticatedInicioRoute
+  AuthenticatedNotificacoesRoute: typeof AuthenticatedNotificacoesRoute
+  AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
+  AuthenticatedRevisarSolicitacaoRoute: typeof AuthenticatedRevisarSolicitacaoRoute
+  AuthenticatedCorridaRideIdRoute: typeof AuthenticatedCorridaRideIdRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedBuscarDestinoRoute: AuthenticatedBuscarDestinoRoute,
+  AuthenticatedCarteiraRoute: AuthenticatedCarteiraRoute,
+  AuthenticatedCorridasRoute: AuthenticatedCorridasRoute,
+  AuthenticatedInicioRoute: AuthenticatedInicioRoute,
+  AuthenticatedNotificacoesRoute: AuthenticatedNotificacoesRoute,
+  AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
+  AuthenticatedRevisarSolicitacaoRoute: AuthenticatedRevisarSolicitacaoRoute,
+  AuthenticatedCorridaRideIdRoute: AuthenticatedCorridaRideIdRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
+interface PublicRouteChildren {
+  PublicCadastroRoute: typeof PublicCadastroRoute
+  PublicLoginRoute: typeof PublicLoginRoute
+  PublicRecuperarSenhaRoute: typeof PublicRecuperarSenhaRoute
+  PublicRedefinirSenhaRoute: typeof PublicRedefinirSenhaRoute
+  PublicIndexRoute: typeof PublicIndexRoute
+}
+
+const PublicRouteChildren: PublicRouteChildren = {
+  PublicCadastroRoute: PublicCadastroRoute,
+  PublicLoginRoute: PublicLoginRoute,
+  PublicRecuperarSenhaRoute: PublicRecuperarSenhaRoute,
+  PublicRedefinirSenhaRoute: PublicRedefinirSenhaRoute,
+  PublicIndexRoute: PublicIndexRoute,
+}
+
+const PublicRouteWithChildren =
+  PublicRoute._addFileChildren(PublicRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  BuscarDestinoRoute: BuscarDestinoRoute,
-  CadastroRoute: CadastroRoute,
-  CarteiraRoute: CarteiraRoute,
-  CorridasRoute: CorridasRoute,
-  InicioRoute: InicioRoute,
-  LoginRoute: LoginRoute,
-  NotificacoesRoute: NotificacoesRoute,
-  PerfilRoute: PerfilRoute,
-  RecuperarSenhaRoute: RecuperarSenhaRoute,
-  RedefinirSenhaRoute: RedefinirSenhaRoute,
-  RevisarSolicitacaoRoute: RevisarSolicitacaoRoute,
-  CorridaRideIdRoute: CorridaRideIdRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  PublicRoute: PublicRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

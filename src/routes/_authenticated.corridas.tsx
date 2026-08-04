@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/corridas")({
+export const Route = createFileRoute("/_authenticated/corridas")({
   component: CorridasPage,
 });
 

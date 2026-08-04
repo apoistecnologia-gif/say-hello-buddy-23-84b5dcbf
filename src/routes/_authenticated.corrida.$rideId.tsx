@@ -14,12 +14,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/corrida/$rideId")({
+export const Route = createFileRoute("/_authenticated/corrida/$rideId")({
   component: ActiveRidePage,
 });
 
 function ActiveRidePage() {
-  const { rideId } = useParams({ from: "/corrida/$rideId" });
+  const { rideId } = useParams({ from: "/_authenticated/corrida/$rideId" as any });
   const navigate = useNavigate();
   const { 
     ride, 

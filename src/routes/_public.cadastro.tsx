@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/cadastro")({
+export const Route = createFileRoute("/_public/cadastro")({
   component: CadastroPage,
 });
 
