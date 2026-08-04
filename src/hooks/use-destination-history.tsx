@@ -73,7 +73,7 @@ export const DestinationHistoryProvider: React.FC<{ children: React.ReactNode }>
 
   const addFavorite = useCallback((destination: DestinationAddress, nickname?: string, icon?: FavoriteIconType) => {
     if (!user) return;
-    const newItem: DestinationHistoryItem = {
+    const newItem: any = {
       ...destination,
       id: crypto.randomUUID(),
       nickname: nickname,
@@ -82,7 +82,7 @@ export const DestinationHistoryProvider: React.FC<{ children: React.ReactNode }>
       updatedAt: new Date().toISOString(),
       favorite: true
     };
-    favoritesService.addFavorite(newItem);
+    favoritesService.addFavorite(newItem as DestinationHistoryItem);
     refresh();
   }, [user, refresh]);
 
