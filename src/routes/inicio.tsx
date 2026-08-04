@@ -1,20 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useLocation } from "@/hooks/use-location";
+import { LocationStatus } from "@/components/location/LocationStatus";
+import { MapPin } from "lucide-react";
 
 export const Route = createFileRoute("/inicio")({
   component: InicioPage,
 });
 
 function InicioPage() {
+  const { accuracyQuality } = useLocation();
+
   return (
     <div className="flex flex-col min-h-screen bg-black text-white p-4">
       {/* Search/Address Area */}
       <div className="bg-[#1e1e1e] rounded-xl p-4 mb-4 shadow-lg">
+        <LocationStatus />
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-2 h-2 rounded-full bg-blue-500" />
-          <span className="text-sm text-gray-300">Rua Exemplo, 123 - Centro</span>
+          <div className={`w-2 h-2 rounded-full ${accuracyQuality !== 'none' ? 'bg-blue-500' : 'bg-gray-600'}`} />
+          <span className="text-sm text-gray-300">
+            {accuracyQuality !== 'none' ? 'Localização identificada' : 'Precisamos da sua localização'}
+          </span>
         </div>
-        <button className="w-full bg-[#2a2a2a] text-left px-4 py-3 rounded-lg font-semibold text-lg border border-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-500">
-          Para onde vamos?
+        <button className="w-full bg-[#2a2a2a] text-left px-4 py-3 rounded-lg font-semibold text-lg border border-gray-800 focus:outline-none focus:ring-2 focus:ring-yellow-500 flex items-center gap-2">
+          <MapPin className="w-5 h-5 text-yellow-500" />
+          <span>Para onde vamos?</span>
         </button>
       </div>
 

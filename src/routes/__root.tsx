@@ -10,6 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { LocationProvider } from "@/hooks/use-location";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { initializeNativePlatform, hideSplashScreen, setupBackButton } from "@/lib/platform/native";
 
@@ -144,12 +145,14 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AuthGuard>
-          <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
-            <Outlet />
-            <BottomNavigation />
-          </div>
-        </AuthGuard>
+        <LocationProvider>
+          <AuthGuard>
+            <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
+              <Outlet />
+              <BottomNavigation />
+            </div>
+          </AuthGuard>
+        </LocationProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
