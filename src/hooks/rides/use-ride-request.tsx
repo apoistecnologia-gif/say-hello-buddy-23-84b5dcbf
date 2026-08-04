@@ -9,6 +9,7 @@ import { useDestination } from "@/hooks/use-destination";
 import { useRoute } from "@/hooks/use-route";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 import { usePricing } from "@/hooks/use-pricing";
+import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { usePaymentMethods } from "@/hooks/use-payment-methods";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -35,6 +36,7 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const { selectedCategory } = useRideCategories();
   const { estimate } = usePricing();
   const { selectedMethod } = usePaymentMethods();
+  const { orderedStops } = useRideStops();
   const navigate = useNavigate();
 
   const [status, setStatus] = useState<RideRequestStatus>("idle");
@@ -91,6 +93,13 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
       pickup_place_id: pickupPlaceId,
       pickup_source: "gps",
       payment_method: selectedMethod,
+      intermediates: orderedStops.length > 0 ? orderedStops.map((stop, index) => ({
+        lat: stop.latitude,
+        lng: stop.longitude,
+        address: stop.formattedAddress,
+        place_id: stop.placeId,
+        order: index
+      })) : undefined,
       service_details: selectedCategory.details || null,
       scheduled_for: null
     };

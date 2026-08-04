@@ -1,14 +1,15 @@
+import React from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useRideRequest } from "@/hooks/rides/use-ride-request";
 import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { useDestination } from "@/hooks/use-destination";
 import { useRoute } from "@/hooks/use-route";
-import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 import { usePricing } from "@/hooks/use-pricing";
 import { usePaymentMethods } from "@/hooks/use-payment-methods";
 import { useWallet } from "@/hooks/use-wallet";
 import { useCheckoutPreparation } from "@/hooks/use-checkout-preparation";
+import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { 
   ChevronLeft, 
   MapPin, 
@@ -30,15 +31,15 @@ export const Route = createFileRoute("/revisar-solicitacao")({
 
 function RideRequestReviewPage() {
   const navigate = useNavigate();
-  const { status, submit, error, isSubmitting } = useRideRequest();
+  const { submit, error, isSubmitting } = useRideRequest();
   const { address: pickupAddress } = usePickupAddress();
   const { destination } = useDestination();
   const { route } = useRoute();
-  const { orderedStops } = useRideStops();
   const { selectedCategory } = useRideCategories();
   const { checkout } = useCheckoutPreparation();
   const { selectedMethod } = usePaymentMethods();
   const { state: walletState, wallet } = useWallet();
+  const { orderedStops } = useRideStops();
 
   const handleBack = () => navigate({ to: "/inicio" });
 
@@ -56,7 +57,6 @@ function RideRequestReviewPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white pb-safe">
-      {/* Header */}
       <div className="px-5 py-6 flex items-center gap-4 border-b border-white/5 bg-zinc-900/50 backdrop-blur-md sticky top-0 z-10">
         <button onClick={handleBack} className="p-2 -ml-2 text-zinc-400">
           <ChevronLeft size={24} />
@@ -65,28 +65,40 @@ function RideRequestReviewPage() {
       </div>
 
       <div className="flex-1 px-5 py-6 space-y-6 overflow-y-auto">
-        {/* Rota */}
         <div className="space-y-4">
           <div className="flex gap-4">
             <div className="flex flex-col items-center py-1">
-              <div className="w-2.5 h-2.5 rounded-full bg-apois-yellow" />
+              <div className="w-2.5 h-2.5 rounded-full bg-apois-yellow shadow-[0_0_8px_rgba(255,184,0,0.4)]" />
               <div className="w-px flex-1 bg-zinc-800 my-1" />
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+              {orderedStops.map((stop) => (
+                <React.Fragment key={stop.id}>
+                  <div className="w-2.5 h-2.5 rounded-full border border-zinc-600 bg-zinc-900" />
+                  <div className="w-px flex-1 bg-zinc-800 my-1" />
+                </React.Fragment>
+              ))}
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
             </div>
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-5">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Origem</p>
-                <p className="text-sm font-medium line-clamp-1">{pickupAddress || "Carregando..."}</p>
+                <p className="text-sm font-bold line-clamp-1">{pickupAddress || "Carregando..."}</p>
               </div>
+              
+              {orderedStops.map((stop, i) => (
+                <div key={stop.id}>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Parada {i + 1}</p>
+                  <p className="text-sm font-bold line-clamp-1">{stop.label}</p>
+                </div>
+              ))}
+
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Destino</p>
-                <p className="text-sm font-medium line-clamp-1">{destination?.formattedAddress || destination?.label}</p>
+                <p className="text-sm font-bold line-clamp-1">{destination?.formattedAddress || destination?.label}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Resumo */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-zinc-900/50 rounded-2xl p-4 border border-white/5">
             <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-2">Categoria</p>
@@ -98,7 +110,6 @@ function RideRequestReviewPage() {
           </div>
         </div>
 
-        {/* Detalhes do Serviço */}
         {selectedCategory?.details && Object.keys(selectedCategory.details).length > 0 && (
           <div className="bg-zinc-900/50 rounded-2xl p-4 border border-white/5">
              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-3">Detalhes do Serviço</p>
@@ -113,7 +124,6 @@ function RideRequestReviewPage() {
           </div>
         )}
 
-        {/* Financeiro */}
         <div className="bg-zinc-900/50 rounded-2xl p-5 border border-white/5 space-y-4">
           <div className="flex justify-between items-end">
             <div>
@@ -136,7 +146,6 @@ function RideRequestReviewPage() {
           </div>
         </div>
 
-        {/* Bloqueios */}
         {walletState === "blocked" && (
           <div className="bg-red-500/10 rounded-2xl p-5 border border-red-500/20 flex gap-4 items-start animate-in fade-in slide-in-from-top duration-300">
             <ShieldAlert className="text-red-500 shrink-0" size={24} />
@@ -157,7 +166,6 @@ function RideRequestReviewPage() {
         )}
       </div>
 
-      {/* Footer Button */}
       <div className="px-5 py-6 bg-zinc-900/80 backdrop-blur-xl border-t border-white/5">
         <Button
           onClick={submit}
