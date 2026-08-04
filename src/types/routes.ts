@@ -6,7 +6,7 @@ export interface RouteCoordinates {
 export interface RouteRequest {
   origin: RouteCoordinates;
   destination: RouteCoordinates;
-  intermediates?: RouteCoordinates[] | undefined;
+  intermediates?: RouteCoordinates[];
 }
 
 export interface RouteStep {
@@ -32,7 +32,7 @@ export type RouteSource = "apois_backend";
 export interface RouteResult {
   origin: RouteCoordinates;
   destination: RouteCoordinates;
-  intermediates?: RouteCoordinates[] | undefined;
+  intermediates?: RouteCoordinates[];
   distanceMeters: number;
   durationSeconds: number;
   encodedPolyline: string;

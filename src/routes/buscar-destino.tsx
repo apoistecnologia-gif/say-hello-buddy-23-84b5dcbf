@@ -145,7 +145,7 @@ function BuscarDestinoPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Ponto de partida</p>
                   <p className="text-sm font-medium text-gray-300 truncate">
-                    {origin?.label || 'Buscando sua localização...'}
+                    {pickupLabel || 'Buscando sua localização...'}
                   </p>
                 </div>
               </div>

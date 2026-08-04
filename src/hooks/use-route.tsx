@@ -1,17 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useLocation } from "@/hooks/use-location";
 import { useDestination } from "@/hooks/use-destination";
-
-export interface RouteData {
-  distanceMeters: number;
-  durationSeconds: number;
-  polyline: string;
-  decodedPoints?: Array<{lat: number, lng: number}>;
-}
+import { useRideStops } from "@/hooks/rides/use-ride-stops";
+import { routeService } from "@/services/routes/route-service";
+import { RouteResult, RouteStatus } from "@/types/routes";
 
 interface RouteContextType {
-  route: RouteData | null;
-  status: "idle" | "loading" | "success" | "error" | "debouncing";
+  route: RouteResult | null;
+  status: RouteStatus;
   isLoading: boolean;
   error: string | null;
   isStale: boolean;
@@ -25,8 +21,9 @@ const RouteContext = createContext<RouteContextType | undefined>(undefined);
 export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { location } = useLocation();
   const { destination } = useDestination();
-  const [route, setRoute] = useState<RouteData | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "debouncing">("idle");
+  const { stops } = useRideStops();
+  const [route, setRoute] = useState<RouteResult | null>(null);
+  const [status, setStatus] = useState<RouteStatus>("idle");
   const [error, setError] = useState<string | null>(null);
 
   const calculateRoute = useCallback(async () => {
@@ -38,26 +35,27 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       setStatus("loading");
-      // Simulated route calculation (matches STO-008)
-      setRoute({
-        distanceMeters: 5000,
-        durationSeconds: 600,
-        polyline: "mock_polyline",
-        decodedPoints: [
-          {lat: location.latitude, lng: location.longitude},
-          {lat: destination.latitude, lng: destination.longitude}
-        ]
-      });
+      const origin = { lat: location.latitude, lng: location.longitude };
+      const dest = { lat: destination.latitude, lng: destination.longitude };
+      const intermediates = stops.map(s => ({ lat: s.latitude, lng: s.longitude }));
+
+      const result = await routeService.computeRoute(origin, dest, intermediates);
+      setRoute(result);
       setStatus("success");
       setError(null);
     } catch (err: any) {
+      if (err.message === 'route_cancelled') return;
       setError(err.message || "Failed to calculate route");
-      setStatus("error");
+      setStatus("failed");
     }
-  }, [location, destination]);
+  }, [location, destination, stops]);
 
   useEffect(() => {
-    calculateRoute();
+    const timer = setTimeout(() => {
+      calculateRoute();
+    }, 500);
+    setStatus("debouncing");
+    return () => clearTimeout(timer);
   }, [calculateRoute]);
 
   return (
@@ -66,7 +64,7 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       status, 
       isLoading: status === "loading",
       error,
-      isStale: false,
+      isStale: status === "stale",
       clearRoute: () => setRoute(null),
       refresh: calculateRoute,
       retry: calculateRoute
