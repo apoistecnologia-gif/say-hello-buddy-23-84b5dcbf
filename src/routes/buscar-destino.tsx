@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/buscar-destino")({
   validateSearch: (search: Record<string, unknown>) => ({
-    stop: search.stop === true || search.stop === "true",
+    stop: search['stop'] === true || search['stop'] === "true",
   }),
   component: BuscarDestinoPage,
 });

@@ -51,24 +51,32 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     Geolocation.checkPermissions().then(setPermissionStatus);
 
-    const watchId = Geolocation.watchPosition({ enableHighAccuracy: true }, (position, err) => {
-      if (err) {
-        setError(err.message);
-        setIsLoading(false);
-        return;
-      }
-      if (position) {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy
-        });
-        setIsLoading(false);
-      }
-    });
+    let watchId: string;
+    
+    const startWatch = async () => {
+      watchId = await Geolocation.watchPosition({ enableHighAccuracy: true }, (position, err) => {
+        if (err) {
+          setError(err.message);
+          setIsLoading(false);
+          return;
+        }
+        if (position) {
+          setLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+          setIsLoading(false);
+        }
+      });
+    };
+
+    startWatch();
 
     return () => {
-      Geolocation.clearWatch({ id: watchId });
+      if (watchId) {
+        Geolocation.clearWatch({ id: watchId });
+      }
     };
   }, []);
 

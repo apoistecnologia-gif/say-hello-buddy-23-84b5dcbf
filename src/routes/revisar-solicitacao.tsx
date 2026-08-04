@@ -31,7 +31,8 @@ export const Route = createFileRoute("/revisar-solicitacao")({
 
 function RideRequestReviewPage() {
   const navigate = useNavigate();
-  const { submit, error, isSubmitting } = useRideRequest();
+  const { confirmRide, request } = useRideRequest();
+  const { error, isSubmitting } = request;
   const { address: pickupAddress } = usePickupAddress();
   const { destination } = useDestination();
   const { route } = useRoute();
@@ -168,7 +169,12 @@ function RideRequestReviewPage() {
 
       <div className="px-5 py-6 bg-zinc-900/80 backdrop-blur-xl border-t border-white/5">
         <Button
-          onClick={submit}
+          onClick={async () => {
+            const response = await confirmRide();
+            if (response?.ok && response.rideId) {
+              navigate({ to: "/corrida/$rideId", params: { rideId: response.rideId } });
+            }
+          }}
           disabled={!checkout.readiness || isSubmitting}
           className={cn(
             "w-full h-16 rounded-2xl font-black text-lg transition-all active:scale-[0.98]",

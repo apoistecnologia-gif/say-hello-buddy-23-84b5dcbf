@@ -14,6 +14,7 @@ import { WalletProvider } from '@/hooks/use-wallet';
 import { CouponProvider } from '@/hooks/use-coupon';
 import { CheckoutPreparationProvider } from '@/hooks/use-checkout-preparation';
 import { RideRequestProvider } from '@/hooks/rides/use-ride-request';
+import { ActiveRideProvider } from '@/hooks/rides/use-active-ride';
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { Toaster } from "@/components/ui/sonner";
@@ -43,13 +44,15 @@ function RootComponent() {
                           <CouponProvider>
                             <CheckoutPreparationProvider>
                               <RideRequestProvider>
-                                <AuthGuard>
+                                <ActiveRideProvider>
+                                  <AuthGuard>
                                   <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
                                     <Outlet />
                                     <BottomNavigation />
                                     <Toaster />
                                   </div>
-                                </AuthGuard>
+                                  </AuthGuard>
+                                </ActiveRideProvider>
                               </RideRequestProvider>
                             </CheckoutPreparationProvider>
                           </CouponProvider>
