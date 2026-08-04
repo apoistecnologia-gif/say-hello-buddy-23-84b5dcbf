@@ -1,135 +1,130 @@
-import React, { createContext, useContext, useState, useCallback, useRef } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { RideRequestPayload, RideRequestResponse, RideRequestStatus } from "@/types/rides/ride-request";
-import { rideRequestService } from "@/services/rides/ride-request-service";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useLocation } from "@/hooks/use-location";
-import { usePickupAddress } from "@/hooks/use-pickup-address";
-import { useDestination } from "@/hooks/use-destination";
-import { useRoute } from "@/hooks/use-route";
 import { useRideCategories } from "@/hooks/use-ride-categories";
-import { usePricing } from "@/hooks/use-pricing";
-import { useRideStops } from "@/hooks/rides/use-ride-stops";
-import { usePaymentMethods } from "@/hooks/use-payment-methods";
-import { useNavigate } from "@tanstack/react-router";
+import { useRoute } from "@/hooks/use-route";
+import { RideRequestPayload, RideRequestResponse } from "@/types/rides/ride-request";
+import { v4 as uuidv4 } from "uuid";
+import React, { createContext, useContext, useState, useCallback, useRef } from "react";
+
+interface RideRequest {
+  requestKey: string | null;
+  isSubmitting: boolean;
+  error: string | null;
+  lastResponse: RideRequestResponse | null;
+}
 
 interface RideRequestContextType {
-  status: RideRequestStatus;
-  requestKey: string | null;
-  rideId: string | null;
-  officialEstimatedPrice: number | null;
-  error: string | null;
-  isSubmitting: boolean;
-  submit: () => Promise<void>;
-  reset: () => void;
-  initiateReview: () => string;
+  request: RideRequest;
+  initiateReview: () => void;
+  confirmRide: () => Promise<RideRequestResponse | null>;
+  cancelRide: (rideId: string) => Promise<void>;
+  resetRequest: () => void;
 }
 
 const RideRequestContext = createContext<RideRequestContextType | undefined>(undefined);
 
 export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  const { location } = useLocation();
-  const { address, pickupLabel, pickupShortLabel, pickupPlaceId } = usePickupAddress();
-  const { destination } = useDestination();
-  const { route } = useRoute();
   const { selectedCategory } = useRideCategories();
-  const { estimate } = usePricing();
-  const { selectedMethod } = usePaymentMethods();
-  const { orderedStops } = useRideStops();
-  const navigate = useNavigate();
-
-  const [status, setStatus] = useState<RideRequestStatus>("idle");
-  const [requestKey, setRequestKey] = useState<string | null>(null);
-  const [rideId, setRideId] = useState<string | null>(null);
-  const [officialPrice, setOfficialPrice] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { route } = useRoute();
   
-  const isSubmittingRef = useRef(false);
+  const [request, setRequest] = useState<RideRequest>({
+    requestKey: null,
+    isSubmitting: false,
+    error: null,
+    lastResponse: null
+  });
+
+  const requestDataRef = useRef<{ category: string | null; origin: any; destination: any }>({
+    category: null,
+    origin: null,
+    destination: null
+  });
 
   const initiateReview = useCallback(() => {
-    const newKey = uuidv4();
-    setRequestKey(newKey);
-    setStatus("reviewing");
-    return newKey;
-  }, []);
+    const currentCategory = selectedCategory?.key || null;
+    const currentOrigin = route?.origin || null;
+    const currentDestination = route?.destination || null;
 
-  const reset = useCallback(() => {
-    setStatus("idle");
-    setRequestKey(null);
-    setRideId(null);
-    setOfficialPrice(null);
-    setError(null);
-    isSubmittingRef.current = false;
-  }, []);
+    const hasChanged = 
+      currentCategory !== requestDataRef.current.category ||
+      JSON.stringify(currentOrigin) !== JSON.stringify(requestDataRef.current.origin) ||
+      JSON.stringify(currentDestination) !== JSON.stringify(requestDataRef.current.destination);
 
-  const submit = useCallback(async () => {
-    if (isSubmittingRef.current || !requestKey || !user || !location || !destination || !selectedCategory) return;
-    
-    isSubmittingRef.current = true;
-    setStatus("submitting");
-    setError(null);
+    if (hasChanged || !request.requestKey) {
+      const newKey = uuidv4();
+      setRequest(prev => ({ ...prev, requestKey: newKey, error: null, lastResponse: null }));
+      requestDataRef.current = { 
+        category: currentCategory, 
+        origin: currentOrigin, 
+        destination: currentDestination 
+      };
+    }
+  }, [selectedCategory, route, request.requestKey]);
+
+  const confirmRide = useCallback(async (): Promise<RideRequestResponse | null> => {
+    if (!user || !selectedCategory || !route || !request.requestKey) {
+      setRequest(prev => ({ ...prev, error: "Dados incompletos para solicitação." }));
+      return null;
+    }
+
+    setRequest(prev => ({ ...prev, isSubmitting: true, error: null }));
 
     const payload: RideRequestPayload = {
       action: "create",
-      request_key: requestKey,
-      origin: {
-        lat: location.latitude,
-        lng: location.longitude
-      },
-      origin_name: address || "Localização atual",
-      destination: {
-        lat: destination.latitude,
-        lng: destination.longitude
-      },
-      destination_name: destination.formattedAddress || destination.label,
-      category: selectedCategory.key as any,
-      distance_km: route ? route.distanceMeters / 1000 : null,
-      duration_min: route ? route.durationSeconds / 60 : null,
-      estimated_price: estimate?.base_fare ? estimate.base_fare + (estimate.extrasTotal || 0) : null,
-      pickup_label: pickupLabel,
-      pickup_short_label: pickupShortLabel,
-      pickup_address: address,
-      pickup_place_id: pickupPlaceId,
-      pickup_source: "gps",
-      payment_method: selectedMethod,
-      intermediates: orderedStops.length > 0 ? orderedStops.map((stop, index) => ({
-        lat: stop.latitude,
-        lng: stop.longitude,
-        address: stop.formattedAddress,
-        place_id: stop.placeId,
-        order: index
-      })) : undefined,
-      service_details: selectedCategory.details || null,
-      scheduled_for: null
+      request_key: request.requestKey,
+      category: selectedCategory.key,
+      origin: route.origin,
+      destination: route.destination,
+      origin_name: route.originName || "Origem",
+      destination_name: route.destinationName || "Destino",
+      service_details: {} as Record<string, unknown>
     };
 
-    const response = await rideRequestService.createRide(payload);
+    try {
+      const { data, error } = await supabase.functions.invoke("request-ride", {
+        body: payload
+      });
 
-    if (response.ok && response.rideId) {
-      setRideId(response.rideId);
-      setOfficialPrice(response.estimated_price || null);
-      setStatus(response.reused ? "reused" : "success");
-      
-      navigate({ to: "/corrida/$rideId", params: { rideId: response.rideId } });
-    } else {
-      setError(response.message || "Erro ao solicitar corrida");
-      setStatus("failed");
-      isSubmittingRef.current = false;
+      if (error) throw error;
+
+      setRequest(prev => ({ ...prev, isSubmitting: false, lastResponse: data }));
+      return data as RideRequestResponse;
+    } catch (err: any) {
+      console.error("[RideRequest] Error:", err);
+      setRequest(prev => ({ 
+        ...prev, 
+        isSubmitting: false, 
+        error: err.message || "Erro ao processar sua solicitação." 
+      }));
+      return null;
     }
-  }, [user, location, destination, selectedCategory, address, pickupLabel, pickupShortLabel, pickupPlaceId, route, estimate, selectedMethod, requestKey, navigate]);
+  }, [user, selectedCategory, route, request.requestKey]);
+
+  const cancelRide = useCallback(async (rideId: string) => {
+    const { error } = await supabase.functions.invoke("request-ride", {
+      body: { action: "cancel", ride_id: rideId }
+    });
+    if (error) throw error;
+  }, []);
+
+  const resetRequest = useCallback(() => {
+    setRequest({
+      requestKey: null,
+      isSubmitting: false,
+      error: null,
+      lastResponse: null
+    });
+    requestDataRef.current = { category: null, origin: null, destination: null };
+  }, []);
 
   return (
     <RideRequestContext.Provider value={{
-      status,
-      requestKey,
-      rideId,
-      officialEstimatedPrice: officialPrice,
-      error,
-      isSubmitting: status === "submitting",
-      submit,
-      reset,
-      initiateReview
+      request,
+      initiateReview,
+      confirmRide,
+      cancelRide,
+      resetRequest
     }}>
       {children}
     </RideRequestContext.Provider>

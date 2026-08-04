@@ -13,7 +13,6 @@ export interface WalletSummary {
   balance: number;
   available_balance: number;
   is_blocked: boolean;
-  available_balance?: number;
   status?: string;
   blocked_reason: string | null;
 }
