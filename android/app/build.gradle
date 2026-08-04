@@ -1,5 +1,15 @@
 apply plugin: 'com.android.application'
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def googleMapsApiKey = localProperties.getProperty('GOOGLE_MAPS_API_KEY') ?: "MISSING_KEY"
+
 android {
     namespace = "com.apois.passageiro"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -10,6 +20,9 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        
+        manifestPlaceholders = [GOOGLE_MAPS_API_KEY: googleMapsApiKey]
+        
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -20,6 +33,12 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    
+    applicationVariants.all { variant ->
+        if (googleMapsApiKey == "MISSING_KEY") {
+            println("WARNING: GOOGLE_MAPS_API_KEY not found in local.properties")
         }
     }
 }

@@ -23,8 +23,10 @@ class MapService {
   ): Promise<GoogleMap> {
     const mapId = element.id || 'default-map';
     
-    if (this.maps.has(mapId)) {
-      return this.maps.get(mapId)!;
+    // Check if map already exists in our cache
+    const existingMap = this.maps.get(mapId);
+    if (existingMap) {
+      return existingMap;
     }
 
     try {
@@ -37,8 +39,7 @@ class MapService {
           zoom: DEFAULT_ZOOM,
           mapTypeId: MapType.Normal,
           styles: MAP_STYLE_DARK,
-        },
-        forceCreate: true
+        }
       });
 
       this.maps.set(mapId, map);
@@ -47,6 +48,34 @@ class MapService {
       console.error('Failed to create map:', error);
       throw this.normalizeError('maps_initialization_failed');
     }
+  }
+
+  /**
+   * Only for emergency recovery, bypassing standard singleton check
+   */
+  public async forceRecreateMap(
+    element: HTMLElement,
+    apiKey: string,
+    initialPosition?: MapCoordinates
+  ): Promise<GoogleMap> {
+    const mapId = element.id || 'default-map';
+    await this.destroyMap(mapId);
+    
+    return GoogleMap.create({
+      id: mapId,
+      element: element,
+      apiKey: apiKey,
+      config: {
+        center: initialPosition || { lat: -15.793889, lng: -47.882778 },
+        zoom: DEFAULT_ZOOM,
+        mapTypeId: MapType.Normal,
+        styles: MAP_STYLE_DARK,
+      },
+      forceCreate: true
+    }).then(map => {
+      this.maps.set(mapId, map);
+      return map;
+    });
   }
 
   public async destroyMap(mapId: string): Promise<void> {
