@@ -9,13 +9,19 @@ export const PLACES_CONFIG = {
   CACHE_TTL_MS: 300000, // 5 minutos
   CACHE_MAX_SIZE: 50,
   COUNTRY_RESTRICTION: 'br',
-  // Campos solicitados no Place Details
+  // Campos essenciais solicitados no Place Details (fetchFields)
+  // id: ID único do local
+  // displayName: Nome legível do local
+  // formattedAddress: Endereço completo formatado
+  // location: Coordenadas geográficas (lat/lng)
+  // addressComponents: Partes detalhadas do endereço (rua, número, etc)
+  // types: Tipos do local (airport, establishment, etc)
   DETAILS_FIELDS: [
-    'place_id',
-    'name',
-    'formatted_address',
-    'geometry',
-    'address_components',
+    'id',
+    'displayName',
+    'formattedAddress',
+    'location',
+    'addressComponents',
     'types'
   ]
 };
