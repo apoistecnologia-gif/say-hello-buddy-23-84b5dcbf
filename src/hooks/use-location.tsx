@@ -49,13 +49,18 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   useEffect(() => {
-    Geolocation.checkPermissions().then(setPermissionStatus);
-
+    let mounted = true;
     let watchId: string;
     
-    const startWatch = async () => {
+    const initLocation = async () => {
       try {
+        const status = await Geolocation.checkPermissions();
+        if (mounted) setPermissionStatus(status);
+
+        // Don't auto-start watch on web if it blocks UI
+        // In the future, we can add a check for isNativePlatform()
         watchId = await Geolocation.watchPosition({ enableHighAccuracy: true }, (position, err) => {
+          if (!mounted) return;
           if (err) {
             console.warn("[useLocation] Watch error:", err);
             setError(err.message);
@@ -72,14 +77,15 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         });
       } catch (e) {
-        console.error("[useLocation] Failed to start watch:", e);
-        setIsLoading(false);
+        console.error("[useLocation] Failed to initialize location:", e);
+        if (mounted) setIsLoading(false);
       }
     };
 
-    startWatch();
+    initLocation();
 
     return () => {
+      mounted = false;
       if (watchId) {
         Geolocation.clearWatch({ id: watchId });
       }

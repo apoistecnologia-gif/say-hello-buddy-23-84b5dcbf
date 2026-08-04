@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCcw, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "@tanstack/react-router";
 
 interface StartupTimeoutProps {
   children: React.ReactNode;
@@ -9,20 +10,20 @@ interface StartupTimeoutProps {
 
 export const StartupTimeout: React.FC<StartupTimeoutProps> = ({ 
   children, 
-  timeoutMs = 10000 
+  timeoutMs = 12000 
 }) => {
   const [isTimedOut, setIsTimedOut] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!isReady) {
+        console.warn("[StartupTimeout] Application startup timed out after", timeoutMs, "ms");
         setIsTimedOut(true);
       }
     }, timeoutMs);
 
-    // This is a safety check. In a real app, we'd check if all critical providers are initialized.
-    // For now, we assume if it hasn't rendered in X seconds, something is stuck.
     return () => clearTimeout(timer);
   }, [isReady, timeoutMs]);
 
@@ -33,23 +34,46 @@ export const StartupTimeout: React.FC<StartupTimeoutProps> = ({
           <AlertCircle className="text-apois-yellow" size={40} />
         </div>
         
-        <h1 className="text-2xl font-black mb-2">Carregamento Lento</h1>
+        <h1 className="text-2xl font-black mb-2">Inicialização Lenta</h1>
         <p className="text-zinc-400 text-sm font-medium mb-8 max-w-xs">
-          O aplicativo está demorando mais do que o esperado para iniciar. Isso pode ser devido à conexão ou GPS.
+          O aplicativo está demorando para carregar. Isso pode ocorrer por falha na conexão, GPS ou serviços internos.
         </p>
 
-        <Button 
-          onClick={() => window.location.reload()}
-          className="bg-apois-yellow text-black font-black w-full h-14 rounded-2xl"
-        >
-          Tentar Novamente
-        </Button>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <Button 
+            onClick={() => window.location.reload()}
+            className="bg-apois-yellow text-black font-black h-14 rounded-2xl flex items-center justify-center gap-2"
+          >
+            <RefreshCcw size={18} />
+            Tentar Novamente
+          </Button>
+
+          <Button 
+            variant="outline"
+            onClick={() => {
+              setIsTimedOut(false);
+              navigate({ to: "/login" });
+            }}
+            className="border-zinc-800 text-zinc-400 h-14 rounded-2xl flex items-center justify-center gap-2"
+          >
+            <LogIn size={18} />
+            Ir para o Login
+          </Button>
+        </div>
+
+        <p className="mt-8 text-[10px] text-zinc-700 font-bold uppercase tracking-widest">
+          Timeout de Segurança
+        </p>
       </div>
     );
   }
 
   return (
-    <div onAnimationStart={() => setIsReady(true)}>
+    <div onAnimationStart={() => {
+      // Use a CSS animation trigger as a proxy for "something rendered"
+      setIsReady(true);
+    }} className="contents">
+      <div className="hidden animate-[pulse_0.1s_ease-in-out_infinite]" />
       {children}
     </div>
   );
