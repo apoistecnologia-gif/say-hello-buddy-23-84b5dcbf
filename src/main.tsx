@@ -22,6 +22,7 @@ declare module '@tanstack/react-router' {
   }
 }
 
+console.info("APOIS_BUILD_TESTE_2026_08_04_1202");
 console.info("[APOIS] main.tsx iniciado");
 const rootElement = document.getElementById('root')!
 console.info("[APOIS] root encontrado", !!rootElement);
