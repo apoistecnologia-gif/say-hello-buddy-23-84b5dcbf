@@ -7,6 +7,7 @@ export type AuthState = "initializing" | "authenticated" | "unauthenticated" | "
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  profile: any | null;
   authState: AuthState;
   isLoading: boolean;
   error: string | null;
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<any | null>(null);
   const [authState, setAuthState] = useState<AuthState>("initializing");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,9 +30,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await supabase.auth.signOut();
       setSession(null);
       setUser(null);
+      setProfile(null);
       setAuthState("unauthenticated");
+      
+      // Clear sensitive memory/local storage if needed
+      window.localStorage.removeItem("apois-last-location");
     } catch (err) {
       console.error("[AuthProvider] Sign out error:", err);
+    }
+  }, []);
+
+  const fetchProfile = useCallback(async (userId: string) => {
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        const { data, error } = await supabase
+          .from("users")
+          .select("*")
+          .eq("auth_user_id", userId)
+          .single();
+
+        if (error) throw error;
+        
+        if (data) {
+          setProfile(data);
+          return;
+        }
+      } catch (err) {
+        console.warn(`[AuthProvider] Profile fetch attempt failed (${retries} left):`, err);
+        await new Promise(res => setTimeout(res, 1000));
+      }
+      retries--;
     }
   }, []);
 
@@ -41,6 +71,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
       setAuthState(session ? "authenticated" : "unauthenticated");
       setError(null);
     } catch (err: any) {
@@ -68,6 +103,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setSession(session);
           setUser(session?.user ?? null);
+          if (session?.user) {
+            await fetchProfile(session.user.id);
+          } else {
+            setProfile(null);
+          }
           setAuthState(session ? "authenticated" : "unauthenticated");
           setError(null);
         }
@@ -96,6 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!newSession) {
           setSession(null);
           setUser(null);
+          setProfile(null);
           setAuthState("unauthenticated");
         }
       }
@@ -103,10 +144,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (newSession) {
         setSession(newSession);
         setUser(newSession.user);
+        fetchProfile(newSession.user.id);
         setAuthState("authenticated");
       } else if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN') {
         setSession(null);
         setUser(null);
+        setProfile(null);
         setAuthState("unauthenticated");
       }
       
@@ -122,6 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     user,
     session,
+    profile,
     authState,
     isLoading,
     error,
