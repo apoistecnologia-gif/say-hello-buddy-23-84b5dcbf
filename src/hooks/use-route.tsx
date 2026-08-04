@@ -1,17 +1,23 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useLocation } from "@/hooks/use-location";
 import { useDestination } from "@/hooks/use-destination";
 
-interface RouteData {
+export interface RouteData {
   distanceMeters: number;
   durationSeconds: number;
   polyline: string;
+  decodedPoints?: Array<{lat: number, lng: number}>;
 }
 
 interface RouteContextType {
   route: RouteData | null;
-  status: "idle" | "loading" | "success" | "error";
+  status: "idle" | "loading" | "success" | "error" | "debouncing";
+  isLoading: boolean;
+  error: string | null;
+  isStale: boolean;
   clearRoute: () => void;
+  refresh: () => Promise<void>;
+  retry: () => Promise<void>;
 }
 
 const RouteContext = createContext<RouteContextType | undefined>(undefined);
@@ -20,26 +26,51 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const { location } = useLocation();
   const { destination } = useDestination();
   const [route, setRoute] = useState<RouteData | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error" | "debouncing">("idle");
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (location && destination) {
+  const calculateRoute = useCallback(async () => {
+    if (!location || !destination) {
+      setRoute(null);
+      setStatus("idle");
+      return;
+    }
+
+    try {
       setStatus("loading");
       // Simulated route calculation (matches STO-008)
       setRoute({
         distanceMeters: 5000,
         durationSeconds: 600,
-        polyline: "mock_polyline"
+        polyline: "mock_polyline",
+        decodedPoints: [
+          {lat: location.latitude, lng: location.longitude},
+          {lat: destination.latitude, lng: destination.longitude}
+        ]
       });
       setStatus("success");
-    } else {
-      setRoute(null);
-      setStatus("idle");
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to calculate route");
+      setStatus("error");
     }
   }, [location, destination]);
 
+  useEffect(() => {
+    calculateRoute();
+  }, [calculateRoute]);
+
   return (
-    <RouteContext.Provider value={{ route, status, clearRoute: () => setRoute(null) }}>
+    <RouteContext.Provider value={{ 
+      route, 
+      status, 
+      isLoading: status === "loading",
+      error,
+      isStale: false,
+      clearRoute: () => setRoute(null),
+      refresh: calculateRoute,
+      retry: calculateRoute
+    }}>
       {children}
     </RouteContext.Provider>
   );
