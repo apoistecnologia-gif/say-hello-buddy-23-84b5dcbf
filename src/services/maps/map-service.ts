@@ -33,11 +33,10 @@ class MapService {
         element: element,
         apiKey: apiKey,
         config: {
-          center: initialPosition || { lat: -15.793889, lng: -47.882778 }, // Default if none, but logic will prevent display
+          center: initialPosition || { lat: -15.793889, lng: -47.882778 },
           zoom: DEFAULT_ZOOM,
           mapTypeId: MapType.Normal,
           styles: MAP_STYLE_DARK,
-          disableDefaultUI: true,
         },
         forceCreate: true
       });
