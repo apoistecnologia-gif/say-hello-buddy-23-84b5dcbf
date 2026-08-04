@@ -1,10 +1,14 @@
+export type PaymentMethodCode = "pix" | "credit" | "debit" | "cash" | "wallet";
+
 export interface PaymentMethod {
   id: string;
-  code: "pix" | "credit" | "debit" | "cash" | "wallet";
+  code: PaymentMethodCode;
   name: string;
+  label?: string; // For backward compatibility
   description?: string | null;
   icon?: string | null;
   isActive: boolean;
+  enabled?: boolean; // For backward compatibility
   sortOrder: number;
   requiresBalance?: boolean;
 }
@@ -19,6 +23,12 @@ export interface PassengerWallet {
   updatedAt: string;
 }
 
+// For backward compatibility with existing components
+export interface WalletSummary extends PassengerWallet {
+  available_balance: number;
+  status: "active" | "blocked";
+}
+
 export interface CancellationFee {
   id: string;
   amount: number;
@@ -26,3 +36,23 @@ export interface CancellationFee {
   status: 'pending' | 'paid';
   createdAt: string;
 }
+
+export interface CheckoutEstimate {
+  baseFare: number;
+  extrasTotal: number;
+  discountTotal: number;
+  finalTotal: number;
+  readiness: boolean;
+  blockingReasons: string[];
+}
+
+export interface CouponValidationResult {
+  valid: boolean;
+  code: string;
+  discount_type: "fixed" | "percentage";
+  discount_value: number;
+  message: string;
+}
+
+export type CouponStatus = "idle" | "validating" | "applied" | "not_applicable";
+
