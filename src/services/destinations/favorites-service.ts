@@ -1,4 +1,4 @@
-import { DestinationHistoryItem } from '../../types/destinations';
+import { DestinationHistoryItem, FavoriteIconType } from '../../types/destinations';
 import DestinationStorage from './destination-storage';
 
 class FavoritesService {
@@ -9,7 +9,18 @@ class FavoritesService {
   public addFavorite(destination: DestinationHistoryItem): void {
     const favorites = this.getFavorites();
     
-    // Evitar duplicidade
+    // Se for um tipo reservado (casa/trabalho), substitui o anterior se houver
+    if (destination.icon === 'home' || destination.icon === 'briefcase') {
+      const filtered = favorites.filter(item => item.icon !== destination.icon);
+      const updated = [
+        ...filtered,
+        { ...destination, favorite: true, updatedAt: new Date().toISOString() }
+      ];
+      DestinationStorage.saveFavorites(updated);
+      return;
+    }
+
+    // Evitar duplicidade por placeId para favoritos normais
     if (favorites.some(item => item.placeId === destination.placeId)) {
       return;
     }

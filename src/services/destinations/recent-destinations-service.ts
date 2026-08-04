@@ -11,8 +11,18 @@ class RecentDestinationsService {
   public addRecent(destination: DestinationHistoryItem): void {
     const recent = this.getRecent();
     
-    // Evitar duplicidade removendo se já existe
-    const filtered = recent.filter(item => item.placeId !== destination.placeId);
+    // Evitar duplicidade
+    const filtered = recent.filter(item => {
+      if (item.placeId && destination.placeId) {
+        return item.placeId !== destination.placeId;
+      }
+      // Comparação por coordenadas se placeId não existir
+      const dist = Math.sqrt(
+        Math.pow(item.latitude - destination.latitude, 2) + 
+        Math.pow(item.longitude - destination.longitude, 2)
+      );
+      return dist > 0.0001; // aprox 10m
+    });
     
     // Adicionar no início (mais recente primeiro)
     const updated = [
