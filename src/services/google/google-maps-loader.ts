@@ -49,28 +49,28 @@ class GoogleMapsLoader {
 
       // Injeta o bootstrap loader moderno do Google Maps
       // @ts-ignore
-      (function (g, apiKey) {
-        var h,
-          a,
-          k,
+      (function (g: any) {
+        var h: any,
+          a: any,
+          k: any,
           p = "The Google Maps JavaScript API",
           c = "google",
           l = "importLibrary",
           q = "__ib__",
           m = document,
-          b = window;
+          b: any = window;
         b = b[c] || (b[c] = {});
         var d = b.maps || (b.maps = {}),
           r = new Set(),
           e = new URLSearchParams(),
           u = () =>
             h ||
-            (h = new Promise(async (f, n) => {
+            (h = new Promise(async (f: any, n: any) => {
               await (a = m.createElement("script"));
               e.set("libraries", [...r] + "");
               for (k in g)
                 e.set(
-                  k.replace(/[A-Z]/g, (t) => "_" + t[0].toLowerCase()),
+                  k.replace(/[A-Z]/g, (t: any) => "_" + t[0].toLowerCase()),
                   g[k],
                 );
               e.set("callback", c + ".maps." + q);
@@ -79,7 +79,7 @@ class GoogleMapsLoader {
               a.onerror = () => (h = n(Error(p + " could not load.")));
               m.head.append(a);
             }));
-        d[l] = async (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n));
+        d[l] = async (f: any, ...n: any[]) => r.add(f) && u().then(() => d[l](f, ...n));
       })(
         {
           key: apiKey,
