@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useLocation } from "@/hooks/use-location";
+import { getReverseGeocoding } from "@/lib/geocoding";
 
 interface PickupAddressContextType {
   address: string | null;
@@ -23,14 +24,39 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState("idle");
 
-  useEffect(() => {
-    if (location) {
-       // Dummy geocoding for now, will be implemented in STO-004
-       setAddress("Rua Exemplo, 123");
-       setPickupLabel("Minha Localização");
-       setPickupShortLabel("Rua Exemplo");
+  const refreshAddress = useCallback(async () => {
+    if (!location) return;
+    
+    setIsLoading(true);
+    setStatus("identifying");
+    try {
+      const formattedAddress = await getReverseGeocoding(location);
+      setAddress(formattedAddress);
+      
+      // Basic parsing for label/short label
+      const parts = formattedAddress.split(",");
+      if (parts.length > 0) {
+        setPickupShortLabel(parts[0].trim());
+        setPickupLabel(parts.slice(0, 2).join(", ").trim());
+      } else {
+        setPickupLabel("Minha Localização");
+        setPickupShortLabel("Localização atual");
+      }
+      setStatus("success");
+    } catch (err) {
+      console.error("Failed to refresh address:", err);
+      setAddress("Sua localização atual");
+      setStatus("error");
+    } finally {
+      setIsLoading(false);
     }
   }, [location]);
+
+  useEffect(() => {
+    if (location) {
+      refreshAddress();
+    }
+  }, [location, refreshAddress]);
 
   return (
     <PickupAddressContext.Provider value={{ 
@@ -41,7 +67,7 @@ export const PickupAddressProvider: React.FC<{ children: React.ReactNode }> = ({
       isLoading, 
       status, 
       error: null,
-      refreshAddress: async () => {} 
+      refreshAddress
     }}>
       {children}
     </PickupAddressContext.Provider>
