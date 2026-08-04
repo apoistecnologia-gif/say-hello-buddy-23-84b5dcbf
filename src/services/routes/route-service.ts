@@ -124,7 +124,7 @@ class RouteService {
 
   public normalizeError(error: any): RouteError {
     const message = error?.message || 'route_unknown_error';
-    const code = (ROUTE_ERROR_MESSAGES[message] ? message : 'route_unknown_error') as string;
+    const code = (ROUTE_ERROR_MESSAGES[message] ? message : 'route_unknown_error');
     
     return {
       code,
