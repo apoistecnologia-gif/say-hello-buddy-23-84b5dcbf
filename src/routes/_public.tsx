@@ -1,5 +1,6 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthGuard } from "@/components/auth/AuthGuard";
 
 export const Route = createFileRoute("/_public")({
   beforeLoad: ({ context, location }) => {
@@ -11,7 +12,9 @@ export const Route = createFileRoute("/_public")({
 function PublicLayout() {
   return (
     <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
-      <Outlet />
+      <AuthGuard>
+        <Outlet />
+      </AuthGuard>
       <Toaster />
     </div>
   );
