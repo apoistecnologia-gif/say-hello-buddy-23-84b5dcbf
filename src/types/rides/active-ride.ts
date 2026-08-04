@@ -81,6 +81,7 @@ export interface ActiveRide {
   
   // Extras
   share_token?: string;
+  passenger_rating?: number;
 }
 
 export type RideScreenState = 
