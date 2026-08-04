@@ -19,7 +19,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({ className }) => {
   const [isManualMove, setIsManualMove] = useState(false);
   const mapInitialized = useRef(false);
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const apiKey = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'];
 
   useEffect(() => {
     if (!mapRef.current || mapInitialized.current) return;
