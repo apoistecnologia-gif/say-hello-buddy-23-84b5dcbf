@@ -18,13 +18,12 @@ export interface RouteStep {
 }
 
 export interface RouteResponse {
-  ok: boolean;
-  route: {
-    distanceMeters: number;
-    durationSeconds: number;
-    encodedPolyline: string;
-    steps: RouteStep[];
-  };
+  distanceMeters: number;
+  durationSeconds: number;
+  encodedPolyline: string;
+  routeId?: string;
+  provider?: string;
+  steps?: RouteStep[];
 }
 
 export type RouteSource = "apois_backend";
