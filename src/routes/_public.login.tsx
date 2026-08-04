@@ -139,9 +139,7 @@ function LoginPage() {
             Criar minha conta
           </Link>
         </div>
+      </div>
     </div>
   );
 }
-  );
-}
-
