@@ -1,4 +1,4 @@
-import { apiClient } from "../api/api-client";
+import { supabase } from "@/integrations/supabase/client";
 import { RouteRequest, RouteResponse } from "@/types/routes";
 
 class RouteService {
@@ -29,17 +29,15 @@ class RouteService {
     this.abortController = new AbortController();
 
     try {
-      // Redireciona para o endpoint do backend standalone (Nitro)
-      const response = await apiClient.post<any>('/api/passenger/routes/compute', request, {
-        signal: this.abortController.signal,
-        timeout: 15000
+      const { data: response, error } = await supabase.functions.invoke('passenger-routes-compute', {
+        body: request,
       });
 
-      if (!response || !response.ok) {
-        throw new Error(response?.error || 'Falha ao calcular rota');
+      if (error || !response) {
+        throw new Error(error?.message || 'Falha ao calcular rota');
       }
 
-      const routeData = response.route as RouteResponse;
+      const routeData = response as RouteResponse;
       this.cache.set(cacheKey, { data: routeData, timestamp: Date.now() });
       return routeData;
     } catch (err: any) {

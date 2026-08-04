@@ -1,4 +1,4 @@
-import { apiClient } from '../api/api-client';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   GeocodeCoordinates, 
   PickupAddress, 
@@ -54,12 +54,15 @@ class GeocodingService {
 
     try {
       // 1. Primary Reverse Geocoding
-      const response = await apiClient.post<any>('/api/passenger/geocode/reverse', coords, {
-        signal: controller.signal
+      const { data: response, error } = await supabase.functions.invoke('passenger-geocode-reverse', {
+        body: coords,
+        headers: {
+          'X-Abort-Signal': 'true' // Custom header or just omit signal for now if types don't support it directly in invoke
+        }
       });
 
-      if (!response || !response.ok) {
-        throw new Error('geocode_empty_result');
+      if (error) {
+        throw new Error(error.message || 'geocode_empty_result');
       }
 
       const geo = response.geo || response;
@@ -73,12 +76,11 @@ class GeocodingService {
 
       if (needsPoi) {
         try {
-          const poiResponse = await apiClient.post<any>('/api/passenger/geocode/nearest-poi', coords, {
-            signal: controller.signal,
-            timeout: 5000 // Short timeout for POI
+          const { data: poiResponse, error: poiError } = await supabase.functions.invoke('passenger-geocode-nearest-poi', {
+            body: coords
           });
 
-          if (poiResponse && poiResponse.ok && poiResponse.nearestPoi) {
+          if (!poiError && poiResponse && poiResponse.ok && poiResponse.nearestPoi) {
             pickupAddress = {
               ...pickupAddress,
               nearestPoi: poiResponse.nearestPoi,
