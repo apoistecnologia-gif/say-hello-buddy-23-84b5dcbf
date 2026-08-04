@@ -1,12 +1,18 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { useLocation } from "@/hooks/use-location";
 import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { useDestination } from "@/hooks/use-destination";
 import { useRoute } from "@/hooks/use-route";
+import { useRideCategories } from "@/hooks/use-ride-categories";
+import { usePricing } from "@/hooks/use-pricing";
 import { LocationStatus } from "@/components/location/LocationStatus";
 import PassengerMap from "@/components/map/PassengerMap";
 import { RouteSummary } from "@/components/route/RouteSummary";
-import { MapPin, Shield, AlertCircle, Loader2, X } from "lucide-react";
+import { CategorySelector } from "@/components/pricing/CategorySelector";
+import { FareDetails } from "@/components/pricing/FareDetails";
+import { ServiceDetailsForm } from "@/components/pricing/ServiceDetailsForm";
+import { MapPin, Shield, AlertCircle, Loader2, X, ChevronRight, Settings2 } from "lucide-react";
 
 export const Route = createFileRoute("/inicio")({
   component: InicioPage,
@@ -18,6 +24,9 @@ function InicioPage() {
   const { address, status: pickupStatus, isLoading: isPickupLoading, error: pickupError, refreshAddress } = usePickupAddress();
   const { destination, clearDestination, hasDestination } = useDestination();
   const { route, status: routeStatus, clearRoute } = useRoute();
+  const { selectedCategory } = useRideCategories();
+  const { estimate, status: pricingStatus } = usePricing();
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   const handleOpenSearch = () => {
     navigate({ to: '/buscar-destino' });
@@ -121,56 +130,81 @@ function InicioPage() {
 
       {/* Bottom Floating Area */}
       <div className="mt-auto relative z-10 p-4 pb-24">
-        {/* Floating SOS button */}
+        {/* Floating SOS and Re-center buttons */}
         <div className="flex justify-end mb-4">
           <button className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center shadow-2xl border-4 border-black/20 active:scale-90 transition-transform">
             <Shield className="w-7 h-7 text-white" />
           </button>
         </div>
 
-        {/* Route Summary or Categories Panel */}
-        <div className="transition-all duration-500 ease-in-out">
-          {(hasDestination || route) ? (
-            <RouteSummary />
-          ) : (
-            <div className="bg-[#1e1e1e]/95 backdrop-blur-lg rounded-3xl p-5 border border-white/5 shadow-2xl">
-              <div className="grid grid-cols-4 gap-4 mb-6">
-                {[
-                  { label: "Comum", active: true },
-                  { label: "Premium", active: false },
-                  { label: "Entrega", active: false },
-                  { label: "Mercado", active: false }
-                ].map((cat) => (
-                  <button 
-                    key={cat.label} 
-                    className="flex flex-col items-center gap-2 group opacity-50 grayscale pointer-events-none"
-                  >
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${
-                      cat.active 
-                        ? 'bg-yellow-500 border-yellow-400 shadow-[0_0_15px_rgba(255,184,0,0.3)]' 
-                        : 'bg-[#2a2a2a] border-gray-800'
-                    }`}>
-                      <div className={`w-8 h-4 rounded-sm ${cat.active ? 'bg-black' : 'bg-yellow-500/50'}`} />
-                    </div>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${cat.active ? 'text-yellow-500' : 'text-gray-500'}`}>
-                      {cat.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button className="bg-[#2a2a2a] py-4 rounded-2xl font-bold text-gray-400 border border-gray-700/50 opacity-60 cursor-not-allowed">
-                  Agendar
-                </button>
-                <button className="bg-yellow-500 text-black py-4 rounded-2xl font-black shadow-lg shadow-yellow-500/20 active:scale-95 transition-all">
-                  Segurança
-                </button>
-              </div>
+        {/* Route Summary and Categories Panel */}
+        <div className="transition-all duration-500 ease-in-out space-y-3">
+          {(hasDestination || route) && (
+            <div className="animate-in slide-in-from-bottom duration-500">
+              <RouteSummary />
             </div>
           )}
+          
+          <div className="bg-[#1e1e1e]/95 backdrop-blur-lg rounded-3xl pt-5 pb-5 border border-white/5 shadow-2xl">
+            {(hasDestination || route) ? (
+              <div className="animate-in fade-in slide-in-from-bottom duration-500">
+                <div className="px-5 mb-4 flex items-center justify-between">
+                   <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Escolha a Categoria</p>
+                   {selectedCategory && (selectedCategory.key === 'fretes' || selectedCategory.key === 'guincho' || selectedCategory.key === 'envios') && (
+                     <button 
+                       onClick={() => setIsFormOpen(true)}
+                       className="flex items-center gap-1.5 text-apois-yellow font-bold text-xs"
+                     >
+                       <Settings2 size={14} />
+                       Detalhes
+                     </button>
+                   )}
+                </div>
+                
+                <CategorySelector />
+                
+                <div className="px-5 pt-4 border-t border-white/5 flex items-center justify-between">
+                  <FareDetails />
+                  
+                  <button 
+                    disabled={pricingStatus !== "success"}
+                    className={cn(
+                      "flex items-center gap-2 px-8 py-4 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
+                      pricingStatus === "success" 
+                        ? "bg-apois-yellow text-black shadow-apois-yellow/20" 
+                        : "bg-zinc-800 text-zinc-600 cursor-not-allowed"
+                    )}
+                  >
+                    Confirmar {selectedCategory?.label || "Viagem"}
+                    <ChevronRight size={20} strokeWidth={3} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="px-5">
+                <div className="flex flex-col items-center gap-3 py-4 text-center">
+                  <div className="w-12 h-12 bg-zinc-800 rounded-full flex items-center justify-center">
+                    <MapPin className="text-zinc-500" size={24} />
+                  </div>
+                  <p className="text-zinc-400 font-medium text-sm">
+                    Defina um destino para ver as categorias e preços disponíveis.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      <ServiceDetailsForm 
+        isOpen={isFormOpen} 
+        onClose={() => setIsFormOpen(false)} 
+      />
     </div>
   );
+}
+
+// Utility function used in the component
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(' ');
 }
