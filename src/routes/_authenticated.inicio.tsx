@@ -129,7 +129,7 @@ function InicioPage() {
                 </div>
               </div>
 
-              <div className="px-5 pt-4 border-t border-white/5">
+              <div className="px-5 pt-4 border-t border-white/5 pb-[calc(12px+env(safe-area-inset-bottom))]">
                 <button 
                   type="button"
                   onClick={handleReview}
@@ -147,7 +147,7 @@ function InicioPage() {
               </div>
             </div>
           ) : (
-            <div className="px-5">
+            <div className="px-5 pb-[calc(12px+env(safe-area-inset-bottom))]">
               <div className="flex flex-col items-center gap-4 py-6 text-center">
                 <div className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center border border-white/5 shadow-inner">
                   <MapPin className="text-apois-yellow" size={28} />
