@@ -48,30 +48,8 @@ class GoogleMapsLoader {
       }
 
       // Injeta o bootstrap loader moderno do Google Maps
-      // Baseado no snippet oficial do Google Maps JavaScript API
-      (function(g: any, apiKey: string) {
-        var h: any, a: any, k: any, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window;
-        // @ts-ignore
-        b = b[c] || (b[c] = {});
-        // @ts-ignore
-        var d = b.maps || (b.maps = {}), r = new Set(), e = new URLSearchParams(), u = () => h || (h = new Promise(async (f, n) => {
-          await (a = m.createElement("script"));
-          e.set("libraries", [...r] + "");
-          for (k in g) {
-            if (Object.prototype.hasOwnProperty.call(g, k)) {
-              e.set(k.replace(/[A-Z]/g, (t: string) => "_" + t[0].toLowerCase()), g[k]);
-            }
-          }
-          e.set("callback", c + ".maps." + q);
-          a.src = `https://maps.googleapis.com/maps/api/js?` + e;
-          // @ts-ignore
-          d[q] = f;
-          a.onerror = () => h = n(Error(p + " could not load."));
-          m.head.append(a);
-        }));
-        // @ts-ignore
-        d[l] = async (f: any, ...n: any) => r.add(f) && u().then(() => d[l](f, ...n));
-      })({
+      // @ts-ignore
+      (function(g, apiKey){var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await(a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.googleapis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));m.head.append(a)}));d[l]=async(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
         key: apiKey,
         v: "weekly",
       }, apiKey);
