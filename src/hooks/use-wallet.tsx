@@ -60,7 +60,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (!user) return;
 
-    const channel = (supabase as any)
+    const channel = supabase
       .channel("wallet_changes")
       .on(
         "postgres_changes",

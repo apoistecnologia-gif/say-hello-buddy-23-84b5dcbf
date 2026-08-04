@@ -18,8 +18,8 @@ class ActiveRideService {
 
   public async getRideById(rideId: string, userId: string): Promise<ActiveRide> {
     const { data, error } = await (supabase
-      .from("rides" as any)
-      .select("*") as any)
+      .from("rides")
+      .select("*"))
       .eq("id", rideId)
       .single();
 
@@ -39,8 +39,8 @@ class ActiveRideService {
     ];
 
     const { data, error } = await (supabase
-      .from("rides" as any)
-      .select("*") as any)
+      .from("rides")
+      .select("*"))
       .eq("passenger_id", userId)
       .in("status", activeStatuses)
       .order("created_at", { ascending: false })
@@ -57,7 +57,7 @@ class ActiveRideService {
     this.channel = supabase
       .channel(`ride_active_${rideId}`)
       .on(
-        "postgres_changes" as any,
+        "postgres_changes",
         {
           event: "UPDATE",
           schema: "public",
@@ -65,7 +65,7 @@ class ActiveRideService {
           filter: `id=eq.${rideId}`
         },
         (payload: any) => {
-          const newRide = payload.new as any;
+          const newRide = payload.new as ActiveRide;
           const updateTimestamp = new Date(newRide.updated_at).getTime();
 
           // Protect against out-of-order events

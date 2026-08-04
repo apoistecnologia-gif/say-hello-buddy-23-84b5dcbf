@@ -19,8 +19,8 @@ class PricingService {
     if (!route || !route.distanceMeters || !route.durationSeconds) return 0;
 
     const { data: tariff, error } = await (supabase
-      .from("tariff_rules" as any)
-      .select("*") as any)
+      .from("tariff_rules")
+      .select("*")
       .eq("category_key", category.key)
       .single();
 
