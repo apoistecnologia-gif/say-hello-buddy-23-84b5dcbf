@@ -25,41 +25,39 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthenticatedLayout() {
   return (
     <AuthGuard>
-      
       <LocationProvider>
-      <PickupAddressProvider>
-        <DestinationProvider>
-          <RideStopsProvider>
-            <DestinationHistoryProvider>
-              <RouteProvider>
-                <RideCategoriesProvider>
-                  <PricingProvider>
-                    <PaymentMethodsProvider>
-                      <WalletProvider>
-                        <CouponProvider>
-                          <CheckoutPreparationProvider>
-                            <RideRequestProvider>
-                              <ActiveRideProvider>
-                                <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
-                                  <Outlet />
-                                  <BottomNavigation />
-                                  <Toaster />
-                                </div>
-                              </ActiveRideProvider>
-                            </RideRequestProvider>
-                          </CheckoutPreparationProvider>
-                        </CouponProvider>
-                      </WalletProvider>
-                    </PaymentMethodsProvider>
-                  </PricingProvider>
-                </RideCategoriesProvider>
-              </RouteProvider>
-            </DestinationHistoryProvider>
-          </RideStopsProvider>
-        </DestinationProvider>
-      </PickupAddressProvider>
+        <PickupAddressProvider>
+          <DestinationProvider>
+            <RideStopsProvider>
+              <DestinationHistoryProvider>
+                <RouteProvider>
+                  <RideCategoriesProvider>
+                    <PricingProvider>
+                      <PaymentMethodsProvider>
+                        <WalletProvider>
+                          <CouponProvider>
+                            <CheckoutPreparationProvider>
+                              <RideRequestProvider>
+                                <ActiveRideProvider>
+                                  <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
+                                    <Outlet />
+                                    <BottomNavigation />
+                                    <Toaster />
+                                  </div>
+                                </ActiveRideProvider>
+                              </RideRequestProvider>
+                            </CheckoutPreparationProvider>
+                          </CouponProvider>
+                        </WalletProvider>
+                      </PaymentMethodsProvider>
+                    </PricingProvider>
+                  </RideCategoriesProvider>
+                </RouteProvider>
+              </DestinationHistoryProvider>
+            </RideStopsProvider>
+          </DestinationProvider>
+        </PickupAddressProvider>
       </LocationProvider>
-      
     </AuthGuard>
   );
 }
