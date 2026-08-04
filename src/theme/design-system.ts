@@ -1,4 +1,4 @@
-import { createTheme } from '@mui/material/styles';
+// Design System Configuration (Pure JS/TS to avoid unnecessary dependencies)
 
 // Design System Colors based on the provided logo (Yellow/Orange and Dark)
 export const themeColors = {
