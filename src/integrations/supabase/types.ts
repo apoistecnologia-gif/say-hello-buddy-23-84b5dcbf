@@ -14,6 +14,127 @@ export type Database = {
   }
   public: {
     Tables: {
+      cancellation_fees: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          passenger_id: string
+          reason: string | null
+          ride_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          passenger_id: string
+          reason?: string | null
+          ride_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          passenger_id?: string
+          reason?: string | null
+          ride_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cancellation_fees_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      passenger_wallets: {
+        Row: {
+          balance: number | null
+          blocked_reason: string | null
+          created_at: string | null
+          currency: string | null
+          id: string
+          is_blocked: boolean | null
+          passenger_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          balance?: number | null
+          blocked_reason?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          passenger_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          balance?: number | null
+          blocked_reason?: string | null
+          created_at?: string | null
+          currency?: string | null
+          id?: string
+          is_blocked?: boolean | null
+          passenger_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "passenger_wallets_passenger_id_fkey"
+            columns: ["passenger_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_methods: {
+        Row: {
+          code: string
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          requires_balance: boolean | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          requires_balance?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          requires_balance?: boolean | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       ride_categories: {
         Row: {
           capacity_label: string | null

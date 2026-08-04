@@ -1,39 +1,28 @@
-export type PaymentMethodKey = "pix" | "credit_card" | "debit_card" | "cash" | "wallet" | "corporate";
-
 export interface PaymentMethod {
-  key: PaymentMethodKey;
-  label: string;
-  icon: string;
-  description: string;
-  enabled: boolean;
+  id: string;
+  code: "pix" | "credit" | "debit" | "cash" | "wallet";
+  name: string;
+  description?: string | null;
+  icon?: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  requiresBalance?: boolean;
 }
 
-export interface WalletSummary {
-  passenger_id: string;
+export interface PassengerWallet {
+  id: string;
+  passengerId: string;
   balance: number;
-  available_balance: number;
-  is_blocked: boolean;
-  status?: string;
-  blocked_reason: string | null;
+  currency: "BRL";
+  isBlocked: boolean;
+  blockedReason?: string | null;
+  updatedAt: string;
 }
 
-export interface CouponValidationResult {
-  valid: boolean;
-  code: string;
-  discount_type: "percentage" | "fixed";
-  discount_value: number;
-  max_discount?: number | null;
-  min_fare?: number | null;
-  message?: string;
+export interface CancellationFee {
+  id: string;
+  amount: number;
+  reason: string;
+  status: 'pending' | 'paid';
+  createdAt: string;
 }
-
-export interface CheckoutEstimate {
-  baseFare: number;
-  extrasTotal: number;
-  discountTotal: number;
-  finalTotal: number;
-  readiness: boolean;
-  blockingReasons: string[];
-}
-
-export type CouponStatus = "idle" | "validating" | "valid" | "invalid" | "expired" | "exhausted" | "not_applicable" | "error";
