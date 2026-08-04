@@ -56,7 +56,9 @@ class GeocodingService {
       // 1. Primary Reverse Geocoding
       const { data: response, error } = await supabase.functions.invoke('passenger-geocode-reverse', {
         body: coords,
-        abortSignal: controller.signal
+        headers: {
+          'X-Abort-Signal': 'true' // Custom header or just omit signal for now if types don't support it directly in invoke
+        }
       });
 
       if (error) {
@@ -74,12 +76,11 @@ class GeocodingService {
 
       if (needsPoi) {
         try {
-          const poiResponse = await apiClient.post<any>('/api/passenger/geocode/nearest-poi', coords, {
-            signal: controller.signal,
-            timeout: 5000 // Short timeout for POI
+          const { data: poiResponse, error: poiError } = await supabase.functions.invoke('passenger-geocode-nearest-poi', {
+            body: coords
           });
 
-          if (poiResponse && poiResponse.ok && poiResponse.nearestPoi) {
+          if (!poiError && poiResponse && poiResponse.ok && poiResponse.nearestPoi) {
             pickupAddress = {
               ...pickupAddress,
               nearestPoi: poiResponse.nearestPoi,

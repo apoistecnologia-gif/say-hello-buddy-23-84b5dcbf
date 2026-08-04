@@ -31,7 +31,6 @@ class RouteService {
     try {
       const { data: response, error } = await supabase.functions.invoke('passenger-routes-compute', {
         body: request,
-        abortSignal: this.abortController.signal,
       });
 
       if (error || !response) {
