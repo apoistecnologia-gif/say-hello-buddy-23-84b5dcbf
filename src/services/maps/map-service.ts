@@ -35,7 +35,7 @@ class MapService {
         config: {
           center: initialPosition || { lat: -15.793889, lng: -47.882778 }, // Default if none, but logic will prevent display
           zoom: DEFAULT_ZOOM,
-          mapType: MapType.Normal,
+          mapTypeId: MapType.Normal,
           styles: MAP_STYLE_DARK,
           disableDefaultUI: true,
         },
