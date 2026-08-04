@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useCoupon } from "@/hooks/use-coupon";
-import { Input } from "@/components/ui/button"; // Using basic components available or mock
+// Import removed because input is local // Using basic components available or mock
 import { Ticket, X, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
