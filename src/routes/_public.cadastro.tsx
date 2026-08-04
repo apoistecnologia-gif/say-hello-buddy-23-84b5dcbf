@@ -34,17 +34,10 @@ function CadastroPage() {
     e.preventDefault();
 
     // 1. CONFIRMAR O SUPABASE USADO EM RUNTIME
-    const supabaseUrl = import.meta.env["VITE_SUPABASE_URL"] || "";
-    const projectRef = supabaseUrl.split(".")[0]?.split("//")[1] || "unknown";
-    const key = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || "";
-    const keyHash = key ? `${key.substring(0, 5)}...${key.substring(key.length - 5)}` : "missing";
+    console.log("[RUNTIME URL]", import.meta.env.VITE_SUPABASE_URL);
+    console.log("[SUPABASE CLIENT URL]", (supabase as any).supabaseUrl);
+    console.log("[KEY SLICE]", import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.slice(0, 20));
 
-    console.log("[DEBUG] Supabase Runtime Config:", {
-      url: supabaseUrl,
-      projectRef,
-      keyPresent: !!key,
-      keyHash
-    });
 
     if (!name || !email || !phone || !password || !confirmPassword) {
       toast.error("Por favor, preencha todos os campos.");
