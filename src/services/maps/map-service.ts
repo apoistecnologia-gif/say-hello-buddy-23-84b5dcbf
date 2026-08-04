@@ -188,7 +188,7 @@ class MapService {
         strokeColor: ROUTE_CONFIG.STYLE.STROKE_COLOR,
         strokeWeight: ROUTE_CONFIG.STYLE.STROKE_WEIGHT,
         strokeOpacity: ROUTE_CONFIG.STYLE.STROKE_OPACITY,
-      }]);
+      } as any]);
 
       if (polylineIds.length > 0) {
         this.routePolylineId.set(mapId, polylineIds[0]);
