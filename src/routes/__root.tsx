@@ -16,13 +16,11 @@ export const Route = createRootRouteWithContext<{
 function RootComponent() {
   return (
     <GlobalErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <AuthGuard>
-              <Outlet />
-            </AuthGuard>
-          </AuthProvider>
-        </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <Outlet />
+        </AuthProvider>
+      </QueryClientProvider>
     </GlobalErrorBoundary>
   );
 }
