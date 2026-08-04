@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useLocation } from '../../hooks/use-location';
+import { useDestination } from '../../hooks/use-destination';
 import { mapService } from '../../services/maps/map-service';
 import { MapState, MapError } from '../../types/map';
 import { Button } from '../ui/button';
-import { Target, Loader2, MapPinOff, Lock } from 'lucide-react';
+import { Target, Loader2, MapPinOff, Lock, Navigation } from 'lucide-react';
 import { DEFAULT_ZOOM } from '../../services/maps/map-config';
 
 interface PassengerMapProps {
@@ -14,12 +15,16 @@ const PassengerMap: React.FC<PassengerMapProps> = ({ className }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapId] = useState(`map-${Math.random().toString(36).substr(2, 9)}`);
   const { currentPosition, permissionStatus, isLoading: isLocationLoading } = useLocation();
+  const { destination, hasDestination } = useDestination();
   const [state, setState] = useState<MapState>('idle');
   const [error, setError] = useState<MapError | null>(null);
-  const [isManualMove, setIsManualMove] = useState(false);
   const mapInitialized = useRef(false);
 
   const apiKey = import.meta.env['VITE_GOOGLE_MAPS_API_KEY'];
+
+  // Cache last known positions to avoid unnecessary updates
+  const lastPos = useRef({ lat: 0, lng: 0 });
+  const lastDest = useRef<string | null>(null);
 
   useEffect(() => {
     if (!mapRef.current || mapInitialized.current) return;
@@ -48,7 +53,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({ className }) => {
           lng: currentPosition.longitude,
         });
         
-        await mapService.updatePassengerMarker(mapId, {
+        await mapService.upsertPickupMarker(mapId, {
           lat: currentPosition.latitude,
           lng: currentPosition.longitude,
         });
@@ -71,32 +76,60 @@ const PassengerMap: React.FC<PassengerMapProps> = ({ className }) => {
     };
   }, [mapRef, currentPosition, permissionStatus, apiKey, mapId]);
 
-  // Update marker when location changes
+  // Handle location and destination updates
   useEffect(() => {
-    if (state === 'ready' && currentPosition) {
-      mapService.updatePassengerMarker(mapId, {
-        lat: currentPosition.latitude,
-        lng: currentPosition.longitude,
-      });
+    if (state !== 'ready' || !currentPosition) return;
 
-      // Auto-recenter only if not manual move
-      if (!isManualMove) {
-        mapService.setCamera(mapId, {
-          coordinate: { lat: currentPosition.latitude, lng: currentPosition.longitude },
-          zoom: DEFAULT_ZOOM
-        });
+    const updateMarkers = async () => {
+      const pickupCoord = { lat: currentPosition.latitude, lng: currentPosition.longitude };
+      
+      // Update Pickup Marker if position changed significantly
+      if (Math.abs(lastPos.current.lat - pickupCoord.lat) > 0.0001 || 
+          Math.abs(lastPos.current.lng - pickupCoord.lng) > 0.0001) {
+        await mapService.upsertPickupMarker(mapId, pickupCoord);
+        lastPos.current = pickupCoord;
+        
+        if (!hasDestination && !mapService.isCameraMovedByUser()) {
+          await mapService.centerOnPickup(mapId, pickupCoord);
+        }
       }
-    }
-  }, [currentPosition, state, mapId, isManualMove]);
 
-  const handleRecenter = async () => {
-    if (currentPosition && state === 'ready') {
-      setIsManualMove(false);
-      await mapService.setCamera(mapId, {
-        coordinate: { lat: currentPosition.latitude, lng: currentPosition.longitude },
-        zoom: DEFAULT_ZOOM
-      });
+      // Update Destination Marker
+      if (hasDestination && destination) {
+        if (lastDest.current !== destination.placeId) {
+          const destCoord = { lat: destination.latitude, lng: destination.longitude };
+          await mapService.upsertDestinationMarker(mapId, destCoord);
+          lastDest.current = destination.placeId;
+
+          // When destination is first set/changed, fit bounds (even if user moved camera)
+          await mapService.fitPickupAndDestination(mapId, pickupCoord, destCoord);
+          mapService.resetCameraMovementState();
+        }
+      } else if (lastDest.current) {
+        await mapService.removeDestinationMarker(mapId);
+        lastDest.current = null;
+      }
+    };
+
+    updateMarkers();
+  }, [currentPosition, destination, hasDestination, state, mapId]);
+
+  const handleRecenter = useCallback(async () => {
+    if (!currentPosition || state !== 'ready') return;
+    
+    mapService.resetCameraMovementState();
+    const pickupCoord = { lat: currentPosition.latitude, lng: currentPosition.longitude };
+
+    if (hasDestination && destination) {
+      const destCoord = { lat: destination.latitude, lng: destination.longitude };
+      await mapService.fitPickupAndDestination(mapId, pickupCoord, destCoord);
+    } else {
+      await mapService.centerOnPickup(mapId, pickupCoord);
     }
+  }, [currentPosition, state, hasDestination, destination, mapId]);
+
+  const onTouchStart = () => {
+    mapService.setCameraMovedByUser(true);
   };
 
   const renderOverlay = () => {
@@ -153,7 +186,8 @@ const PassengerMap: React.FC<PassengerMapProps> = ({ className }) => {
         id={mapId}
         ref={mapRef}
         className="w-full h-full bg-zinc-800"
-        onTouchStart={() => setIsManualMove(true)}
+        onTouchStart={onTouchStart}
+        onMouseDown={onTouchStart}
       />
       
       {renderOverlay()}
@@ -161,10 +195,10 @@ const PassengerMap: React.FC<PassengerMapProps> = ({ className }) => {
       {state === 'ready' && (
         <button
           onClick={handleRecenter}
-          aria-label="Recentrar mapa"
+          aria-label={hasDestination ? "Enquadrar rota" : "Recentrar no passageiro"}
           className="absolute right-4 bottom-24 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center text-zinc-800 active:scale-95 transition-transform z-20"
         >
-          <Target className="w-6 h-6" />
+          {hasDestination ? <Navigation className="w-6 h-6 rotate-45" /> : <Target className="w-6 h-6" />}
         </button>
       )}
     </div>
