@@ -68,7 +68,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
 
     return () => {
-      Geolocation.clearWatch({ id: watchId });
+      if (typeof watchId === 'number') {
+        Geolocation.clearWatch({ id: String(watchId) });
+      } else {
+        Geolocation.clearWatch({ id: watchId });
+      }
     };
   }, []);
 

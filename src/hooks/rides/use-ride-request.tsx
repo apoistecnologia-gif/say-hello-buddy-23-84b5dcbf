@@ -76,8 +76,8 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
       category: selectedCategory.key,
       origin: route.origin,
       destination: route.destination,
-      origin_name: route.originName || "Origem",
-      destination_name: route.destinationName || "Destino",
+      origin_name: "Origem",
+      destination_name: "Destino",
       service_details: {} as Record<string, unknown>
     };
 

@@ -21,7 +21,7 @@ const DEFAULT_CATEGORIES: RideCategory[] = [
 
 export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [categories] = useState<RideCategory[]>(DEFAULT_CATEGORIES);
-  const [selectedCategory, setSelectedCategory] = useState<RideCategory | null>(DEFAULT_CATEGORIES[0]);
+  const [selectedCategory, setSelectedCategory] = useState<RideCategory | null>(DEFAULT_CATEGORIES[0] || null);
 
   const selectCategory = (category: RideCategory) => {
     setSelectedCategory(category);

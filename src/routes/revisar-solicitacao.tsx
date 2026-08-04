@@ -171,8 +171,8 @@ function RideRequestReviewPage() {
         <Button
           onClick={async () => {
             const response = await confirmRide();
-            if (response?.success && response.ride_id) {
-              navigate({ to: "/corrida/$rideId", params: { rideId: response.ride_id } });
+            if (response?.ok && response.rideId) {
+              navigate({ to: "/corrida/$rideId", params: { rideId: response.rideId } });
             }
           }}
           disabled={!checkout.readiness || isSubmitting}
