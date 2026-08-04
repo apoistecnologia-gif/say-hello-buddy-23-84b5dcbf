@@ -10,7 +10,7 @@ import { PLACES_CONFIG } from '../services/places/places-config';
 import { useLocation } from './use-location';
 
 export function useDestinationSearch() {
-  const { location } = useLocation();
+  const { currentPosition } = useLocation();
   const [query, setQueryState] = useState('');
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [status, setStatus] = useState<PlacesSearchStatus>('idle');
@@ -42,7 +42,7 @@ export function useDestinationSearch() {
     try {
       const results = await placesService.searchPredictions(
         text, 
-        location ? { lat: location.latitude, lng: location.longitude } : undefined
+        currentPosition ? { lat: currentPosition.latitude, lng: currentPosition.longitude } : undefined
       );
       
       setSuggestions(results);
