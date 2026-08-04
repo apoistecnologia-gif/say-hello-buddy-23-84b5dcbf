@@ -26,9 +26,9 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   const { destination: globalDestination } = useDestination();
   
   const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
-  const polylineRef = useRef<google.maps.Polyline | null>(null);
+  const googleMapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const polylineRef = useRef<any>(null);
 
   const currentLat = customOrigin?.lat || location?.latitude;
   const currentLng = customOrigin?.lng || location?.longitude;
@@ -108,17 +108,17 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       polylineRef.current = null;
     }
 
-    const bounds = new google.maps.LatLngBounds();
+    const bounds = new (window as any).google.maps.LatLngBounds();
     let hasPoints = false;
 
     // Origin
     if (currentLat && currentLng) {
       const pos = { lat: currentLat, lng: currentLng };
-      const marker = new google.maps.Marker({
+      const marker = new (window as any).google.maps.Marker({
         position: pos,
         map: googleMapRef.current,
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
+          path: (window as any).google.maps.SymbolPath.CIRCLE,
           scale: 7,
           fillColor: '#3B82F6',
           fillOpacity: 1,
@@ -135,7 +135,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     // Stops
     orderedStops.forEach((stop, index) => {
       const pos = { lat: stop.latitude, lng: stop.longitude };
-      const marker = new google.maps.Marker({
+      const marker = new (window as any).google.maps.Marker({
         position: pos,
         map: googleMapRef.current,
         label: {
@@ -144,7 +144,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
           fontWeight: 'bold'
         },
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
+          path: (window as any).google.maps.SymbolPath.CIRCLE,
           scale: 10,
           fillColor: '#4B5563',
           fillOpacity: 1,
@@ -160,8 +160,11 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
 
     // Destination
     if (targetDest) {
-      const pos = { lat: targetDest.latitude, lng: targetDest.longitude };
-      const marker = new google.maps.Marker({
+      const destLat = 'latitude' in targetDest ? targetDest.latitude : targetDest.lat;
+      const destLng = 'longitude' in targetDest ? targetDest.longitude : targetDest.lng;
+      const pos = { lat: destLat, lng: destLng };
+      
+      const marker = new (window as any).google.maps.Marker({
         position: pos,
         map: googleMapRef.current,
         icon: {
@@ -177,7 +180,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     // Polyline
     if (route?.decodedPoints && route.decodedPoints.length > 1) {
       const path = route.decodedPoints.map(p => ({ lat: p.lat, lng: p.lng }));
-      polylineRef.current = new google.maps.Polyline({
+      polylineRef.current = new (window as any).google.maps.Polyline({
         path,
         geodesic: true,
         strokeColor: '#FACC15',
