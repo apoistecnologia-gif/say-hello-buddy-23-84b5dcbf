@@ -2,10 +2,19 @@ import { useState, useEffect, createContext, useContext, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
-interface PassengerProfile {
+export type AppRole = "admin" | "moderator" | "user" | "passenger" | "driver";
+
+export interface UserProfile {
   id: string;
-  full_name: string;
+  auth_user_id: string | null;
+  name: string | null;
   phone: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  city: string | null;
+  average_rating: number | null;
+  total_ratings: number | null;
+  completed_rides: number | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -14,8 +23,9 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
-  passenger: PassengerProfile | null;
-  isPassengerLoading: boolean;
+  profile: UserProfile | null;
+  role: AppRole | null;
+  isProfileLoading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -26,29 +36,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [passenger, setPassenger] = useState<PassengerProfile | null>(null);
-  const [isPassengerLoading, setIsPassengerLoading] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [role, setRole] = useState<AppRole | null>(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
 
-  const fetchPassenger = async (userId: string) => {
-    setIsPassengerLoading(true);
+  const fetchProfile = async (userId: string) => {
+    setIsProfileLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("passengers")
+      // Carregar perfil oficial da tabela public.users
+      const { data: userData, error: userError } = await supabase
+        .from("users")
         .select("*")
-        .eq("id", userId)
-        .single();
+        .eq("auth_user_id", userId)
+        .maybeSingle();
 
-      if (error) {
-        console.error("Error fetching passenger:", error);
-        setPassenger(null);
+      if (userError) {
+        console.error("Error fetching user profile:", userError);
+        setProfile(null);
       } else {
-        setPassenger(data);
+        setProfile(userData as UserProfile | null);
+      }
+
+      // Validar role em public.user_roles
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userData?.id)
+        .eq("role", "passenger")
+        .maybeSingle();
+
+      if (roleError) {
+        console.error("Error fetching user role:", roleError);
+        setRole(null);
+      } else {
+        setRole(roleData?.role as AppRole | null);
       }
     } catch (err) {
-      console.error("Passenger fetch error:", err);
-      setPassenger(null);
+      console.error("Profile fetch error:", err);
+      setProfile(null);
+      setRole(null);
     } finally {
-      setIsPassengerLoading(false);
+      setIsProfileLoading(false);
     }
   };
 
@@ -58,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchPassenger(session.user.id);
+        fetchProfile(session.user.id);
       }
       setIsLoading(false);
     });
@@ -71,10 +99,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
 
-      if (event === "SIGNED_IN" && session?.user) {
-        fetchPassenger(session.user.id);
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+        fetchProfile(session.user.id);
       } else if (event === "SIGNED_OUT") {
-        setPassenger(null);
+        setProfile(null);
+        setRole(null);
       }
 
       setIsLoading(false);
@@ -91,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchPassenger(user.id);
+      await fetchProfile(user.id);
     }
   };
 
@@ -101,8 +130,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         isLoading,
-        passenger,
-        isPassengerLoading,
+        profile,
+        role,
+        isProfileLoading,
         signOut,
         refreshProfile,
       }}
