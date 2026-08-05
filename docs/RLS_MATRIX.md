@@ -1,44 +1,57 @@
-# RLS Policy Matrix - APOIS Passenger
+# APOIS RLS SECURITY MATRIX
 
-| Table | SELECT | INSERT | UPDATE | DELETE |
-| :--- | :--- | :--- | :--- | :--- |
-| **users** | Own profile \| Admin | Admin/Trigger | Own profile (limited) | Admin |
-| **user_roles** | Own role \| Admin | Admin | Admin | Admin |
-| **passenger_wallets**| Own wallet \| Admin | Admin/Trigger | Admin/Service Role | Admin |
-| **drivers** | Own profile \| Admin \| Public (limited) | Admin | Own profile (limited) | Admin |
-| **rides** | Own (Pass/Driver) \| Admin | Passenger (JWT) | Owner (limited) \| Admin | Admin |
-| **cancellation_fees** | Own fees \| Admin | Admin/Service Role | Admin | Admin |
-| **notifications** | Own notifications \| Admin | Admin/Service Role | Own (read status) | Admin |
-| **payment_methods** | Public (Active) | Admin | Admin | Admin |
-| **ride_categories** | Public (Active) | Admin | Admin | Admin |
-| **tariff_rules** | Public (Active) | Admin | Admin | Admin |
+## 1. USER PROFILES (`public.users`)
+| Operation | Passenger | Driver | Admin | Service Role | Policy Detail |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **SELECT** | Own | Own | ALL | ALL | `id = auth.uid()` or admin role check. |
+| **INSERT** | Restricted | Restricted | ALL | ALL | Only via `handle_new_user()` trigger or admin. |
+| **UPDATE** | Own (Partial) | Own (Partial) | ALL | ALL | Cannot change `average_rating`, `total_ratings`, `blocked_at`. |
+| **DELETE** | None | None | ALL | ALL | Protected operation. |
 
-## Security Requirements
+## 2. ROLES (`public.user_roles`)
+| Operation | Passenger | Driver | Admin | Service Role | Policy Detail |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **SELECT** | Own | Own | ALL | ALL | `user_id = auth.uid()` or admin. |
+| **INSERT** | None | None | ALL | ALL | Protected. Trigger-only for users. |
+| **UPDATE** | None | None | ALL | ALL | Protected. |
+| **DELETE** | None | None | ALL | ALL | Protected. |
 
-### USERS
-- **Users**: Read and update only their own profile.
-- **Admins**: Read all records.
-- **Constraints**: Role information is protected via `user_roles`.
+## 3. PASSENGER WALLETS (`public.passenger_wallets`)
+| Operation | Passenger | Driver | Admin | Service Role | Policy Detail |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **SELECT** | Own | None | ALL | ALL | `passenger_id = auth.uid()` or admin. |
+| **INSERT** | None | None | ALL | ALL | Trigger-only. |
+| **UPDATE** | None | None | ALL | ALL | Users CANNOT update balance. |
+| **DELETE** | None | None | ALL | ALL | Protected. |
 
-### USER_ROLES
-- **Users**: Read their own role via `auth.uid() = user_id`.
-- **Admins**: Manage all roles.
-- **Restrictions**: No direct user modification.
+## 4. DRIVER PROFILES (`public.drivers`)
+| Operation | Passenger | Driver | Admin | Service Role | Policy Detail |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **SELECT** | Active Only | Own | ALL | ALL | Passengers see limited fields for active rides. |
+| **UPDATE** | None | Own (Partial) | ALL | ALL | Driver cannot update `approval_status`, `subscription_status`, `rating`. |
+| **INSERT** | None | Self | ALL | ALL | Only during registration. |
+| **DELETE** | None | None | ALL | ALL | Protected. |
 
-### PASSENGER_WALLETS
-- **Passengers**: Read only their own wallet.
-- **Balance**: Updates restricted to service role or protected functions.
+## 5. RIDES (`public.rides`)
+| Operation | Passenger | Driver | Admin | Service Role | Policy Detail |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **SELECT** | Own | Assigned | ALL | ALL | `passenger_id = auth.uid()` or `driver_id` check. |
+| **INSERT** | Restricted | None | ALL | ALL | Strictly via `request-ride` EF or restricted insert. |
+| **UPDATE** | Restricted | Restricted | ALL | ALL | No direct status/price overrides by users. |
+| **DELETE** | None | None | ALL | ALL | Soft delete / cancelled_at only. |
 
-### DRIVERS
-- **Drivers**: Read/update own profile (excluding `approval_status`, `subscription_status`).
-- **Admins**: Full management.
-- **Location**: Updates restricted to the owning driver.
+## 6. NOTIFICATIONS (`public.notifications`)
+| Operation | User | Admin | Service Role | Policy Detail |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **SELECT** | Own | ALL | ALL | `user_id = auth.uid()` |
+| **INSERT** | None | ALL | ALL | Clients cannot create notifications. |
+| **UPDATE** | Read-status | ALL | ALL | Only update `read_at`. |
+| **DELETE** | Own | ALL | ALL | Optional per UI requirement. |
 
-### RIDES
-- **Participants**: Passengers and assigned Drivers can read ride details.
-- **Creation**: Authenticated passengers only.
-- **State**: Transitions managed by backend logic/Edge Functions.
-
-### REFERENCE TABLES
-- **Public**: `payment_methods`, `ride_categories`, `tariff_rules` are readable if `is_active = true`.
-- **Management**: Restricted to Admin role.
+## 7. REFERENCE TABLES (`ride_categories`, `tariff_rules`, `payment_methods`)
+| Operation | User | Admin | Service Role | Policy Detail |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **SELECT** | ALL | ALL | ALL | Publicly readable if `is_active = true`. |
+| **INSERT** | None | ALL | ALL | Admin only. |
+| **UPDATE** | None | ALL | ALL | Admin only. |
+| **DELETE** | None | ALL | ALL | Admin only. |
