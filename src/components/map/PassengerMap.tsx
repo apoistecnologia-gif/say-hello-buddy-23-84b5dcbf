@@ -38,6 +38,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   const markersRef = useRef<any[]>([]);
   const polylineRef = useRef<any>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const authFailureCleanupRef = useRef<(() => void) | null>(null);
   const [status, setStatus] = useState<MapStatus>("loading");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -55,14 +56,20 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     return isCoordinate(lat) && isCoordinate(lng) ? { lat, lng } : null;
   }, [customDestination, globalDestination]);
 
-  const initializeMap = useCallback(async () => {
+  const initializeMap = useCallback(async (): Promise<void> => {
     if (!mapElementRef.current) return;
     setStatus("loading");
+
+    authFailureCleanupRef.current?.();
+    authFailureCleanupRef.current = null;
 
     try {
       const googleWindow = window as any;
       const previousAuthFailure = googleWindow.gm_authFailure;
       googleWindow.gm_authFailure = () => setStatus("configuration-error");
+      authFailureCleanupRef.current = () => {
+        googleWindow.gm_authFailure = previousAuthFailure;
+      };
 
       const mapsLibrary = (await googleMapsLoader.importLibrary("maps")) as any;
       if (!mapElementRef.current) return;
@@ -88,9 +95,6 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       if (containerRef.current) resizeObserverRef.current.observe(containerRef.current);
 
       setStatus("ready");
-      return () => {
-        googleWindow.gm_authFailure = previousAuthFailure;
-      };
     } catch (error) {
       console.error("[PassengerMap] Google Maps initialization failed", {
         name: error instanceof Error ? error.name : "UnknownError",
@@ -106,6 +110,8 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     return () => {
       resizeObserverRef.current?.disconnect();
       resizeObserverRef.current = null;
+      authFailureCleanupRef.current?.();
+      authFailureCleanupRef.current = null;
     };
   }, [initializeMap]);
 
