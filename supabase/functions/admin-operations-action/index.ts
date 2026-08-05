@@ -82,11 +82,7 @@ Deno.serve(async (req) => {
     if (action === "cancellation_fee.waive") {
       const feeId = uuid(payload.id, "id");
       const reason = text(payload.reason, "reason", 500);
-      const { data: fee, error } = await admin
-        .from("cancellation_fees")
-        .select("*")
-        .eq("id", feeId)
-        .maybeSingle();
+      const { data: fee, error } = await admin.from("cancellation_fees").select("*").eq("id", feeId).maybeSingle();
       if (error) fail(error.message, 422);
       if (!fee) fail("fee_not_found", 404);
       if (fee.is_paid || fee.status === "paid") fail("fee_already_paid", 409);
@@ -99,16 +95,11 @@ Deno.serve(async (req) => {
       const updated = await admin.from("cancellation_fees").update(patch).eq("id", feeId);
       if (updated.error) fail(updated.error.message, 422);
 
-      const pending = await admin
-        .from("cancellation_fees")
-        .select("id", { count: "exact", head: true })
-        .eq("passenger_id", fee.passenger_id)
-        .eq("is_paid", false)
-        .eq("status", "pending");
+      const pending = await admin.from("cancellation_fees").select("id", { count: "exact", head: true })
+        .eq("passenger_id", fee.passenger_id).eq("is_paid", false).eq("status", "pending");
       if (pending.error) fail(pending.error.message, 422);
       if ((pending.count ?? 0) === 0) {
-        const wallet = await admin
-          .from("passenger_wallets")
+        const wallet = await admin.from("passenger_wallets")
           .update({ is_blocked: false, blocked_reason: null, updated_at: new Date().toISOString() })
           .eq("passenger_id", fee.passenger_id);
         if (wallet.error) fail(wallet.error.message, 422);
@@ -122,30 +113,19 @@ Deno.serve(async (req) => {
       const passengerId = uuid(payload.passenger_id, "passenger_id");
       if (typeof payload.blocked !== "boolean") fail("invalid_blocked");
       const reason = payload.blocked ? text(payload.reason, "reason", 500) : null;
-      const { data: wallet, error } = await admin
-        .from("passenger_wallets")
-        .select("*")
-        .eq("passenger_id", passengerId)
-        .maybeSingle();
+      const { data: wallet, error } = await admin.from("passenger_wallets").select("*")
+        .eq("passenger_id", passengerId).maybeSingle();
       if (error) fail(error.message, 422);
       if (!wallet) fail("wallet_not_found", 404);
 
       if (!payload.blocked) {
-        const pending = await admin
-          .from("cancellation_fees")
-          .select("id", { count: "exact", head: true })
-          .eq("passenger_id", passengerId)
-          .eq("is_paid", false)
-          .eq("status", "pending");
+        const pending = await admin.from("cancellation_fees").select("id", { count: "exact", head: true })
+          .eq("passenger_id", passengerId).eq("is_paid", false).eq("status", "pending");
         if (pending.error) fail(pending.error.message, 422);
         if ((pending.count ?? 0) > 0) fail("pending_fees_prevent_unblock", 409);
       }
 
-      const patch = {
-        is_blocked: payload.blocked,
-        blocked_reason: reason,
-        updated_at: new Date().toISOString(),
-      };
+      const patch = { is_blocked: payload.blocked, blocked_reason: reason, updated_at: new Date().toISOString() };
       const updated = await admin.from("passenger_wallets").update(patch).eq("passenger_id", passengerId);
       if (updated.error) fail(updated.error.message, 422);
 
@@ -156,27 +136,23 @@ Deno.serve(async (req) => {
     } else if (action === "withdrawal.reject") {
       const withdrawalId = uuid(payload.id, "id");
       const reason = text(payload.reason, "reason", 500);
-      const { data: withdrawal, error } = await admin
-        .from("driver_withdrawals")
-        .select("*")
-        .eq("id", withdrawalId)
-        .maybeSingle();
+      const { data: withdrawal, error } = await admin.from("driver_withdrawals").select("*")
+        .eq("id", withdrawalId).maybeSingle();
       if (error) fail(error.message, 422);
       if (!withdrawal) fail("withdrawal_not_found", 404);
       if (!["pending", "processing"].includes(withdrawal.status)) fail("withdrawal_not_rejectable", 409);
 
-      const patch = {
-        status: "rejected",
-        rejection_reason: reason,
-        processed_at: new Date().toISOString(),
-      };
-      const updated = await admin.from("driver_withdrawals").update(patch).eq("id", withdrawalId);
-      if (updated.error) fail(updated.error.message, 422);
+      const failed = await admin.rpc("mark_driver_withdrawal_failed", {
+        _withdrawal_id: withdrawalId,
+        _reason: `Rejeitado pelo painel: ${reason}`,
+        _response: { source: "admin-operations-action", actor_id: actorId },
+      });
+      if (failed.error) fail(failed.error.message, 422);
 
       targetType = "driver_withdrawal";
       targetId = withdrawalId;
       before = withdrawal;
-      after = patch;
+      after = { status: "failed", rejection_reason: reason, balance_refunded: true };
     } else {
       fail("unknown_action", 404);
     }
@@ -194,8 +170,10 @@ Deno.serve(async (req) => {
 
     return json(req, { ok: true, action, target_id: targetId });
   } catch (error) {
-    const status = typeof error === "object" && error && "status" in error ? Number(error.status) : 500;
-    const message = error instanceof Error ? error.message : "internal_error";
+    const rawStatus = typeof error === "object" && error && "status" in error ? Number(error.status) : 500;
+    const status = Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
+    const message = status < 500 && error instanceof Error ? error.message : "internal_error";
+    if (status >= 500) console.error("[admin-operations-action] fatal", error);
     return json(req, { ok: false, error: message }, status);
   }
 });
