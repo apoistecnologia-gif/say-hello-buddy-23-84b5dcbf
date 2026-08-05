@@ -10,33 +10,23 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
-import { Route as ApiPublicDriverSignupRouteImport } from './routes/api/public/driver-signup'
 import { Route as ApiDriverDemandRouteImport } from './routes/api/driver/demand'
-import { Route as ApiPublicHooksRenewDriverSubscriptionsRouteImport } from './routes/api/public/hooks/renew-driver-subscriptions'
-import { Route as ApiPublicHooksActivateScheduledRidesRouteImport } from './routes/api/public/hooks/activate-scheduled-rides'
-import { Route as ApiPassengerRoutesComputeRouteImport } from './routes/api/passenger/routes/compute'
-import { Route as ApiPassengerRidesRatingRouteImport } from './routes/api/passenger/rides/rating'
-import { Route as ApiPassengerRidesCancelRouteImport } from './routes/api/passenger/rides/cancel'
-import { Route as ApiPassengerPricingEstimateRouteImport } from './routes/api/passenger/pricing/estimate'
-import { Route as ApiPassengerGeocodeReverseRouteImport } from './routes/api/passenger/geocode/reverse'
-import { Route as ApiPassengerGeocodeNearestPoiRouteImport } from './routes/api/passenger/geocode/nearest-poi'
-import { Route as ApiDriverRoutesComputeRouteImport } from './routes/api/driver/routes/compute'
+import { Route as ApiPublicDriverSignupRouteImport } from './routes/api/public/driver-signup'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ApiDriverRidesActionRouteImport } from './routes/api/driver/rides/action'
+import { Route as ApiDriverRoutesComputeRouteImport } from './routes/api/driver/routes/compute'
+import { Route as ApiPassengerGeocodeNearestPoiRouteImport } from './routes/api/passenger/geocode/nearest-poi'
+import { Route as ApiPassengerGeocodeReverseRouteImport } from './routes/api/passenger/geocode/reverse'
+import { Route as ApiPassengerPricingEstimateRouteImport } from './routes/api/passenger/pricing/estimate'
+import { Route as ApiPassengerRidesCancelRouteImport } from './routes/api/passenger/rides/cancel'
+import { Route as ApiPassengerRidesRatingRouteImport } from './routes/api/passenger/rides/rating'
+import { Route as ApiPassengerRoutesComputeRouteImport } from './routes/api/passenger/routes/compute'
+import { Route as ApiPublicHooksActivateScheduledRidesRouteImport } from './routes/api/public/hooks/activate-scheduled-rides'
+import { Route as ApiPublicHooksRenewDriverSubscriptionsRouteImport } from './routes/api/public/hooks/renew-driver-subscriptions'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
-  id: '/api/public/health',
-  path: '/api/public/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicDriverSignupRoute = ApiPublicDriverSignupRouteImport.update({
-  id: '/api/public/driver-signup',
-  path: '/api/public/driver-signup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDriverDemandRoute = ApiDriverDemandRouteImport.update({
@@ -44,38 +34,30 @@ const ApiDriverDemandRoute = ApiDriverDemandRouteImport.update({
   path: '/api/driver/demand',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicHooksRenewDriverSubscriptionsRoute =
-  ApiPublicHooksRenewDriverSubscriptionsRouteImport.update({
-    id: '/api/public/hooks/renew-driver-subscriptions',
-    path: '/api/public/hooks/renew-driver-subscriptions',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicHooksActivateScheduledRidesRoute =
-  ApiPublicHooksActivateScheduledRidesRouteImport.update({
-    id: '/api/public/hooks/activate-scheduled-rides',
-    path: '/api/public/hooks/activate-scheduled-rides',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPassengerRoutesComputeRoute =
-  ApiPassengerRoutesComputeRouteImport.update({
-    id: '/api/passenger/routes/compute',
-    path: '/api/passenger/routes/compute',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPassengerRidesRatingRoute = ApiPassengerRidesRatingRouteImport.update({
-  id: '/api/passenger/rides/rating',
-  path: '/api/passenger/rides/rating',
+const ApiPublicDriverSignupRoute = ApiPublicDriverSignupRouteImport.update({
+  id: '/api/public/driver-signup',
+  path: '/api/public/driver-signup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPassengerRidesCancelRoute = ApiPassengerRidesCancelRouteImport.update({
-  id: '/api/passenger/rides/cancel',
-  path: '/api/passenger/rides/cancel',
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPassengerPricingEstimateRoute =
-  ApiPassengerPricingEstimateRouteImport.update({
-    id: '/api/passenger/pricing/estimate',
-    path: '/api/passenger/pricing/estimate',
+const ApiDriverRidesActionRoute = ApiDriverRidesActionRouteImport.update({
+  id: '/api/driver/rides/action',
+  path: '/api/driver/rides/action',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDriverRoutesComputeRoute = ApiDriverRoutesComputeRouteImport.update({
+  id: '/api/driver/routes/compute',
+  path: '/api/driver/routes/compute',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPassengerGeocodeNearestPoiRoute =
+  ApiPassengerGeocodeNearestPoiRouteImport.update({
+    id: '/api/passenger/geocode/nearest-poi',
+    path: '/api/passenger/geocode/nearest-poi',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPassengerGeocodeReverseRoute =
@@ -84,22 +66,40 @@ const ApiPassengerGeocodeReverseRoute =
     path: '/api/passenger/geocode/reverse',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPassengerGeocodeNearestPoiRoute =
-  ApiPassengerGeocodeNearestPoiRouteImport.update({
-    id: '/api/passenger/geocode/nearest-poi',
-    path: '/api/passenger/geocode/nearest-poi',
+const ApiPassengerPricingEstimateRoute =
+  ApiPassengerPricingEstimateRouteImport.update({
+    id: '/api/passenger/pricing/estimate',
+    path: '/api/passenger/pricing/estimate',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiDriverRoutesComputeRoute = ApiDriverRoutesComputeRouteImport.update({
-  id: '/api/driver/routes/compute',
-  path: '/api/driver/routes/compute',
+const ApiPassengerRidesCancelRoute = ApiPassengerRidesCancelRouteImport.update({
+  id: '/api/passenger/rides/cancel',
+  path: '/api/passenger/rides/cancel',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiDriverRidesActionRoute = ApiDriverRidesActionRouteImport.update({
-  id: '/api/driver/rides/action',
-  path: '/api/driver/rides/action',
+const ApiPassengerRidesRatingRoute = ApiPassengerRidesRatingRouteImport.update({
+  id: '/api/passenger/rides/rating',
+  path: '/api/passenger/rides/rating',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPassengerRoutesComputeRoute =
+  ApiPassengerRoutesComputeRouteImport.update({
+    id: '/api/passenger/routes/compute',
+    path: '/api/passenger/routes/compute',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksActivateScheduledRidesRoute =
+  ApiPublicHooksActivateScheduledRidesRouteImport.update({
+    id: '/api/public/hooks/activate-scheduled-rides',
+    path: '/api/public/hooks/activate-scheduled-rides',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksRenewDriverSubscriptionsRoute =
+  ApiPublicHooksRenewDriverSubscriptionsRouteImport.update({
+    id: '/api/public/hooks/renew-driver-subscriptions',
+    path: '/api/public/hooks/renew-driver-subscriptions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -227,11 +227,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/health': {
-      id: '/api/public/health'
-      path: '/api/public/health'
-      fullPath: '/api/public/health'
-      preLoaderRoute: typeof ApiPublicHealthRouteImport
+    '/api/driver/demand': {
+      id: '/api/driver/demand'
+      path: '/api/driver/demand'
+      fullPath: '/api/driver/demand'
+      preLoaderRoute: typeof ApiDriverDemandRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/driver-signup': {
@@ -241,67 +241,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicDriverSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/driver/demand': {
-      id: '/api/driver/demand'
-      path: '/api/driver/demand'
-      fullPath: '/api/driver/demand'
-      preLoaderRoute: typeof ApiDriverDemandRouteImport
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/renew-driver-subscriptions': {
-      id: '/api/public/hooks/renew-driver-subscriptions'
-      path: '/api/public/hooks/renew-driver-subscriptions'
-      fullPath: '/api/public/hooks/renew-driver-subscriptions'
-      preLoaderRoute: typeof ApiPublicHooksRenewDriverSubscriptionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/activate-scheduled-rides': {
-      id: '/api/public/hooks/activate-scheduled-rides'
-      path: '/api/public/hooks/activate-scheduled-rides'
-      fullPath: '/api/public/hooks/activate-scheduled-rides'
-      preLoaderRoute: typeof ApiPublicHooksActivateScheduledRidesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/passenger/routes/compute': {
-      id: '/api/passenger/routes/compute'
-      path: '/api/passenger/routes/compute'
-      fullPath: '/api/passenger/routes/compute'
-      preLoaderRoute: typeof ApiPassengerRoutesComputeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/passenger/rides/rating': {
-      id: '/api/passenger/rides/rating'
-      path: '/api/passenger/rides/rating'
-      fullPath: '/api/passenger/rides/rating'
-      preLoaderRoute: typeof ApiPassengerRidesRatingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/passenger/rides/cancel': {
-      id: '/api/passenger/rides/cancel'
-      path: '/api/passenger/rides/cancel'
-      fullPath: '/api/passenger/rides/cancel'
-      preLoaderRoute: typeof ApiPassengerRidesCancelRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/passenger/pricing/estimate': {
-      id: '/api/passenger/pricing/estimate'
-      path: '/api/passenger/pricing/estimate'
-      fullPath: '/api/passenger/pricing/estimate'
-      preLoaderRoute: typeof ApiPassengerPricingEstimateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/passenger/geocode/reverse': {
-      id: '/api/passenger/geocode/reverse'
-      path: '/api/passenger/geocode/reverse'
-      fullPath: '/api/passenger/geocode/reverse'
-      preLoaderRoute: typeof ApiPassengerGeocodeReverseRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/passenger/geocode/nearest-poi': {
-      id: '/api/passenger/geocode/nearest-poi'
-      path: '/api/passenger/geocode/nearest-poi'
-      fullPath: '/api/passenger/geocode/nearest-poi'
-      preLoaderRoute: typeof ApiPassengerGeocodeNearestPoiRouteImport
+    '/api/driver/rides/action': {
+      id: '/api/driver/rides/action'
+      path: '/api/driver/rides/action'
+      fullPath: '/api/driver/rides/action'
+      preLoaderRoute: typeof ApiDriverRidesActionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/driver/routes/compute': {
@@ -311,11 +262,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDriverRoutesComputeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/driver/rides/action': {
-      id: '/api/driver/rides/action'
-      path: '/api/driver/rides/action'
-      fullPath: '/api/driver/rides/action'
-      preLoaderRoute: typeof ApiDriverRidesActionRouteImport
+    '/api/passenger/geocode/nearest-poi': {
+      id: '/api/passenger/geocode/nearest-poi'
+      path: '/api/passenger/geocode/nearest-poi'
+      fullPath: '/api/passenger/geocode/nearest-poi'
+      preLoaderRoute: typeof ApiPassengerGeocodeNearestPoiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/passenger/geocode/reverse': {
+      id: '/api/passenger/geocode/reverse'
+      path: '/api/passenger/geocode/reverse'
+      fullPath: '/api/passenger/geocode/reverse'
+      preLoaderRoute: typeof ApiPassengerGeocodeReverseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/passenger/pricing/estimate': {
+      id: '/api/passenger/pricing/estimate'
+      path: '/api/passenger/pricing/estimate'
+      fullPath: '/api/passenger/pricing/estimate'
+      preLoaderRoute: typeof ApiPassengerPricingEstimateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/passenger/rides/cancel': {
+      id: '/api/passenger/rides/cancel'
+      path: '/api/passenger/rides/cancel'
+      fullPath: '/api/passenger/rides/cancel'
+      preLoaderRoute: typeof ApiPassengerRidesCancelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/passenger/rides/rating': {
+      id: '/api/passenger/rides/rating'
+      path: '/api/passenger/rides/rating'
+      fullPath: '/api/passenger/rides/rating'
+      preLoaderRoute: typeof ApiPassengerRidesRatingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/passenger/routes/compute': {
+      id: '/api/passenger/routes/compute'
+      path: '/api/passenger/routes/compute'
+      fullPath: '/api/passenger/routes/compute'
+      preLoaderRoute: typeof ApiPassengerRoutesComputeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/activate-scheduled-rides': {
+      id: '/api/public/hooks/activate-scheduled-rides'
+      path: '/api/public/hooks/activate-scheduled-rides'
+      fullPath: '/api/public/hooks/activate-scheduled-rides'
+      preLoaderRoute: typeof ApiPublicHooksActivateScheduledRidesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/renew-driver-subscriptions': {
+      id: '/api/public/hooks/renew-driver-subscriptions'
+      path: '/api/public/hooks/renew-driver-subscriptions'
+      fullPath: '/api/public/hooks/renew-driver-subscriptions'
+      preLoaderRoute: typeof ApiPublicHooksRenewDriverSubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
