@@ -1,14 +1,18 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Session, User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AuthState =
-  "initializing" | "authenticated" | "unauthenticated" | "configuration_error" | "connection_error";
+  | "initializing"
+  | "authenticated"
+  | "unauthenticated"
+  | "configuration_error"
+  | "connection_error";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: any | null;
+  profile: Record<string, unknown> | null;
   authState: AuthState;
   isLoading: boolean;
   error: string | null;
@@ -17,172 +21,170 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const PROFILE_RETRY_DELAYS_MS = [0, 350, 900];
+
+const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<any | null>(null);
+  const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [authState, setAuthState] = useState<AuthState>("initializing");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const activeProfileRequest = useRef(0);
+
+  const clearLocalSessionState = useCallback(() => {
+    activeProfileRequest.current += 1;
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+    setAuthState("unauthenticated");
+    setError(null);
+  }, []);
 
   const signOut = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
-      setSession(null);
-      setUser(null);
-      setProfile(null);
-      setAuthState("unauthenticated");
-
-      // Clear sensitive memory/local storage if needed
-      window.localStorage.removeItem("apois-last-location");
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
     } catch (err) {
-      console.error("[AuthProvider] Sign out error:", err);
+      console.error("[AuthProvider] Sign out error", err);
+    } finally {
+      clearLocalSessionState();
+      window.localStorage.removeItem("apois-last-location");
     }
-  }, []);
+  }, [clearLocalSessionState]);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    let retries = 3;
-    while (retries > 0) {
-      try {
-        const { data, error } = await supabase
-          .from("users")
-          .select("*")
-          .eq("auth_user_id", userId)
-          .single();
+    const requestId = ++activeProfileRequest.current;
 
-        if (error) throw error;
+    for (const delay of PROFILE_RETRY_DELAYS_MS) {
+      if (delay > 0) await sleep(delay);
+      if (requestId !== activeProfileRequest.current) return null;
 
-        if (data) {
-          setProfile(data);
-          return;
-        }
-      } catch (err) {
-        console.warn(`[AuthProvider] Profile fetch attempt failed (${retries} left):`, err);
-        await new Promise((res) => setTimeout(res, 1000));
+      const { data, error: profileError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (requestId !== activeProfileRequest.current) return null;
+
+      if (!profileError && data) {
+        const normalizedProfile = data as Record<string, unknown>;
+        setProfile(normalizedProfile);
+        return normalizedProfile;
       }
-      retries--;
+
+      if (profileError) {
+        console.warn("[AuthProvider] Profile fetch failed", {
+          code: profileError.code,
+          message: profileError.message,
+        });
+      }
     }
+
+    // Authentication remains valid even if the profile trigger is temporarily delayed.
+    if (requestId === activeProfileRequest.current) setProfile(null);
+    return null;
   }, []);
 
+  const applySession = useCallback(
+    async (nextSession: Session | null) => {
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+
+      if (!nextSession?.user) {
+        activeProfileRequest.current += 1;
+        setProfile(null);
+        setAuthState("unauthenticated");
+        return;
+      }
+
+      setAuthState("authenticated");
+      await fetchProfile(nextSession.user.id);
+    },
+    [fetchProfile],
+  );
+
   const refreshSession = useCallback(async () => {
+    setIsLoading(true);
     try {
       const {
-        data: { session },
-        error,
+        data: { session: currentSession },
+        error: sessionError,
       } = await supabase.auth.getSession();
-      if (error) throw error;
+      if (sessionError) throw sessionError;
 
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-      }
-      setAuthState(session ? "authenticated" : "unauthenticated");
+      await applySession(currentSession);
       setError(null);
-    } catch (err: any) {
-      console.error("[AuthProvider] Refresh error:", err);
+    } catch (err) {
+      console.error("[AuthProvider] Refresh error", err);
       setAuthState("connection_error");
-      setError(err.message || "Erro de conexão com o servidor.");
+      setError(err instanceof Error ? err.message : "Erro de conexão com o servidor.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [applySession]);
 
   useEffect(() => {
     let mounted = true;
 
-    const initAuth = async () => {
+    const initialize = async () => {
       try {
         const {
-          data: { session },
+          data: { session: initialSession },
           error: sessionError,
         } = await supabase.auth.getSession();
-
+        if (sessionError) throw sessionError;
         if (!mounted) return;
 
-        if (sessionError) {
-          console.error("[AuthProvider] Session error:", sessionError);
-          setAuthState("connection_error");
-          setError(sessionError.message);
-        } else {
-          setSession(session);
-          setUser(session?.user ?? null);
-          if (session?.user) {
-            await fetchProfile(session.user.id);
-          } else {
-            setProfile(null);
-          }
-          setAuthState(session ? "authenticated" : "unauthenticated");
-          setError(null);
-        }
-      } catch (err: any) {
-        if (mounted) {
-          console.error("[AuthProvider] Fatal init error:", err);
-          setAuthState("connection_error");
-          setError("Não foi possível conectar ao serviço de autenticação.");
-        }
+        await applySession(initialSession);
+        if (mounted) setError(null);
+      } catch (err) {
+        if (!mounted) return;
+        console.error("[AuthProvider] Initialization error", err);
+        setAuthState("connection_error");
+        setError("Não foi possível conectar ao serviço de autenticação.");
       } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     };
 
-    initAuth();
+    void initialize();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, newSession) => {
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
-
-      console.log(`[AuthProvider] Auth event: ${event}`);
-
-      if (event === "SIGNED_OUT" || event === "USER_UPDATED") {
-        // Handle explicit sign out or user deletion/update
-        if (!newSession) {
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setAuthState("unauthenticated");
-        }
-      }
-
-      if (newSession) {
-        setSession(newSession);
-        setUser(newSession.user);
-        fetchProfile(newSession.user.id);
-        setAuthState("authenticated");
-      } else if (event !== "INITIAL_SESSION" && event !== "SIGNED_IN") {
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        setAuthState("unauthenticated");
-      }
-
       setIsLoading(false);
+      setError(null);
+      void applySession(nextSession);
     });
 
     return () => {
       mounted = false;
+      activeProfileRequest.current += 1;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [applySession]);
 
-  const value = {
-    user,
-    session,
-    profile,
-    authState,
-    isLoading,
-    error,
-    signOut,
-    refreshSession,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        profile,
+        authState,
+        isLoading,
+        error,
+        signOut,
+        refreshSession,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {
