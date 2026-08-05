@@ -78,8 +78,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (!userId) return;
 
+    const handleFinancialChange = () => {
+      void loadWallet();
+    };
+
     const channel = supabase
-      .channel(`passenger_wallet:${userId}`)
+      .channel(`passenger_financial:${userId}`)
       .on(
         "postgres_changes",
         {
@@ -88,13 +92,21 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           table: "passenger_wallets",
           filter: `passenger_id=eq.${userId}`,
         },
-        () => {
-          void loadWallet();
+        handleFinancialChange,
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cancellation_fees",
+          filter: `passenger_id=eq.${userId}`,
         },
+        handleFinancialChange,
       )
       .subscribe((status) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn("[WalletProvider] Realtime unavailable", { status, userId });
+          console.warn("[WalletProvider] Financial realtime unavailable", { status, userId });
         }
       });
 
