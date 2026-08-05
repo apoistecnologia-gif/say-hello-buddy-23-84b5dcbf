@@ -26,6 +26,8 @@ interface ActiveRideContextType {
   recoverActiveRide: () => Promise<string | null>;
 }
 
+const POLLING_INTERVAL_MS = 12_000;
+
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "unknown";
 }
@@ -46,10 +48,12 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const currentRideIdRef = useRef<string | null>(null);
   const requestSequenceRef = useRef(0);
   const recoveryPromiseRef = useRef<Promise<string | null> | null>(null);
+  const pollingPromiseRef = useRef<Promise<void> | null>(null);
 
   const clearRide = useCallback(() => {
     requestSequenceRef.current += 1;
     recoveryPromiseRef.current = null;
+    pollingPromiseRef.current = null;
     void activeRideService.unsubscribe();
     setRide(null);
     setScreenState("idle");
@@ -66,13 +70,16 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setRide(updatedRide);
     setLastUpdateAt(new Date());
+    setError(null);
 
     if (updatedRide.status === "finalizada") {
       setScreenState("completed");
       setIsRealtimeConnected(false);
+      void activeRideService.unsubscribe();
     } else if (updatedRide.status.startsWith("cancelada")) {
       setScreenState("cancelled");
       setIsRealtimeConnected(false);
+      void activeRideService.unsubscribe();
     } else {
       setScreenState("active");
     }
@@ -91,23 +98,14 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (requestId !== requestSequenceRef.current) return;
 
         currentRideIdRef.current = rideId;
-        setRide(data);
-        setLastUpdateAt(new Date());
+        handleUpdate(data);
 
-        if (data.status === "finalizada") {
-          setScreenState("completed");
-          setIsRealtimeConnected(false);
-          void activeRideService.unsubscribe();
-        } else if (data.status.startsWith("cancelada")) {
-          setScreenState("cancelled");
-          setIsRealtimeConnected(false);
-          void activeRideService.unsubscribe();
-        } else {
-          setScreenState("active");
+        if (
+          data.status !== "finalizada" &&
+          !data.status.startsWith("cancelada")
+        ) {
           activeRideService.subscribeToRide(rideId, handleUpdate, setIsRealtimeConnected);
         }
-
-        setError(null);
       } catch (caughtError: unknown) {
         if (requestId !== requestSequenceRef.current) return;
 
@@ -132,6 +130,39 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (currentRideIdRef.current) await loadRide(currentRideIdRef.current);
   }, [loadRide]);
 
+  const pollCurrentRide = useCallback(async (): Promise<void> => {
+    if (!userId || !currentRideIdRef.current || pollingPromiseRef.current) return;
+
+    const rideId = currentRideIdRef.current;
+    const polling = (async () => {
+      try {
+        const latestRide = await activeRideService.getRideById(rideId, userId);
+        if (currentRideIdRef.current !== rideId) return;
+        handleUpdate(latestRide);
+      } catch (caughtError: unknown) {
+        const message = readErrorMessage(caughtError);
+        if (message === "not_found" || message === "unauthorized") {
+          console.warn("[useActiveRide] Polling stopped for inaccessible ride", {
+            rideId,
+            message,
+          });
+          clearRide();
+          return;
+        }
+
+        console.warn("[useActiveRide] Polling refresh failed", {
+          rideId,
+          message,
+        });
+      } finally {
+        pollingPromiseRef.current = null;
+      }
+    })();
+
+    pollingPromiseRef.current = polling;
+    await polling;
+  }, [clearRide, handleUpdate, userId]);
+
   const recoverActiveRide = useCallback(async (): Promise<string | null> => {
     if (!userId) return null;
     if (recoveryPromiseRef.current) return recoveryPromiseRef.current;
@@ -151,8 +182,15 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         if (currentRideIdRef.current !== activeRide.id || ride?.id !== activeRide.id) {
           await loadRide(activeRide.id);
-        } else if (!isRealtimeConnected) {
-          activeRideService.subscribeToRide(activeRide.id, handleUpdate, setIsRealtimeConnected);
+        } else {
+          handleUpdate(activeRide);
+          if (!isRealtimeConnected) {
+            activeRideService.subscribeToRide(
+              activeRide.id,
+              handleUpdate,
+              setIsRealtimeConnected,
+            );
+          }
         }
 
         return activeRide.id;
@@ -202,6 +240,26 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [recoverActiveRide, userId]);
+
+  useEffect(() => {
+    if (
+      !userId ||
+      screenState !== "active" ||
+      isRealtimeConnected ||
+      !currentRideIdRef.current
+    ) {
+      return;
+    }
+
+    void pollCurrentRide();
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible" && navigator.onLine) {
+        void pollCurrentRide();
+      }
+    }, POLLING_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [isRealtimeConnected, pollCurrentRide, screenState, userId]);
 
   useEffect(() => {
     return () => {
