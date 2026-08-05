@@ -6,11 +6,11 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FIREBASE_B64 = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_B64") ?? "";
 
-function json(body: unknown, status = 200, req?: Request) {
+function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 
-      ...(req ? getCorsHeaders(req) : { "Access-Control-Allow-Origin": "*" }), 
+      ...getCorsHeaders(req), 
       "content-type": "application/json" 
     },
   });
@@ -80,11 +80,11 @@ async function accessToken(account: ServiceAccount): Promise<string> {
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
-    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, req);
+    if (req.method !== "POST") return json(req, { error: "method_not_allowed" }, 405);
 
     const authorization = req.headers.get("Authorization") ?? "";
     const token = authorization.replace(/^Bearer\s+/i, "").trim();
-    if (!token) return json({ error: "unauthorized" }, 401, req);
+    if (!token) return json(req, { error: "unauthorized" }, 401);
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: { persistSession: false },
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
 
     if (!isServiceRequest) {
       const { data: userData, error: authError } = await admin.auth.getUser(token);
-      if (authError || !userData.user) return json({ error: "unauthorized" }, 401, req);
+      if (authError || !userData.user) return json(req, { error: "unauthorized" }, 401);
       callerId = userData.user.id;
 
       const { data: roleData } = await admin
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
 
     const input = (await req.json()) as PushBody;
     if (!input.event || (!isAdmin && !isServiceRequest && !input.ride_id)) {
-      return json({ error: "invalid_payload" }, 422, req);
+      return json(req, { error: "invalid_payload" }, 422);
     }
 
     let finalUserIds: string[] = [];
@@ -120,12 +120,12 @@ Deno.serve(async (req) => {
     let finalData = input.data ?? {};
 
     if (isServiceRequest || isAdmin) {
-      if (!input.user_ids?.length || !input.title) return json({ error: "admin_payload_incomplete" }, 422, req);
+      if (!input.user_ids?.length || !input.title) return json(req, { error: "admin_payload_incomplete" }, 422);
       finalUserIds = [...new Set(input.user_ids)].slice(0, 100);
       finalTitle = input.title.slice(0, 100);
       finalBody = (input.body ?? "").slice(0, 500);
     } else {
-      if (!ALLOWED_EVENTS.includes(input.event)) return json({ error: "event_not_allowed" }, 403, req);
+      if (!ALLOWED_EVENTS.includes(input.event)) return json(req, { error: "event_not_allowed" }, 403);
       
       const { data: ride, error: rideError } = await admin
         .from("rides")
@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
         .eq("id", input.ride_id)
         .maybeSingle();
 
-      if (rideError || !ride) return json({ error: "ride_not_found" }, 404, req);
+      if (rideError || !ride) return json(req, { error: "ride_not_found" }, 404);
 
       const participants = new Set([
         ride.passenger_id,
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
         ...((ride.offered_driver_ids ?? []) as string[]),
       ].filter(Boolean));
 
-      if (!callerId || !participants.has(callerId)) return json({ error: "forbidden" }, 403, req);
+      if (!callerId || !participants.has(callerId)) return json(req, { error: "forbidden" }, 403);
 
       // Recipient logic based on event
       if (input.event === "driver.new_ride_request") {
@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (!finalUserIds.length) return json({ ok: true, sent: 0, reason: "no_recipients_derived" }, 200, req);
+      if (!finalUserIds.length) return json(req, { ok: true, sent: 0, reason: "no_recipients_derived" }, 200);
     }
 
     // Filter by preferences
@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
       return isRequestEvent ? p.ride_requests !== false : p.ride_updates !== false;
     });
 
-    if (!allowedUsers.length) return json({ ok: true, sent: 0, suppressed: finalUserIds.length }, 200, req);
+    if (!allowedUsers.length) return json(req, { ok: true, sent: 0, suppressed: finalUserIds.length }, 200);
 
     const { data: tokenRows } = await admin
       .from("user_notification_tokens")
@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
       .in("user_id", allowedUsers)
       .eq("platform", "android");
 
-    if (!tokenRows?.length) return json({ ok: true, sent: 0, no_tokens: allowedUsers.length }, 200, req);
+    if (!tokenRows?.length) return json(req, { ok: true, sent: 0, no_tokens: allowedUsers.length }, 200);
 
     const account = readServiceAccount();
     const bearer = await accessToken(account);
@@ -247,9 +247,9 @@ Deno.serve(async (req) => {
       }))
     );
 
-    return json({ ok: failures.length === 0, sent, failed: failures.length }, 200, req);
+    return json(req, { ok: failures.length === 0, sent, failed: failures.length }, 200);
   } catch (error) {
     console.error("[APOIS FCM]", error);
-    return json({ error: "push_failed", detail: error instanceof Error ? error.message : "internal_error" }, 500, req);
+    return json(req, { error: "push_failed" }, 500);
   }
 });

@@ -6,53 +6,71 @@
  * their protection is signature validation, not CORS.
  */
 
-const ALLOWED_ORIGIN_SUFFIXES = [
-  ".lovable.app",
-];
+const ENVIRONMENT =
+  Deno.env.get("APP_ENV") ??
+  Deno.env.get("ENVIRONMENT") ??
+  "production";
 
-const ALLOWED_EXACT_ORIGINS = [
-  "https://say-hello-buddy-23.lovable.app",
-  "http://localhost:8080",
-];
+const ALLOWED_METHODS = "POST, OPTIONS";
+const ALLOWED_HEADERS = "authorization, x-client-info, apikey, content-type, x-signature, x-request-id";
 
+/**
+ * getCorsHeaders(request)
+ * 
+ * Implements least-privilege CORS logic.
+ * - Exact origin matching via ALLOWED_ORIGINS secret.
+ * - Localhost support restricted to development environment.
+ * - Omission of Access-Control-Allow-Origin for unknown origins.
+ * - Support for Capacitor/Server-to-Server (no Origin header).
+ */
 export function getCorsHeaders(request: Request) {
   const origin = request.headers.get("Origin");
-  const envAllowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") || "").split(",").map(o => o.trim()).filter(Boolean);
-  
-  const allExactOrigins = [...ALLOWED_EXACT_ORIGINS, ...envAllowedOrigins];
-  
-  // 1. If no Origin header, support Capacitor/trusted server-to-server
-  if (!origin) {
-    return {
-      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-signature, x-request-id",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-    };
-  }
+  const allowedOriginsStr = Deno.env.get("ALLOWED_ORIGINS") || "";
+  const allowedOrigins = allowedOriginsStr
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
 
-  // 2. Validate exact matches
-  let isAllowed = allExactOrigins.includes(origin);
-
-  // 3. Validate suffix matches (safe hostname validation)
-  if (!isAllowed) {
-    try {
-      const url = new URL(origin);
-      // Hostname suffix validation: exactly matches .lovable.app
-      isAllowed = ALLOWED_ORIGIN_SUFFIXES.some(suffix => url.hostname.endsWith(suffix) && url.protocol === "https:");
-    } catch {
-      isAllowed = false;
-    }
-  }
-
-  // 4. Return exact origin only if allowed, otherwise omit Access-Control-Allow-Origin
   const headers: Record<string, string> = {
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-signature, x-request-id",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": ALLOWED_HEADERS,
+    "Access-Control-Allow-Methods": ALLOWED_METHODS,
+    "Vary": "Origin",
   };
 
+  // 1. Capacitor/Server-to-Server: Omit ACAO if no Origin header
+  if (!origin) {
+    return headers;
+  }
+
+  let isAllowed = false;
+
+  try {
+    const url = new URL(origin);
+    
+    // 2. Localhost Restriction: Only in development
+    const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    if (isLocalhost) {
+      if (ENVIRONMENT === "development") {
+        isAllowed = true;
+      }
+    } else {
+      // 3. Exact Origin Matching
+      isAllowed = allowedOrigins.includes(origin);
+      
+      // 4. HTTPS Requirement: Enforced outside development
+      if (isAllowed && ENVIRONMENT !== "development" && url.protocol !== "https:") {
+        isAllowed = false;
+      }
+    }
+  } catch {
+    // Invalid URL syntax in Origin header
+    isAllowed = false;
+  }
+
+  // 5. Return exact origin only if validated
   if (isAllowed) {
     headers["Access-Control-Allow-Origin"] = origin;
   }
 
   return headers;
 }
-
