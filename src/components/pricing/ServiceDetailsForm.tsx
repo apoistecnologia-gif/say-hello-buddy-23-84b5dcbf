@@ -6,9 +6,10 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
   isOpen,
   onClose,
 }) => {
-  if (!isOpen) return null;
   const { selectedCategory } = useRideCategories();
   const { serviceDetails, setServiceDetails } = usePricing();
+
+  if (!isOpen) return null;
 
   if (!selectedCategory || !["fretes", "guincho", "envios"].includes(selectedCategory.key)) {
     return null;
