@@ -5,14 +5,26 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ALLOWED_ROLES = ["super_admin", "admin", "financial", "operations"];
+const FINANCIAL_ROLES = new Set(["super_admin", "admin", "financial"]);
+const ACTIONS = new Set([
+  "cancellation_fee.waive",
+  "passenger_wallet.set_blocked",
+  "withdrawal.reject",
+]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const MAX_BODY_BYTES = 16_384;
 
 type JsonMap = Record<string, unknown>;
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...getCorsHeaders(req), "content-type": "application/json" },
+    headers: {
+      ...getCorsHeaders(req),
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    },
   });
 }
 
@@ -30,16 +42,25 @@ function uuid(value: unknown, name: string) {
   return value;
 }
 
-function text(value: unknown, name: string, max = 500) {
+function text(value: unknown, name: string, max = 500, min = 1) {
   if (typeof value !== "string") fail(`invalid_${name}`);
   const out = value.trim();
-  if (!out || out.length > max) fail(`invalid_${name}`);
+  if (out.length < min || out.length > max) fail(`invalid_${name}`);
   return out;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
   if (req.method !== "POST") return json(req, { ok: false, error: "method_not_allowed" }, 405);
+
+  const contentType = req.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.includes("application/json")) {
+    return json(req, { ok: false, error: "unsupported_media_type" }, 415);
+  }
+  const contentLength = Number(req.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+    return json(req, { ok: false, error: "payload_too_large" }, 413);
+  }
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -60,19 +81,32 @@ Deno.serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", actorId)
-      .in("role", ALLOWED_ROLES)
-      .limit(1);
+      .in("role", ALLOWED_ROLES);
     if (roleError) return json(req, { ok: false, error: "role_check_failed" }, 500);
-    if (!roles?.length) return json(req, { ok: false, error: "forbidden" }, 403);
+    const roleSet = new Set((roles ?? []).map((row) => String(row.role)));
+    if (roleSet.size === 0) return json(req, { ok: false, error: "forbidden" }, 403);
+
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return json(req, { ok: false, error: "payload_too_large" }, 413);
+    }
 
     let body: { action?: unknown; payload?: unknown };
     try {
-      body = await req.json();
+      body = JSON.parse(rawBody);
     } catch {
       return json(req, { ok: false, error: "invalid_json" }, 400);
     }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return json(req, { ok: false, error: "invalid_json_object" }, 400);
+    }
 
     const action = text(body.action, "action", 80);
+    if (!ACTIONS.has(action)) fail("unknown_action", 404);
+    if (action === "withdrawal.reject" && ![...roleSet].some((role) => FINANCIAL_ROLES.has(role))) {
+      fail("forbidden_financial_action", 403);
+    }
+
     const payload = object(body.payload ?? {});
     let targetType = "unknown";
     let targetId: string | null = null;
@@ -81,28 +115,49 @@ Deno.serve(async (req) => {
 
     if (action === "cancellation_fee.waive") {
       const feeId = uuid(payload.id, "id");
-      const reason = text(payload.reason, "reason", 500);
-      const { data: fee, error } = await admin.from("cancellation_fees").select("*").eq("id", feeId).maybeSingle();
-      if (error) fail(error.message, 422);
+      const reason = text(payload.reason, "reason", 500, 3);
+      const { data: fee, error } = await admin
+        .from("cancellation_fees")
+        .select("id,passenger_id,ride_id,status,is_paid,reason,fee_amount,created_at")
+        .eq("id", feeId)
+        .maybeSingle();
+      if (error) fail("fee_lookup_failed", 500);
       if (!fee) fail("fee_not_found", 404);
       if (fee.is_paid || fee.status === "paid") fail("fee_already_paid", 409);
+      if (fee.status === "waived") fail("fee_already_waived", 409);
 
       const patch = {
         status: "waived",
         reason: `${fee.reason ? `${fee.reason} | ` : ""}Dispensada: ${reason}`,
         updated_at: new Date().toISOString(),
       };
-      const updated = await admin.from("cancellation_fees").update(patch).eq("id", feeId);
-      if (updated.error) fail(updated.error.message, 422);
+      const { data: updatedFee, error: updateError } = await admin
+        .from("cancellation_fees")
+        .update(patch)
+        .eq("id", feeId)
+        .eq("is_paid", false)
+        .neq("status", "paid")
+        .neq("status", "waived")
+        .select("id")
+        .maybeSingle();
+      if (updateError) fail("fee_update_failed", 500);
+      if (!updatedFee) fail("fee_changed_concurrently", 409);
 
-      const pending = await admin.from("cancellation_fees").select("id", { count: "exact", head: true })
-        .eq("passenger_id", fee.passenger_id).eq("is_paid", false).eq("status", "pending");
-      if (pending.error) fail(pending.error.message, 422);
+      const pending = await admin
+        .from("cancellation_fees")
+        .select("id", { count: "exact", head: true })
+        .eq("passenger_id", fee.passenger_id)
+        .eq("is_paid", false)
+        .in("status", ["pending", "unpaid"]);
+      if (pending.error) fail("pending_fee_check_failed", 500);
       if ((pending.count ?? 0) === 0) {
-        const wallet = await admin.from("passenger_wallets")
+        const wallet = await admin
+          .from("passenger_wallets")
           .update({ is_blocked: false, blocked_reason: null, updated_at: new Date().toISOString() })
-          .eq("passenger_id", fee.passenger_id);
-        if (wallet.error) fail(wallet.error.message, 422);
+          .eq("passenger_id", fee.passenger_id)
+          .select("id")
+          .maybeSingle();
+        if (wallet.error) fail("wallet_unblock_failed", 500);
       }
 
       targetType = "cancellation_fee";
@@ -112,22 +167,43 @@ Deno.serve(async (req) => {
     } else if (action === "passenger_wallet.set_blocked") {
       const passengerId = uuid(payload.passenger_id, "passenger_id");
       if (typeof payload.blocked !== "boolean") fail("invalid_blocked");
-      const reason = payload.blocked ? text(payload.reason, "reason", 500) : null;
-      const { data: wallet, error } = await admin.from("passenger_wallets").select("*")
-        .eq("passenger_id", passengerId).maybeSingle();
-      if (error) fail(error.message, 422);
+      const reason = payload.blocked ? text(payload.reason, "reason", 500, 3) : null;
+      const { data: wallet, error } = await admin
+        .from("passenger_wallets")
+        .select("id,passenger_id,is_blocked,blocked_reason,balance,currency,updated_at")
+        .eq("passenger_id", passengerId)
+        .maybeSingle();
+      if (error) fail("wallet_lookup_failed", 500);
       if (!wallet) fail("wallet_not_found", 404);
+      if (wallet.is_blocked === payload.blocked && wallet.blocked_reason === reason) {
+        fail("wallet_state_unchanged", 409);
+      }
 
       if (!payload.blocked) {
-        const pending = await admin.from("cancellation_fees").select("id", { count: "exact", head: true })
-          .eq("passenger_id", passengerId).eq("is_paid", false).eq("status", "pending");
-        if (pending.error) fail(pending.error.message, 422);
+        const pending = await admin
+          .from("cancellation_fees")
+          .select("id", { count: "exact", head: true })
+          .eq("passenger_id", passengerId)
+          .eq("is_paid", false)
+          .in("status", ["pending", "unpaid"]);
+        if (pending.error) fail("pending_fee_check_failed", 500);
         if ((pending.count ?? 0) > 0) fail("pending_fees_prevent_unblock", 409);
       }
 
-      const patch = { is_blocked: payload.blocked, blocked_reason: reason, updated_at: new Date().toISOString() };
-      const updated = await admin.from("passenger_wallets").update(patch).eq("passenger_id", passengerId);
-      if (updated.error) fail(updated.error.message, 422);
+      const patch = {
+        is_blocked: payload.blocked,
+        blocked_reason: reason,
+        updated_at: new Date().toISOString(),
+      };
+      const { data: updatedWallet, error: updateError } = await admin
+        .from("passenger_wallets")
+        .update(patch)
+        .eq("passenger_id", passengerId)
+        .eq("updated_at", wallet.updated_at)
+        .select("id")
+        .maybeSingle();
+      if (updateError) fail("wallet_update_failed", 500);
+      if (!updatedWallet) fail("wallet_changed_concurrently", 409);
 
       targetType = "passenger_wallet";
       targetId = wallet.id;
@@ -135,10 +211,13 @@ Deno.serve(async (req) => {
       after = patch;
     } else if (action === "withdrawal.reject") {
       const withdrawalId = uuid(payload.id, "id");
-      const reason = text(payload.reason, "reason", 500);
-      const { data: withdrawal, error } = await admin.from("driver_withdrawals").select("*")
-        .eq("id", withdrawalId).maybeSingle();
-      if (error) fail(error.message, 422);
+      const reason = text(payload.reason, "reason", 500, 3);
+      const { data: withdrawal, error } = await admin
+        .from("driver_withdrawals")
+        .select("id,driver_id,amount,status,rejection_reason,created_at,processed_at")
+        .eq("id", withdrawalId)
+        .maybeSingle();
+      if (error) fail("withdrawal_lookup_failed", 500);
       if (!withdrawal) fail("withdrawal_not_found", 404);
       if (!["pending", "processing"].includes(withdrawal.status)) fail("withdrawal_not_rejectable", 409);
 
@@ -147,14 +226,12 @@ Deno.serve(async (req) => {
         _reason: `Rejeitado pelo painel: ${reason}`,
         _response: { source: "admin-operations-action", actor_id: actorId },
       });
-      if (failed.error) fail(failed.error.message, 422);
+      if (failed.error) fail("withdrawal_rejection_failed", 500);
 
       targetType = "driver_withdrawal";
       targetId = withdrawalId;
       before = withdrawal;
       after = { status: "failed", rejection_reason: reason, balance_refunded: true };
-    } else {
-      fail("unknown_action", 404);
     }
 
     const audit = await admin.from("admin_audit_logs").insert({
@@ -164,7 +241,10 @@ Deno.serve(async (req) => {
       target_id: targetId,
       before,
       after,
-      metadata: { source: "admin-operations-action" },
+      metadata: {
+        source: "admin-operations-action",
+        request_id: crypto.randomUUID(),
+      },
     });
     if (audit.error) fail("audit_log_failed", 500);
 
