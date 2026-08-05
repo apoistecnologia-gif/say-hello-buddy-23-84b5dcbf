@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useActiveRide } from "@/hooks/rides/use-active-ride";
 import PassengerMap from "@/components/map/PassengerMap";
 import { RideStatusHeader } from "@/components/rides/active/RideStatusHeader";
@@ -9,7 +9,7 @@ import { SecurityCodeCard } from "@/components/rides/active/SecurityCodeCard";
 import { RideStopsTimeline } from "@/components/rides/active/RideStopsTimeline";
 import { CancellationDialog } from "@/components/rides/active/CancellationDialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Share2, Shield, X, Search, Home } from "lucide-react";
+import { ChevronLeft, Share2, Shield, X, Search, Home, WifiOff, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { createFileRoute } from "@tanstack/react-router";
@@ -21,40 +21,43 @@ export const Route = createFileRoute("/_authenticated/corrida/$rideId")({
 function ActiveRidePage() {
   const { rideId } = Route.useParams();
   const navigate = useNavigate();
-  const { ride, status, screenState, isRefreshing, loadRide, actionAvailability, clearRide } =
-    useActiveRide();
+  const {
+    ride,
+    status,
+    screenState,
+    isRefreshing,
+    isRealtimeConnected,
+    loadRide,
+    refreshRide,
+    actionAvailability,
+    clearRide,
+  } = useActiveRide();
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
 
   useEffect(() => {
-    if (rideId) {
-      loadRide(rideId);
-    }
+    if (rideId) void loadRide(rideId);
   }, [rideId, loadRide]);
 
   const handleBack = () => {
-    if (screenState === "completed" || screenState === "cancelled") {
-      clearRide();
-      navigate({ to: "/inicio" });
-    } else {
-      navigate({ to: "/inicio" });
-    }
+    if (screenState === "completed" || screenState === "cancelled") clearRide();
+    void navigate({ to: "/inicio" });
   };
 
   const handleReturnHome = () => {
     clearRide();
-    navigate({ to: "/inicio" });
+    void navigate({ to: "/inicio" });
   };
 
   if (screenState === "loading" || screenState === "idle") {
     return (
-      <div className="flex flex-col h-[100dvh] bg-black p-6 space-y-6">
+      <div className="flex h-[100dvh] flex-col space-y-6 bg-black p-6">
         <div className="flex items-center gap-4">
-          <Skeleton className="w-10 h-10 rounded-full bg-zinc-900" />
+          <Skeleton className="h-10 w-10 rounded-full bg-zinc-900" />
           <Skeleton className="h-6 w-32 bg-zinc-900" />
         </div>
         <Skeleton className="h-24 w-full rounded-2xl bg-zinc-900" />
-        <Skeleton className="flex-1 w-full rounded-3xl bg-zinc-900" />
+        <Skeleton className="w-full flex-1 rounded-3xl bg-zinc-900" />
         <div className="space-y-3">
           <Skeleton className="h-16 w-full rounded-2xl bg-zinc-900" />
           <Skeleton className="h-16 w-full rounded-2xl bg-zinc-900" />
@@ -65,13 +68,13 @@ function ActiveRidePage() {
 
   if (screenState === "not_found" || screenState === "unauthorized" || screenState === "failed") {
     return (
-      <div className="flex flex-col items-center justify-center h-[100dvh] bg-black p-8 text-center space-y-6">
-        <div className="w-20 h-20 rounded-full bg-zinc-900 flex items-center justify-center">
+      <div className="flex h-[100dvh] flex-col items-center justify-center space-y-6 bg-black p-8 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-900">
           <X className="text-zinc-600" size={40} />
         </div>
         <div className="space-y-2">
           <h2 className="text-xl font-black text-white">Ops! Algo deu errado</h2>
-          <p className="text-zinc-500 text-sm font-medium">
+          <p className="text-sm font-medium text-zinc-500">
             {screenState === "not_found"
               ? "Esta corrida não foi encontrada."
               : screenState === "unauthorized"
@@ -81,7 +84,7 @@ function ActiveRidePage() {
         </div>
         <Button
           onClick={handleReturnHome}
-          className="bg-apois-yellow text-black font-black w-full h-12 rounded-2xl"
+          className="h-12 w-full rounded-2xl bg-apois-yellow font-black text-black"
         >
           Voltar para o Início
         </Button>
@@ -91,60 +94,92 @@ function ActiveRidePage() {
 
   if (!ride || !status) return null;
 
+  const hasDriverLocation =
+    ride.driver_latitude !== undefined && ride.driver_longitude !== undefined;
+
   return (
-    <div className="flex flex-col h-[100dvh] bg-black relative overflow-hidden">
-      {/* Header Actions */}
-      <div className="absolute top-6 left-6 right-6 z-20 flex justify-between items-center pointer-events-none">
+    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-black">
+      <div className="pointer-events-none absolute left-6 right-6 top-6 z-20 flex items-center justify-between">
         <button
+          type="button"
+          aria-label="Voltar"
           onClick={handleBack}
-          className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center pointer-events-auto active:scale-95 transition-transform"
+          className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 backdrop-blur-md transition-transform active:scale-95"
         >
           <ChevronLeft className="text-white" size={20} />
         </button>
 
-        <div className="flex gap-3 pointer-events-auto">
+        <div className="pointer-events-auto flex gap-3">
           {actionAvailability?.canShareRide && (
-            <button className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center active:scale-95 transition-transform">
+            <button
+              type="button"
+              aria-label="Compartilhar corrida"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 backdrop-blur-md transition-transform active:scale-95"
+            >
               <Share2 className="text-white" size={18} />
             </button>
           )}
           {actionAvailability?.canOpenSafety && (
-            <button className="w-10 h-10 rounded-full bg-red-500/80 backdrop-blur-md border border-red-500/20 flex items-center justify-center active:scale-95 transition-transform">
+            <button
+              type="button"
+              aria-label="Abrir recursos de segurança"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-red-500/20 bg-red-500/80 backdrop-blur-md transition-transform active:scale-95"
+            >
               <Shield className="text-white" size={18} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Map View */}
-      <div className="flex-1 relative">
+      <div className="relative flex-1">
         <PassengerMap
           origin={ride.origin}
           destination={ride.destination}
-          encodedPolyline={ride.encoded_polyline || undefined}
+          encodedPolyline={ride.encoded_polyline}
           driverLocation={
-            ride.driver_latitude && ride.driver_longitude
+            hasDriverLocation
               ? {
-                  lat: ride.driver_latitude,
-                  lng: ride.driver_longitude,
-                  heading: ride.driver_heading || 0,
+                  lat: ride.driver_latitude as number,
+                  lng: ride.driver_longitude as number,
+                  ...(ride.driver_heading !== undefined ? { heading: ride.driver_heading } : {}),
                 }
               : undefined
           }
           isStatic={screenState === "completed" || screenState === "cancelled"}
         />
 
-        {/* Status Overlay */}
-        <div className="absolute top-20 left-6 right-6 z-10">
+        <div className="absolute left-6 right-6 top-20 z-10 space-y-3">
           <RideStatusHeader status={status} isRefreshing={isRefreshing} />
+
+          {screenState === "active" && !isRealtimeConnected && (
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-400/20 bg-black/80 px-4 py-3 text-white backdrop-blur-md">
+              <div className="flex min-w-0 items-center gap-3">
+                <WifiOff className="shrink-0 text-amber-400" size={18} />
+                <div className="min-w-0">
+                  <p className="text-xs font-black">Reconectando a corrida</p>
+                  <p className="truncate text-[10px] text-zinc-400">
+                    Os dados serão atualizados assim que a conexão voltar.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Atualizar corrida"
+                onClick={() => void refreshRide()}
+                disabled={isRefreshing}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 disabled:opacity-50"
+              >
+                <RefreshCw className={isRefreshing ? "animate-spin" : ""} size={16} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Info Panel */}
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="bg-zinc-950 border-t border-white/5 rounded-t-[32px] px-6 pt-6 pb-8 space-y-4 max-h-[60vh] overflow-y-auto scrollbar-hide shadow-[0_-8px_32px_rgba(0,0,0,0.5)]"
+        className="max-h-[60vh] space-y-4 overflow-y-auto rounded-t-[32px] border-t border-white/5 bg-zinc-950 px-6 pb-8 pt-6 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] scrollbar-hide"
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -154,49 +189,46 @@ function ActiveRidePage() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-4"
           >
-            {/* Driver & Vehicle */}
             {status !== "procurar_motorista" && status !== "agendada" && (
               <>
                 <DriverCard ride={ride} />
                 <VehicleCard ride={ride} />
                 {status === "motorista_a_caminho" && (
-                  <SecurityCodeCard code={ride.security_code || undefined} />
+                  <SecurityCodeCard code={ride.security_code} />
                 )}
               </>
             )}
 
-            {/* Waiting for Driver State */}
             {status === "procurar_motorista" && (
-              <div className="bg-zinc-900/50 rounded-2xl p-8 border border-white/5 flex flex-col items-center justify-center text-center space-y-4">
+              <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-white/5 bg-zinc-900/50 p-8 text-center">
                 <div className="relative">
-                  <div className="w-16 h-16 rounded-full border-2 border-apois-yellow/20 border-t-apois-yellow animate-spin" />
+                  <div className="h-16 w-16 animate-spin rounded-full border-2 border-apois-yellow/20 border-t-apois-yellow" />
                   <Search
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-apois-yellow"
+                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-apois-yellow"
                     size={24}
                   />
                 </div>
                 <div>
                   <h4 className="font-black text-white">Buscando motoristas</h4>
-                  <p className="text-[10px] text-zinc-500 font-medium mt-1">
+                  <p className="mt-1 text-[10px] font-medium text-zinc-500">
                     Isso geralmente leva menos de 2 minutos.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Terminal States */}
             {(screenState === "completed" || screenState === "cancelled") && (
               <div className="space-y-4 pt-2">
-                <div className="bg-zinc-900/50 rounded-2xl p-4 border border-white/5 flex justify-between items-center">
-                  <span className="text-zinc-500 text-xs font-black uppercase">Valor Total</span>
-                  <span className="text-white font-black text-xl">
-                    R$ {(ride.final_price || ride.estimated_price).toFixed(2).replace(".", ",")}
+                <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-4">
+                  <span className="text-xs font-black uppercase text-zinc-500">Valor Total</span>
+                  <span className="text-xl font-black text-white">
+                    R$ {(ride.final_price ?? ride.estimated_price).toFixed(2).replace(".", ",")}
                   </span>
                 </div>
 
                 <Button
                   onClick={handleReturnHome}
-                  className="w-full h-14 bg-white text-black font-black rounded-2xl flex items-center justify-center gap-2"
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white font-black text-black"
                 >
                   <Home size={18} />
                   Voltar ao Início
@@ -204,25 +236,23 @@ function ActiveRidePage() {
               </div>
             )}
 
-            {/* Route & Stops Details */}
             <RideStopsTimeline ride={ride} />
 
-            {/* Price Summary (Non-terminal) */}
             {screenState === "active" && (
-              <div className="flex justify-between items-center px-1 pt-2">
+              <div className="flex items-center justify-between px-1 pt-2">
                 <div>
-                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
                     Estimativa
                   </p>
-                  <p className="text-white font-black text-lg">
+                  <p className="text-lg font-black text-white">
                     R$ {ride.estimated_price.toFixed(2).replace(".", ",")}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
                     Pagamento
                   </p>
-                  <p className="text-white font-black text-sm uppercase tracking-tighter">
+                  <p className="text-sm font-black uppercase tracking-tighter text-white">
                     {ride.payment_method}
                   </p>
                 </div>
@@ -231,26 +261,24 @@ function ActiveRidePage() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Primary Action */}
         {actionAvailability?.canCancel && (
           <Button
             variant="ghost"
             onClick={() => setIsCancelDialogOpen(true)}
-            className="w-full h-12 text-zinc-600 font-black text-xs hover:text-red-500 hover:bg-red-500/5 rounded-2xl transition-colors"
+            className="h-12 w-full rounded-2xl text-xs font-black text-zinc-600 transition-colors hover:bg-red-500/5 hover:text-red-500"
           >
             CANCELAR CORRIDA
           </Button>
         )}
       </motion.div>
 
-      {/* Dialogs */}
       <CancellationDialog
         isOpen={isCancelDialogOpen}
         onClose={() => setIsCancelDialogOpen(false)}
         rideId={ride.id}
         onSuccess={() => {
           setIsCancelDialogOpen(false);
-          loadRide(ride.id); // Refresh to update to cancelled state
+          void loadRide(ride.id);
         }}
       />
     </div>
