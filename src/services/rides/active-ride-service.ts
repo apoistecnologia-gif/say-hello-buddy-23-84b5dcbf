@@ -147,7 +147,7 @@ class ActiveRideService {
     onUpdate: (ride: ActiveRide) => void,
     onConnectionChange?: (connected: boolean) => void,
   ): RealtimeChannel {
-    this.unsubscribe();
+    void this.unsubscribe();
     this.lastUpdateTimestamp = 0;
 
     this.channel = supabase
@@ -196,8 +196,9 @@ class ActiveRideService {
     return supabase.removeChannel(channel);
   }
 
-  private normalizeRide(data: unknown): ActiveRide {
-    if (!isRecord(data)) throw new Error("invalid_ride_response");
+  private normalizeRide(value: unknown): ActiveRide {
+    if (!isRecord(value)) throw new Error("invalid_ride_response");
+    const data = value;
 
     const ride: ActiveRide = {
       id: readRequiredString(data, "id"),
@@ -215,48 +216,53 @@ class ActiveRideService {
       updated_at: readRequiredString(data, "updated_at"),
     };
 
-    const optionalStrings: Array<keyof ActiveRide> = [
-      "driver_id",
-      "encoded_polyline",
-      "driver_name",
-      "driver_photo",
-      "driver_phone",
-      "driver_vehicle_model",
-      "driver_vehicle_color",
-      "driver_vehicle_plate",
-      "security_code",
-      "cancellation_reason",
-      "cancelled_by",
-      "accepted_at",
-      "driver_arrived_at",
-      "started_at",
-      "completed_at",
-      "share_token",
-    ];
+    const driverId = readOptionalString(data, "driver_id");
+    if (driverId) ride.driver_id = driverId;
+    const encodedPolyline = readOptionalString(data, "encoded_polyline");
+    if (encodedPolyline) ride.encoded_polyline = encodedPolyline;
+    const driverName = readOptionalString(data, "driver_name");
+    if (driverName) ride.driver_name = driverName;
+    const driverPhoto = readOptionalString(data, "driver_photo");
+    if (driverPhoto) ride.driver_photo = driverPhoto;
+    const driverPhone = readOptionalString(data, "driver_phone");
+    if (driverPhone) ride.driver_phone = driverPhone;
+    const driverVehicleModel = readOptionalString(data, "driver_vehicle_model");
+    if (driverVehicleModel) ride.driver_vehicle_model = driverVehicleModel;
+    const driverVehicleColor = readOptionalString(data, "driver_vehicle_color");
+    if (driverVehicleColor) ride.driver_vehicle_color = driverVehicleColor;
+    const driverVehiclePlate = readOptionalString(data, "driver_vehicle_plate");
+    if (driverVehiclePlate) ride.driver_vehicle_plate = driverVehiclePlate;
+    const securityCode = readOptionalString(data, "security_code");
+    if (securityCode) ride.security_code = securityCode;
+    const cancellationReason = readOptionalString(data, "cancellation_reason");
+    if (cancellationReason) ride.cancellation_reason = cancellationReason;
+    const cancelledBy = readOptionalString(data, "cancelled_by");
+    if (cancelledBy) ride.cancelled_by = cancelledBy;
+    const acceptedAt = readOptionalString(data, "accepted_at");
+    if (acceptedAt) ride.accepted_at = acceptedAt;
+    const driverArrivedAt = readOptionalString(data, "driver_arrived_at");
+    if (driverArrivedAt) ride.driver_arrived_at = driverArrivedAt;
+    const startedAt = readOptionalString(data, "started_at");
+    if (startedAt) ride.started_at = startedAt;
+    const completedAt = readOptionalString(data, "completed_at");
+    if (completedAt) ride.completed_at = completedAt;
+    const shareToken = readOptionalString(data, "share_token");
+    if (shareToken) ride.share_token = shareToken;
 
-    for (const key of optionalStrings) {
-      const value = readOptionalString(data, key);
-      if (value !== undefined) {
-        (ride as Record<string, unknown>)[key] = value;
-      }
-    }
-
-    const optionalNumbers: Array<keyof ActiveRide> = [
-      "final_price",
-      "driver_rating",
-      "driver_latitude",
-      "driver_longitude",
-      "driver_heading",
-      "cancellation_fee",
-      "passenger_rating",
-    ];
-
-    for (const key of optionalNumbers) {
-      const value = readOptionalNumber(data, key);
-      if (value !== undefined) {
-        (ride as Record<string, unknown>)[key] = value;
-      }
-    }
+    const finalPrice = readOptionalNumber(data, "final_price");
+    if (finalPrice !== undefined) ride.final_price = finalPrice;
+    const driverRating = readOptionalNumber(data, "driver_rating");
+    if (driverRating !== undefined) ride.driver_rating = driverRating;
+    const driverLatitude = readOptionalNumber(data, "driver_latitude");
+    if (driverLatitude !== undefined) ride.driver_latitude = driverLatitude;
+    const driverLongitude = readOptionalNumber(data, "driver_longitude");
+    if (driverLongitude !== undefined) ride.driver_longitude = driverLongitude;
+    const driverHeading = readOptionalNumber(data, "driver_heading");
+    if (driverHeading !== undefined) ride.driver_heading = driverHeading;
+    const cancellationFee = readOptionalNumber(data, "cancellation_fee");
+    if (cancellationFee !== undefined) ride.cancellation_fee = cancellationFee;
+    const passengerRating = readOptionalNumber(data, "passenger_rating");
+    if (passengerRating !== undefined) ride.passenger_rating = passengerRating;
 
     const serviceDetails = parseJsonValue(data["service_details"]);
     if (isRecord(serviceDetails)) ride.service_details = serviceDetails;
