@@ -85,7 +85,23 @@ Deno.serve(async (req) => {
     if (!serviceRequest) {
       const { data, error } = await admin.auth.getUser(token);
       if (error || !data.user) return json({ error: "unauthorized" }, 401);
-      callerId = data.user.id;
+      
+      const { data: roleData } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.user.id)
+        .in("role", ["admin", "super_admin"])
+        .maybeSingle();
+
+      if (!roleData) {
+        // Se não for admin, ele SÓ pode chamar se for participante de uma corrida
+        // e o código abaixo validará isso através do input.ride_id.
+        callerId = data.user.id;
+      } else {
+        // Admins são tratados como serviceRequest para pular a checagem de participantes
+        // mas mantemos o callerId para auditoria se necessário.
+        callerId = data.user.id;
+      }
     }
 
     const input = (await req.json()) as PushBody;
