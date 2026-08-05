@@ -30,6 +30,33 @@ const STATUS_ORDER: Record<RideStatus, number> = {
   cancelada_motorista: 5,
 };
 
+type OptionalStringRideKey =
+  | "driver_id"
+  | "encoded_polyline"
+  | "driver_name"
+  | "driver_photo"
+  | "driver_phone"
+  | "driver_vehicle_model"
+  | "driver_vehicle_color"
+  | "driver_vehicle_plate"
+  | "security_code"
+  | "cancellation_reason"
+  | "cancelled_by"
+  | "accepted_at"
+  | "driver_arrived_at"
+  | "started_at"
+  | "completed_at"
+  | "share_token";
+
+type OptionalNumberRideKey =
+  | "final_price"
+  | "driver_rating"
+  | "driver_latitude"
+  | "driver_longitude"
+  | "driver_heading"
+  | "cancellation_fee"
+  | "passenger_rating";
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -239,7 +266,7 @@ class ActiveRideService {
       updated_at: readRequiredString(data, "updated_at"),
     };
 
-    const optionalStrings: Array<[keyof ActiveRide, string]> = [
+    const optionalStrings: Array<[OptionalStringRideKey, string]> = [
       ["driver_id", "driver_id"],
       ["encoded_polyline", "encoded_polyline"],
       ["driver_name", "driver_name"],
@@ -260,10 +287,10 @@ class ActiveRideService {
 
     for (const [targetKey, sourceKey] of optionalStrings) {
       const field = readOptionalString(data, sourceKey);
-      if (field !== undefined) (ride as Record<string, unknown>)[targetKey] = field;
+      if (field !== undefined) ride[targetKey] = field;
     }
 
-    const optionalNumbers: Array<[keyof ActiveRide, string]> = [
+    const optionalNumbers: Array<[OptionalNumberRideKey, string]> = [
       ["final_price", "final_price"],
       ["driver_rating", "driver_rating"],
       ["driver_latitude", "driver_latitude"],
@@ -275,7 +302,7 @@ class ActiveRideService {
 
     for (const [targetKey, sourceKey] of optionalNumbers) {
       const field = readOptionalNumber(data, sourceKey);
-      if (field !== undefined) (ride as Record<string, unknown>)[targetKey] = field;
+      if (field !== undefined) ride[targetKey] = field;
     }
 
     const serviceDetails = parseJsonValue(data["service_details"]);
