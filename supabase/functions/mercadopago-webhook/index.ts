@@ -7,17 +7,15 @@ const MP_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")?.trim() ?? "";
 const MP_WEBHOOK_SECRET = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET")?.trim() ?? "";
 const MAX_SIGNATURE_AGE_SECONDS = 300;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-signature, x-request-id",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-function json(body: unknown, status = 200) {
+function json(body: unknown, status = 200, req?: Request) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "content-type": "application/json" },
+    headers: { 
+      ...(req ? getCorsHeaders(req) : { "Access-Control-Allow-Origin": "*" }), 
+      "content-type": "application/json" 
+    },
   });
 }
 
@@ -85,7 +83,7 @@ function mappedStatus(status: string): "active" | "pending" | "overdue" | "cance
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!MP_WEBHOOK_SECRET) return json({ error: "webhook_secret_not_configured" }, 503);
 
@@ -118,7 +116,7 @@ Deno.serve(async (req) => {
   const requestId = req.headers.get("x-request-id") ?? "";
   const signature = req.headers.get("x-signature") ?? "";
   if (!(await verifySignature(dataId, requestId, signature).catch(() => false))) {
-    console.error(`[MP Webhook] Invalid signature: dataId=${dataId}, requestId=${requestId}, signature=${signature}`);
+    console.error(`[MP Webhook] Invalid signature: dataId=${dataId}, requestId=${requestId}`);
     return json({ error: "invalid_signature" }, 401);
   }
 
@@ -461,7 +459,7 @@ Deno.serve(async (req) => {
       await admin.from("notification_inbox").insert({
         user_id: driver.user_id,
         title: "Mensalidade paga com sucesso",
-        body: "Sua mensalidade MOVVI foi confirmada. Bons rolês!",
+        body: "Sua mensalidade APOIS foi confirmada. Bons rolês!",
         category: "billing",
         data: {
           payment_id: String(payment.id),
