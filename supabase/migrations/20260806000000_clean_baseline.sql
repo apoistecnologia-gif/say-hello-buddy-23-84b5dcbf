@@ -12,17 +12,18 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 DO $$ BEGIN
     CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user', 'passenger', 'driver');
     CREATE TYPE public.driver_approval_status AS ENUM ('pendente', 'em_analise', 'aprovado', 'rejeitado', 'bloqueado');
-    CREATE TYPE public.driver_subscription_status AS ENUM ('ativa', 'vencida', 'cancelada', 'teste');
-    CREATE TYPE public.payment_status AS ENUM ('pendente', 'pago', 'falhou', 'estornado');
-    CREATE TYPE public.ride_status AS ENUM ('agendada', 'procurar_motorista', 'motorista_a_caminho', 'motorista_chegou', 'em_viagem', 'finalizada', 'cancelada_passageiro', 'cancelada_motorista');
+    CREATE TYPE public.driver_subscription_status AS ENUM ('ativa', 'vencida', 'cancelada', 'teste', 'overdue');
+    CREATE TYPE public.payment_status AS ENUM ('pendente', 'pago', 'falhou', 'estornado', 'approved', 'rejected', 'refunded', 'charged_back', 'cancelled');
+    CREATE TYPE public.ride_status AS ENUM ('agendada', 'procurar_motorista', 'motorista_a_caminho', 'motorista_chegou', 'em_viagem', 'finalizada', 'cancelada_passageiro', 'cancelada_motorista', 'expired');
+    CREATE TYPE public.withdrawal_status AS ENUM ('pending', 'processing', 'paid', 'failed');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
--- 3. TABLES (Complete Schema)
+-- 3. TABLES (Core Schema)
 
 CREATE TABLE IF NOT EXISTS public.users (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE, -- Architecture A: same as auth.users.id
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     name TEXT,
     email TEXT UNIQUE,
     phone TEXT,
@@ -48,7 +49,7 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
 CREATE TABLE IF NOT EXISTS public.passenger_wallets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     passenger_id UUID UNIQUE REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
-    balance NUMERIC(12,2) DEFAULT 0,
+    balance NUMERIC(12,2) DEFAULT 0 CHECK (balance >= 0),
     currency TEXT DEFAULT 'BRL',
     is_blocked BOOLEAN DEFAULT FALSE,
     blocked_reason TEXT,
@@ -76,6 +77,8 @@ CREATE TABLE IF NOT EXISTS public.drivers (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 4. TABLES (Ride & Tariff)
 
 CREATE TABLE IF NOT EXISTS public.ride_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -128,7 +131,7 @@ CREATE TABLE IF NOT EXISTS public.rides (
     distance_km NUMERIC(10,2),
     duration_min NUMERIC(10,2),
     payment_method TEXT NOT NULL,
-    request_key UUID,
+    request_key UUID UNIQUE, -- Idempotency key
     accepted_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     cancelled_at TIMESTAMPTZ,
@@ -146,6 +149,147 @@ CREATE TABLE IF NOT EXISTS public.cancellation_fees (
     reason TEXT,
     status TEXT DEFAULT 'pending',
     is_paid BOOLEAN DEFAULT FALSE,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. TABLES (Mercado Pago & Subscriptions)
+
+CREATE TABLE IF NOT EXISTS public.subscription_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    price NUMERIC(10,2) NOT NULL CHECK (price >= 0),
+    billing_cycle_days INTEGER NOT NULL DEFAULT 30,
+    is_active BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    driver_id UUID REFERENCES public.drivers(id) ON DELETE CASCADE NOT NULL,
+    plan_id UUID REFERENCES public.subscription_plans(id),
+    external_subscription_id TEXT UNIQUE,
+    status public.driver_subscription_status NOT NULL DEFAULT 'teste',
+    period_start TIMESTAMPTZ,
+    period_end TIMESTAMPTZ,
+    grace_until TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.driver_payment_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    driver_id UUID REFERENCES public.drivers(id) ON DELETE CASCADE,
+    subscription_id UUID REFERENCES public.subscriptions(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    provider_id TEXT UNIQUE, -- MP payment_id
+    event_type TEXT NOT NULL,
+    status public.payment_status NOT NULL,
+    amount NUMERIC(10,2) NOT NULL,
+    raw_payload JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.payment_webhook_receipts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider TEXT NOT NULL,
+    provider_event_id TEXT UNIQUE NOT NULL, -- MP event_id
+    status TEXT NOT NULL, -- processed, error, pending
+    detail TEXT,
+    raw_payload JSONB,
+    processed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. TABLES (Payouts & Admin Audit)
+
+CREATE TABLE IF NOT EXISTS public.driver_withdrawals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    driver_id UUID REFERENCES public.drivers(id) ON DELETE CASCADE NOT NULL,
+    amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+    status public.withdrawal_status NOT NULL DEFAULT 'pending',
+    pix_key TEXT,
+    pix_key_type TEXT,
+    pix_holder_name TEXT,
+    external_reference TEXT UNIQUE,
+    rejection_reason TEXT,
+    idempotency_key UUID UNIQUE,
+    processed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.admin_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    actor_id UUID REFERENCES public.users(id),
+    action TEXT NOT NULL,
+    target_type TEXT NOT NULL,
+    target_id UUID,
+    before JSONB,
+    after JSONB,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.admin_driver_notes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    driver_id UUID REFERENCES public.drivers(id) ON DELETE CASCADE NOT NULL,
+    admin_id UUID REFERENCES public.users(id) NOT NULL,
+    note TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. TABLES (Notifications & Settings)
+
+CREATE TABLE IF NOT EXISTS public.user_notification_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    token TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    last_used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, token)
+);
+
+CREATE TABLE IF NOT EXISTS public.notification_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT,
+    status TEXT NOT NULL, -- sent, failed
+    provider_message_id TEXT,
+    error_info TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.app_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    key TEXT UNIQUE NOT NULL,
+    value JSONB NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.account_deletion_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+    role TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'requested',
+    reason TEXT,
+    processed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Legacy/Admin Support Tables (as referenced in code)
+CREATE TABLE IF NOT EXISTS public.coupons (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code TEXT UNIQUE NOT NULL,
+    type TEXT NOT NULL, -- percent, fixed
+    value NUMERIC(10,2) NOT NULL,
+    enabled BOOLEAN DEFAULT TRUE,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -172,7 +316,7 @@ CREATE TABLE IF NOT EXISTS public.payment_methods (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. FUNCTIONS
+-- 8. FUNCTIONS
 
 -- Hardened Role Helper
 CREATE OR REPLACE FUNCTION public.current_user_has_role(_role public.app_role)
@@ -191,7 +335,7 @@ $$;
 REVOKE ALL ON FUNCTION public.current_user_has_role(public.app_role) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.current_user_has_role(public.app_role) TO authenticated;
 
--- Correct handle_new_user (Architecture A, Idempotent, Metadata-Aware)
+-- Correct handle_new_user
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -208,14 +352,12 @@ BEGIN
     _phone := NEW.raw_user_meta_data->>'phone';
     _role_str := COALESCE(NEW.raw_user_meta_data->>'role', 'passenger');
 
-    -- Role Validation
     IF _role_str NOT IN ('passenger', 'driver') THEN 
         _role := 'passenger'::public.app_role; 
     ELSE
         _role := _role_str::public.app_role;
     END IF;
 
-    -- Upsert Public User (Architecture A: ID = NEW.ID)
     INSERT INTO public.users (id, name, email, phone)
     VALUES (NEW.id, _name, NEW.email, _phone)
     ON CONFLICT (id) DO UPDATE SET 
@@ -224,12 +366,10 @@ BEGIN
         phone = COALESCE(EXCLUDED.phone, public.users.phone),
         updated_at = NOW();
 
-    -- Insert Role
     INSERT INTO public.user_roles (user_id, role)
     VALUES (NEW.id, _role)
     ON CONFLICT (user_id, role) DO NOTHING;
 
-    -- Create Wallet ONLY for Passengers
     IF _role = 'passenger' THEN
         INSERT INTO public.passenger_wallets (passenger_id)
         VALUES (NEW.id)
@@ -240,7 +380,6 @@ BEGIN
 END;
 $$;
 
--- Safe Trigger Setup
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
@@ -255,7 +394,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 5. APPLY TRIGGERS DETERMINISTICALLY
+-- 9. APPLY TRIGGERS DETERMINISTICALLY
 DO $$
 DECLARE
     tbl TEXT;
@@ -286,14 +425,20 @@ $$;
 REVOKE ALL ON FUNCTION public.mark_notification_read(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.mark_notification_read(UUID) TO authenticated;
 
--- 6. INDEXES
+-- 10. INDEXES (Optimized for Function Patterns)
 CREATE INDEX IF NOT EXISTS idx_rides_passenger_id ON public.rides(passenger_id);
 CREATE INDEX IF NOT EXISTS idx_rides_driver_id ON public.rides(driver_id);
 CREATE INDEX IF NOT EXISTS idx_rides_status ON public.rides(status);
 CREATE INDEX IF NOT EXISTS idx_drivers_is_online ON public.drivers(is_online) WHERE is_online = TRUE;
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_p_wallets_passenger_id ON public.passenger_wallets(passenger_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_driver_id ON public.subscriptions(driver_id);
+CREATE INDEX IF NOT EXISTS idx_p_webhook_receipts_event_id ON public.payment_webhook_receipts(provider_event_id);
+CREATE INDEX IF NOT EXISTS idx_d_payment_events_provider_id ON public.driver_payment_events(provider_id);
+CREATE INDEX IF NOT EXISTS idx_d_withdrawals_driver_id ON public.driver_withdrawals(driver_id);
+CREATE INDEX IF NOT EXISTS idx_u_notification_tokens_user_id ON public.user_notification_tokens(user_id);
 
--- 7. RLS ENABLEMENT
+-- 11. RLS ENABLEMENT
 DO $$
 DECLARE
     tbl TEXT;
@@ -306,15 +451,12 @@ BEGIN
     END LOOP;
 END $$;
 
--- 8. RLS POLICIES (Hardened Matrix)
+-- 12. RLS POLICIES (Hardened)
 
 -- USERS
 CREATE POLICY "users_select_own" ON public.users FOR SELECT TO authenticated USING (auth.uid() = id);
 CREATE POLICY "users_update_own" ON public.users FOR UPDATE TO authenticated USING (auth.uid() = id) 
-WITH CHECK (
-    auth.uid() = id AND 
-    (id = EXCLUDED.id OR id IS NOT DISTINCT FROM EXCLUDED.id) -- Prevent changing ID
-);
+WITH CHECK (auth.uid() = id AND (id = EXCLUDED.id OR id IS NOT DISTINCT FROM EXCLUDED.id));
 CREATE POLICY "users_admin_all" ON public.users FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
 -- USER_ROLES
@@ -325,7 +467,7 @@ CREATE POLICY "user_roles_admin_all" ON public.user_roles FOR ALL TO authenticat
 CREATE POLICY "passenger_wallets_select_own" ON public.passenger_wallets FOR SELECT TO authenticated USING (auth.uid() = passenger_id);
 CREATE POLICY "passenger_wallets_admin_select" ON public.passenger_wallets FOR SELECT TO authenticated USING (public.current_user_has_role('admin'));
 
--- DRIVERS (Operational approach: column-level grants used in Section 9)
+-- DRIVERS
 CREATE POLICY "drivers_select_own" ON public.drivers FOR SELECT TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "drivers_update_own" ON public.drivers FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "drivers_public_active_select" ON public.drivers FOR SELECT TO authenticated USING (is_online = TRUE AND approval_status = 'aprovado');
@@ -339,20 +481,26 @@ CREATE POLICY "rides_select_driver" ON public.rides FOR SELECT TO authenticated 
 );
 CREATE POLICY "rides_admin_all" ON public.rides FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
--- CANCELLATION_FEES
-CREATE POLICY "cancellation_fees_select_own" ON public.cancellation_fees FOR SELECT TO authenticated USING (auth.uid() = passenger_id);
-CREATE POLICY "cancellation_fees_admin_all" ON public.cancellation_fees FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
+-- NEW TABLES RLS
 
--- NOTIFICATIONS
-CREATE POLICY "notifications_select_own" ON public.notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY "notifications_update_own" ON public.notifications FOR UPDATE TO authenticated USING (auth.uid() = user_id) 
-WITH CHECK (
-    auth.uid() = user_id AND 
-    (user_id = EXCLUDED.user_id OR user_id IS NOT DISTINCT FROM EXCLUDED.user_id) AND -- Prevent ownership change
-    (title = EXCLUDED.title OR title IS NOT DISTINCT FROM EXCLUDED.title) -- Restricted to read_at conceptually (best handled by RPC)
-);
+-- Subscriptions
+CREATE POLICY "subs_select_own" ON public.subscriptions FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.drivers WHERE id = driver_id AND user_id = auth.uid()));
+CREATE POLICY "subs_admin_all" ON public.subscriptions FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
--- REFERENCE TABLES
+-- Withdrawals
+CREATE POLICY "withdrawals_select_own" ON public.driver_withdrawals FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.drivers WHERE id = driver_id AND user_id = auth.uid()));
+CREATE POLICY "withdrawals_admin_all" ON public.driver_withdrawals FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
+
+-- Audit Logs
+CREATE POLICY "audit_select_admin" ON public.admin_audit_logs FOR SELECT TO authenticated USING (public.current_user_has_role('admin'));
+
+-- Notification Tokens
+CREATE POLICY "tokens_own" ON public.user_notification_tokens FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+-- Account Deletion
+CREATE POLICY "deletion_own" ON public.account_deletion_requests FOR SELECT TO authenticated USING (user_id = auth.uid());
+
+-- Reference Tables (Read-Only)
 CREATE POLICY "ref_categories_select" ON public.ride_categories FOR SELECT TO authenticated USING (is_active = TRUE);
 CREATE POLICY "ref_tariff_select" ON public.tariff_rules FOR SELECT TO authenticated USING (is_active = TRUE);
 CREATE POLICY "ref_payment_select" ON public.payment_methods FOR SELECT TO authenticated USING (is_active = TRUE);
@@ -360,23 +508,16 @@ CREATE POLICY "ref_admin_all_categories" ON public.ride_categories FOR ALL TO au
 CREATE POLICY "ref_admin_all_tariff" ON public.tariff_rules FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 CREATE POLICY "ref_admin_all_payment" ON public.payment_methods FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
--- 9. GRANTS AND COLUMN-LEVEL SECURITY
+-- 13. GRANTS
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
-
--- Revoke all table-level write grants from authenticated users by default
 REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM authenticated;
-
--- Grant selective SELECT
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
 
--- Grant selective UPDATE for USERS (own profile)
+-- Selective profile/operational updates
 GRANT UPDATE (name, phone, avatar_url, city) ON public.users TO authenticated;
-
--- Grant selective UPDATE for DRIVERS (own operation)
 GRANT UPDATE (is_online, current_lat, current_lng, last_location_at) ON public.drivers TO authenticated;
-
--- Grant selective UPDATE for NOTIFICATIONS (read status)
 GRANT UPDATE (read_at) ON public.notifications TO authenticated;
+GRANT ALL ON public.user_notification_tokens TO authenticated;
 
 COMMIT;
