@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 
 import { BottomNavigation } from "@/components/BottomNavigation";
@@ -16,11 +17,45 @@ import { WalletProvider } from "@/hooks/use-wallet";
 import { CouponProvider } from "@/hooks/use-coupon";
 import { CheckoutPreparationProvider } from "@/hooks/use-checkout-preparation";
 import { RideRequestProvider } from "@/hooks/rides/use-ride-request";
-import { ActiveRideProvider } from "@/hooks/rides/use-active-ride";
+import { ActiveRideProvider, useActiveRide } from "@/hooks/rides/use-active-ride";
 
 export const Route = createFileRoute("/_authenticated")({
   component: AuthenticatedLayout,
 });
+
+function ActiveRideRecovery() {
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const { ride, screenState, isRecovering, recoverActiveRide } = useActiveRide();
+  const navigationInFlightRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isRecovering || screenState !== "active" || !ride?.id) return;
+
+    const ridePath = `/corrida/${ride.id}`;
+    if (pathname === ridePath || navigationInFlightRef.current === ride.id) return;
+
+    navigationInFlightRef.current = ride.id;
+    void navigate({
+      to: "/corrida/$rideId",
+      params: { rideId: ride.id },
+      replace: true,
+    }).finally(() => {
+      navigationInFlightRef.current = null;
+    });
+  }, [isRecovering, navigate, pathname, ride?.id, screenState]);
+
+  useEffect(() => {
+    const recover = () => {
+      void recoverActiveRide();
+    };
+
+    window.addEventListener("pageshow", recover);
+    return () => window.removeEventListener("pageshow", recover);
+  }, [recoverActiveRide]);
+
+  return null;
+}
 
 function AuthenticatedLayout() {
   return (
@@ -39,15 +74,16 @@ function AuthenticatedLayout() {
                             <CheckoutPreparationProvider>
                               <RideRequestProvider>
                                 <ActiveRideProvider>
-                                    <div className="min-h-[100dvh] bg-zinc-950 flex justify-center selection:bg-yellow-500/30 overflow-hidden">
-                                      <div className="relative w-full max-w-[430px] h-[100dvh] bg-black overflow-hidden flex flex-col">
-                                        <div className="flex-1 relative overflow-hidden">
-                                          <Outlet />
-                                        </div>
-                                        <BottomNavigation />
-                                        <Toaster />
+                                  <ActiveRideRecovery />
+                                  <div className="min-h-[100dvh] bg-zinc-950 flex justify-center selection:bg-yellow-500/30 overflow-hidden">
+                                    <div className="relative w-full max-w-[430px] h-[100dvh] bg-black overflow-hidden flex flex-col">
+                                      <div className="flex-1 relative overflow-hidden">
+                                        <Outlet />
                                       </div>
+                                      <BottomNavigation />
+                                      <Toaster />
                                     </div>
+                                  </div>
                                 </ActiveRideProvider>
                               </RideRequestProvider>
                             </CheckoutPreparationProvider>
