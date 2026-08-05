@@ -542,8 +542,8 @@ async function runAction(
     case "download.source_signed_url": {
       const signed = await admin.storage
         .from("downloads")
-        .createSignedUrl("movvi-drive-source.zip", 300, {
-          download: "movvi-drive-source.zip",
+        .createSignedUrl("apois-drive-source.zip", 300, {
+          download: "apois-drive-source.zip",
         });
       if (signed.error || !signed.data?.signedUrl) fail("file_unavailable", 404);
       return { url: signed.data.signedUrl };
