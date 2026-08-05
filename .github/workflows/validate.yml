@@ -31,19 +31,62 @@ jobs:
       - name: TypeScript
         run: bun run typecheck
 
-      - name: Validate Supabase migration timestamps
+      - name: Validate Supabase migrations
         shell: bash
         run: |
           set -euo pipefail
-          duplicates="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' \
-            | sed -E 's/^([0-9]{14}).*/\1/' \
-            | sort \
-            | uniq -d)"
-          if [ -n "$duplicates" ]; then
-            echo "Timestamps duplicados encontrados nas migrations:"
-            echo "$duplicates"
-            exit 1
-          fi
+          python3 - <<'PY'
+          from collections import Counter
+          from datetime import datetime
+          from pathlib import Path
+          import re
+          import sys
+
+          root = Path("supabase/migrations")
+          files = sorted(root.glob("*.sql"))
+          errors: list[str] = []
+          timestamps: list[str] = []
+          pattern = re.compile(r"^(\d{14})_([a-z0-9][a-z0-9_-]*)\.sql$")
+
+          if not root.is_dir():
+              errors.append("pasta supabase/migrations não encontrada")
+          if not files:
+              errors.append("nenhuma migration SQL encontrada")
+
+          for path in files:
+              match = pattern.fullmatch(path.name)
+              if not match:
+                  errors.append(f"nome inválido: {path.name}")
+                  continue
+
+              timestamp, description = match.groups()
+              timestamps.append(timestamp)
+
+              try:
+                  datetime.strptime(timestamp, "%Y%m%d%H%M%S")
+              except ValueError:
+                  errors.append(f"timestamp impossível: {path.name}")
+
+              if len(description) < 3:
+                  errors.append(f"descrição curta demais: {path.name}")
+              if "__" in description or "--" in description:
+                  errors.append(f"separador duplicado na descrição: {path.name}")
+              if path.stat().st_size == 0:
+                  errors.append(f"arquivo vazio: {path.name}")
+
+          duplicates = sorted(ts for ts, count in Counter(timestamps).items() if count > 1)
+          for timestamp in duplicates:
+              names = ", ".join(path.name for path in files if path.name.startswith(timestamp))
+              errors.append(f"timestamp duplicado {timestamp}: {names}")
+
+          if errors:
+              print("Falhas encontradas nas migrations:")
+              for error in errors:
+                  print(f"- {error}")
+              sys.exit(1)
+
+          print(f"Migrations validadas: {len(files)} arquivos, timestamps únicos e calendariamente válidos.")
+          PY
 
       - name: Lint corrected authentication and location files
         run: >-
