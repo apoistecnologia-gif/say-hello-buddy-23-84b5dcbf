@@ -1,5 +1,24 @@
 import { supabase } from "@/integrations/supabase/client";
-import { PaymentMethod } from "@/types/payments";
+import type {
+  CancellationFee,
+  PaymentMethod,
+  PaymentMethodCode,
+} from "@/types/payments";
+
+const PAYMENT_METHOD_CODES: PaymentMethodCode[] = [
+  "pix",
+  "credit",
+  "debit",
+  "cash",
+  "wallet",
+];
+
+function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
+  const normalized = code === "credit_card" ? "credit" : code === "debit_card" ? "debit" : code;
+  return PAYMENT_METHOD_CODES.includes(normalized as PaymentMethodCode)
+    ? (normalized as PaymentMethodCode)
+    : null;
+}
 
 class PaymentService {
   async getPaymentMethods(): Promise<PaymentMethod[]> {
@@ -10,37 +29,60 @@ class PaymentService {
       .order("sort_order", { ascending: true });
 
     if (error) {
-      console.error("Error fetching payment methods:", error);
-      throw error;
+      console.error("[PaymentService] Failed to fetch payment methods", error);
+      throw new Error("payment_methods_unavailable");
     }
 
-    return (data || []).map((m) => ({
-      id: m.id,
-      code: m.code as any,
-      name: m.name,
-      label: m.name,
-      description: m.description,
-      icon: m.icon,
-      isActive: !!m.is_active,
-      enabled: !!m.is_active,
-      sortOrder: m.sort_order || 0,
-      requiresBalance: !!m.requires_balance,
-    }));
+    return (data ?? []).flatMap((method) => {
+      const code = normalizePaymentMethodCode(method.code);
+      if (!code) return [];
+
+      const isActive = method.is_active === true;
+      return [
+        {
+          id: method.id,
+          code,
+          name: method.name,
+          label: method.name,
+          description: method.description,
+          icon: method.icon,
+          isActive,
+          enabled: isActive,
+          sortOrder: method.sort_order ?? 0,
+          requiresBalance: method.requires_balance === true,
+        } satisfies PaymentMethod,
+      ];
+    });
   }
 
-  async getCancellationFees(userId: string) {
+  async getCancellationFees(userId: string): Promise<CancellationFee[]> {
+    if (!userId.trim()) throw new Error("invalid_user_id");
+
     const { data, error } = await supabase
       .from("cancellation_fees")
-      .select("*")
+      .select("id, amount, reason, status, created_at")
       .eq("passenger_id", userId)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching cancellation fees:", error);
-      throw error;
+      console.error("[PaymentService] Failed to fetch cancellation fees", error);
+      throw new Error("cancellation_fees_unavailable");
     }
 
-    return data || [];
+    return (data ?? []).flatMap((fee) => {
+      if (fee.status !== "pending") return [];
+
+      return [
+        {
+          id: fee.id,
+          amount: fee.amount,
+          reason: fee.reason ?? "Taxa de cancelamento",
+          status: "pending",
+          createdAt: fee.created_at ?? new Date(0).toISOString(),
+        } satisfies CancellationFee,
+      ];
+    });
   }
 }
 

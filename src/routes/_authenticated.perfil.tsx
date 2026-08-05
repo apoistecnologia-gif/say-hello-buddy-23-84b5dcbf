@@ -20,76 +20,73 @@ export const Route = createFileRoute("/_authenticated/perfil")({
 });
 
 interface PassengerProfile {
-  id?: string;
   name: string;
-  phone: string | null;
-  avatar_url: string | null;
-  average_rating: number;
-  completed_rides: number;
+  avatarUrl: string | undefined;
+  phone: string | undefined;
+  averageRating: number;
+  completedRides: number;
 }
 
-function readString(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
+const readNonEmptyString = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 
-function readNullableString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
-}
+const normalizeProfile = (
+  profile: ReturnType<typeof useAuth>["profile"],
+  email: string | undefined,
+): PassengerProfile => {
+  const fallbackName = readNonEmptyString(email?.split("@")[0]) ?? "Passageiro";
+  const name = readNonEmptyString(profile?.name) ?? readNonEmptyString(profile?.full_name) ?? fallbackName;
 
-function readNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
+  return {
+    name,
+    avatarUrl: readNonEmptyString(profile?.avatar_url),
+    phone: readNonEmptyString(profile?.phone),
+    averageRating:
+      typeof profile?.average_rating === "number" && Number.isFinite(profile.average_rating)
+        ? profile.average_rating
+        : 5,
+    completedRides:
+      typeof profile?.completed_rides === "number" && Number.isFinite(profile.completed_rides)
+        ? profile.completed_rides
+        : 0,
+  };
+};
 
 function PerfilPage() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const currentProfile = normalizeProfile(profile, user?.email);
 
   const handleLogout = async () => {
     await signOut();
     navigate({ to: "/login" });
   };
 
-  const rawProfile =
-    profile && typeof profile === "object" ? (profile as Record<string, unknown>) : {};
-
-  const currentProfile: PassengerProfile = {
-    name: readString(
-      rawProfile["name"] || rawProfile["full_name"],
-      readString(user?.user_metadata?.["full_name"], "Passageiro")
-    ),
-    phone: readNullableString(rawProfile["phone"]),
-    avatar_url: readNullableString(rawProfile["avatar_url"]),
-    average_rating: readNumber(rawProfile["average_rating"]),
-    completed_rides: readNumber(rawProfile["completed_rides"]),
-  };
-
   return (
     <div className="flex flex-col min-h-screen bg-black text-white pb-24">
       <div className="p-6 pt-12 flex flex-col items-center border-b border-gray-900">
         <Avatar className="w-24 h-24 mb-4 border-2 border-yellow-500 p-1">
-          <AvatarImage src={currentProfile.avatar_url || undefined} />
+          <AvatarImage src={currentProfile.avatarUrl} />
           <AvatarFallback className="bg-gray-800 text-yellow-500 text-3xl font-bold">
-            {currentProfile.name.charAt(0) || user?.email?.charAt(0).toUpperCase()}
+            {currentProfile.name.charAt(0).toUpperCase() || "P"}
           </AvatarFallback>
         </Avatar>
         <h2 className="text-2xl font-bold">{currentProfile.name}</h2>
         <p className="text-gray-400 text-sm">{user?.email}</p>
 
-        {currentProfile.average_rating !== null && (
-          <div className="flex items-center gap-4 mt-4 bg-[#121212] px-4 py-2 rounded-full">
-            <div className="flex items-center gap-1 text-yellow-500">
-              <Star size={16} fill="currentColor" />
-              <span className="text-sm font-bold text-white">{currentProfile.average_rating}</span>
-            </div>
-            <div className="w-px h-4 bg-gray-800" />
-            <div className="flex items-center gap-1 text-green-500">
-              <CheckCircle size={16} />
-              <span className="text-sm font-bold text-white">
-                {currentProfile.completed_rides} corridas
-              </span>
-            </div>
+        <div className="flex items-center gap-4 mt-4 bg-[#121212] px-4 py-2 rounded-full">
+          <div className="flex items-center gap-1 text-yellow-500">
+            <Star size={16} fill="currentColor" />
+            <span className="text-sm font-bold text-white">{currentProfile.averageRating}</span>
           </div>
-        )}
+          <div className="w-px h-4 bg-gray-800" />
+          <div className="flex items-center gap-1 text-green-500">
+            <CheckCircle size={16} />
+            <span className="text-sm font-bold text-white">
+              {currentProfile.completedRides} corridas
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -104,8 +101,12 @@ function PerfilPage() {
               label="Dados Pessoais"
               value={currentProfile.name}
             />
-            <MenuLink icon={<Phone size={20} />} label="Telefone" value={currentProfile.phone} />
-            <MenuLink icon={<Mail size={20} />} label="E-mail" value={user?.email} />
+            <MenuLink
+              icon={<Phone size={20} />}
+              label="Telefone"
+              value={currentProfile.phone ?? ""}
+            />
+            <MenuLink icon={<Mail size={20} />} label="E-mail" value={user?.email ?? ""} />
           </div>
 
           <p className="text-xs font-bold text-gray-500 px-2 pt-6 pb-2 uppercase tracking-wider">
@@ -143,7 +144,7 @@ function MenuLink({
 }: {
   icon: React.ReactNode;
   label: string;
-  value?: string | null | undefined;
+  value?: string;
 }) {
   return (
     <button className="w-full flex items-center justify-between p-4 bg-[#121212] hover:bg-[#1a1a1a] rounded-xl transition-colors text-left group">

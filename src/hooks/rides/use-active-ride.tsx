@@ -25,6 +25,10 @@ interface ActiveRideContextType {
   recoverActiveRide: () => Promise<string | null>;
 }
 
+function readErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown";
+}
+
 const ActiveRideContext = createContext<ActiveRideContextType | undefined>(undefined);
 
 export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -34,14 +38,16 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [error, setError] = useState<string | null>(null);
   const [lastUpdateAt, setLastUpdateAt] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   const currentRideIdRef = useRef<string | null>(null);
 
   const clearRide = useCallback(() => {
-    activeRideService.unsubscribe();
+    void activeRideService.unsubscribe();
     setRide(null);
     setScreenState("idle");
     setError(null);
+    setIsRealtimeConnected(false);
     currentRideIdRef.current = null;
   }, []);
 
@@ -49,7 +55,6 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setRide(updatedRide);
     setLastUpdateAt(new Date());
 
-    // Update screen state based on status
     if (updatedRide.status === "finalizada") setScreenState("completed");
     else if (updatedRide.status.startsWith("cancelada")) setScreenState("cancelled");
     else setScreenState("active");
@@ -68,18 +73,25 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setRide(data);
         setLastUpdateAt(new Date());
 
-        if (data.status === "finalizada") setScreenState("completed");
-        else if (data.status.startsWith("cancelada")) setScreenState("cancelled");
-        else {
+        if (data.status === "finalizada") {
+          setScreenState("completed");
+          setIsRealtimeConnected(false);
+        } else if (data.status.startsWith("cancelada")) {
+          setScreenState("cancelled");
+          setIsRealtimeConnected(false);
+        } else {
           setScreenState("active");
-          activeRideService.subscribeToRide(rideId, handleUpdate);
+          activeRideService.subscribeToRide(rideId, handleUpdate, setIsRealtimeConnected);
         }
 
         setError(null);
-      } catch (err: any) {
-        console.error("[useActiveRide] Error loading ride:", err);
-        if (err.message === "not_found") setScreenState("not_found");
-        else if (err.message === "unauthorized") setScreenState("unauthorized");
+      } catch (caughtError: unknown) {
+        const message = readErrorMessage(caughtError);
+        console.error("[useActiveRide] Error loading ride:", caughtError);
+        setIsRealtimeConnected(false);
+
+        if (message === "not_found") setScreenState("not_found");
+        else if (message === "unauthorized") setScreenState("unauthorized");
         else {
           setScreenState("failed");
           setError("Não foi possível carregar os dados da corrida.");
@@ -102,19 +114,22 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const activeRide = await activeRideService.getActiveRide(user.id);
       return activeRide ? activeRide.id : null;
-    } catch (err) {
-      console.error("[useActiveRide] Recovery error:", err);
+    } catch (caughtError: unknown) {
+      console.error("[useActiveRide] Recovery error:", caughtError);
       return null;
     }
   }, [user]);
 
   const retry = useCallback(() => {
-    if (currentRideIdRef.current) loadRide(currentRideIdRef.current);
-  }, [loadRide, currentRideIdRef]);
+    if (currentRideIdRef.current) {
+      void loadRide(currentRideIdRef.current);
+    }
+  }, [loadRide]);
 
-  // Clean up on unmount
   useEffect(() => {
-    return () => activeRideService.unsubscribe();
+    return () => {
+      void activeRideService.unsubscribe();
+    };
   }, []);
 
   const actionAvailability = ride
@@ -129,7 +144,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         screenState,
         isInitialLoading: screenState === "loading",
         isRefreshing,
-        isRealtimeConnected: !!ride, // Simplified
+        isRealtimeConnected,
         lastUpdateAt,
         error,
         actionAvailability,

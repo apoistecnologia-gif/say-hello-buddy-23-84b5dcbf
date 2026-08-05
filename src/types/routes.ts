@@ -14,7 +14,7 @@ export interface RouteStep {
   lng: number;
   distanceMeters: number;
   instruction: string;
-  maneuver: string | undefined;
+  maneuver?: string;
 }
 
 export interface RouteResponse {
