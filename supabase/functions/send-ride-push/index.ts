@@ -9,10 +9,7 @@ const FIREBASE_B64 = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_B64") ?? "";
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 
-      ...getCorsHeaders(req), 
-      "content-type": "application/json" 
-    },
+    headers: { ...getCorsHeaders(req), "content-type": "application/json" },
   });
 }
 
@@ -33,15 +30,47 @@ type PushBody = {
   data?: Record<string, string>;
 };
 
-const ALLOWED_EVENTS = [
-  "driver.new_ride_request",
-  "ride.accepted",
-  "ride.driver_arrived",
-  "ride.started",
-  "ride.completed",
-  "ride.cancelled",
-  "ride.payment_confirmed",
-];
+type RideRow = {
+  passenger_id: string;
+  driver_id: string | null;
+  status: string;
+};
+
+const CLIENT_EVENT_RULES: Record<
+  string,
+  { actor: "driver" | "participant"; statuses: string[]; title: string; body: string }
+> = {
+  "ride.accepted": {
+    actor: "driver",
+    statuses: ["motorista_a_caminho"],
+    title: "Corrida aceita",
+    body: "Um motorista aceitou sua solicitação.",
+  },
+  "ride.driver_arrived": {
+    actor: "driver",
+    statuses: ["motorista_chegou"],
+    title: "Motorista no local",
+    body: "Seu motorista chegou ao ponto de embarque.",
+  },
+  "ride.started": {
+    actor: "driver",
+    statuses: ["em_viagem"],
+    title: "Corrida iniciada",
+    body: "Sua viagem começou. Tenha um bom trajeto!",
+  },
+  "ride.completed": {
+    actor: "driver",
+    statuses: ["finalizada"],
+    title: "Corrida finalizada",
+    body: "Você chegou ao seu destino.",
+  },
+  "ride.cancelled": {
+    actor: "participant",
+    statuses: ["cancelada_passageiro", "cancelada_motorista"],
+    title: "Corrida cancelada",
+    body: "A solicitação de corrida foi cancelada.",
+  },
+};
 
 function readServiceAccount(): ServiceAccount {
   if (!FIREBASE_B64) throw new Error("firebase_secret_missing");
@@ -63,6 +92,7 @@ async function accessToken(account: ServiceAccount): Promise<string> {
     .setIssuedAt(now)
     .setExpirationTime(now + 3600)
     .sign(key);
+
   const response = await fetch(account.token_uri ?? "https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -82,14 +112,14 @@ Deno.serve(async (req) => {
     if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
     if (req.method !== "POST") return json(req, { error: "method_not_allowed" }, 405);
 
-    const authorization = req.headers.get("Authorization") ?? "";
-    const token = authorization.replace(/^Bearer\s+/i, "").trim();
+    const token = (req.headers.get("Authorization") ?? "")
+      .replace(/^Bearer\s+/i, "")
+      .trim();
     if (!token) return json(req, { error: "unauthorized" }, 401);
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false },
+      auth: { persistSession: false, autoRefreshToken: false },
     });
-
     const isServiceRequest = token === SERVICE_ROLE;
     let isAdmin = false;
     let callerId: string | null = null;
@@ -98,111 +128,93 @@ Deno.serve(async (req) => {
       const { data: userData, error: authError } = await admin.auth.getUser(token);
       if (authError || !userData.user) return json(req, { error: "unauthorized" }, 401);
       callerId = userData.user.id;
-
       const { data: roleData } = await admin
         .from("user_roles")
         .select("role")
         .eq("user_id", callerId)
         .in("role", ["admin", "super_admin"])
         .maybeSingle();
-      if (roleData) isAdmin = true;
+      isAdmin = Boolean(roleData);
     }
 
     const input = (await req.json()) as PushBody;
-    if (!input.event || (!isAdmin && !isServiceRequest && !input.ride_id)) {
-      return json(req, { error: "invalid_payload" }, 422);
-    }
+    if (!input.event) return json(req, { error: "invalid_payload" }, 422);
 
     let finalUserIds: string[] = [];
     let finalTitle = "";
     let finalBody = "";
-    let finalUrl = input.url ?? "";
-    let finalData = input.data ?? {};
+    const finalUrl = input.url ?? "";
+    const finalData = input.data ?? {};
 
     if (isServiceRequest || isAdmin) {
-      if (!input.user_ids?.length || !input.title) return json(req, { error: "admin_payload_incomplete" }, 422);
-      finalUserIds = [...new Set(input.user_ids)].slice(0, 100);
+      if (!input.user_ids?.length || !input.title) {
+        return json(req, { error: "admin_payload_incomplete" }, 422);
+      }
+      finalUserIds = [...new Set(input.user_ids.filter(Boolean))].slice(0, 100);
       finalTitle = input.title.slice(0, 100);
       finalBody = (input.body ?? "").slice(0, 500);
     } else {
-      if (!ALLOWED_EVENTS.includes(input.event)) return json(req, { error: "event_not_allowed" }, 403);
-      
-      const { data: ride, error: rideError } = await admin
+      if (!input.ride_id || !callerId) return json(req, { error: "invalid_payload" }, 422);
+      const rule = CLIENT_EVENT_RULES[input.event];
+      if (!rule) return json(req, { error: "event_not_allowed" }, 403);
+
+      const { data, error: rideError } = await admin
         .from("rides")
-        .select("passenger_id,driver_id,candidate_driver_ids,offered_driver_ids,status")
+        .select("passenger_id,driver_id,status")
         .eq("id", input.ride_id)
         .maybeSingle();
+      if (rideError || !data) return json(req, { error: "ride_not_found" }, 404);
 
-      if (rideError || !ride) return json(req, { error: "ride_not_found" }, 404);
-
-      const participants = new Set([
-        ride.passenger_id,
-        ride.driver_id,
-        ...((ride.candidate_driver_ids ?? []) as string[]),
-        ...((ride.offered_driver_ids ?? []) as string[]),
-      ].filter(Boolean));
-
-      if (!callerId || !participants.has(callerId)) return json(req, { error: "forbidden" }, 403);
-
-      // Recipient logic based on event
-      if (input.event === "driver.new_ride_request") {
-        finalUserIds = ((ride.offered_driver_ids ?? []) as string[]).filter(id => id !== callerId);
-        finalTitle = "Nova solicitação de corrida";
-        finalBody = "Uma nova corrida está disponível próxima a você.";
-      } else if (input.event.startsWith("ride.")) {
-        // Broadly: if passenger sends, notify driver. If driver sends, notify passenger.
-        if (callerId === ride.passenger_id && ride.driver_id) {
-          finalUserIds = [ride.driver_id];
-        } else if (callerId === ride.driver_id) {
-          finalUserIds = [ride.passenger_id];
-        }
-        
-        const eventMap: Record<string, { title: string, body: string }> = {
-          "ride.accepted": { title: "Corrida Aceita", body: "Um motorista aceitou sua solicitação." },
-          "ride.driver_arrived": { title: "Motorista no Local", body: "Seu motorista chegou ao ponto de embarque." },
-          "ride.started": { title: "Corrida Iniciada", body: "Sua viagem começou. Tenha um bom trajeto!" },
-          "ride.completed": { title: "Corrida Finalizada", body: "Você chegou ao seu destino." },
-          "ride.cancelled": { title: "Corrida Cancelada", body: "A solicitação de corrida foi cancelada." },
-          "ride.payment_confirmed": { title: "Pagamento Confirmado", body: "Obrigado por utilizar o APOIS!" },
-        };
-        const content = eventMap[input.event];
-        if (content) {
-          finalTitle = content.title;
-          finalBody = content.body;
-        }
+      const ride = data as RideRow;
+      const isPassenger = callerId === ride.passenger_id;
+      const isDriver = callerId === ride.driver_id;
+      const allowedActor = rule.actor === "driver" ? isDriver : isPassenger || isDriver;
+      if (!allowedActor) return json(req, { error: "forbidden" }, 403);
+      if (!rule.statuses.includes(ride.status)) {
+        return json(req, { error: "event_status_mismatch" }, 409);
       }
 
-      if (!finalUserIds.length) return json(req, { ok: true, sent: 0, reason: "no_recipients_derived" }, 200);
+      finalUserIds = isDriver
+        ? [ride.passenger_id]
+        : ride.driver_id
+          ? [ride.driver_id]
+          : [];
+      finalTitle = rule.title;
+      finalBody = rule.body;
+      if (!finalUserIds.length) {
+        return json(req, { ok: true, sent: 0, reason: "no_recipients_derived" }, 200);
+      }
     }
 
-    // Filter by preferences
     const { data: preferences } = await admin
       .from("user_notification_preferences")
       .select("user_id,ride_updates,ride_requests")
       .in("user_id", finalUserIds);
-    
-    const prefMap = new Map((preferences ?? []).map(p => [p.user_id, p]));
-    const isRequestEvent = input.event === "driver.new_ride_request";
-    const allowedUsers = finalUserIds.filter(id => {
-      const p = prefMap.get(id);
-      if (!p) return true; // Default to true if no preference set
-      return isRequestEvent ? p.ride_requests !== false : p.ride_updates !== false;
+    const prefMap = new Map((preferences ?? []).map((preference) => [preference.user_id, preference]));
+    const requestEvent = input.event === "driver.new_ride_request";
+    const allowedUsers = finalUserIds.filter((userId) => {
+      const preference = prefMap.get(userId);
+      if (!preference) return true;
+      return requestEvent ? preference.ride_requests !== false : preference.ride_updates !== false;
     });
+    if (!allowedUsers.length) {
+      return json(req, { ok: true, sent: 0, suppressed: finalUserIds.length }, 200);
+    }
 
-    if (!allowedUsers.length) return json(req, { ok: true, sent: 0, suppressed: finalUserIds.length }, 200);
-
-    const { data: tokenRows } = await admin
+    const { data: tokenRows, error: tokenError } = await admin
       .from("user_notification_tokens")
       .select("user_id,token")
       .in("user_id", allowedUsers)
       .eq("platform", "android");
-
-    if (!tokenRows?.length) return json(req, { ok: true, sent: 0, no_tokens: allowedUsers.length }, 200);
+    if (tokenError) throw new Error(`notification_token_lookup_failed:${tokenError.message}`);
+    if (!tokenRows?.length) {
+      return json(req, { ok: true, sent: 0, no_tokens: allowedUsers.length }, 200);
+    }
 
     const account = readServiceAccount();
     const bearer = await accessToken(account);
     let sent = 0;
-    const failures: string[] = [];
+    const failures = new Set<string>();
 
     for (const row of tokenRows) {
       const response = await fetch(
@@ -231,23 +243,24 @@ Deno.serve(async (req) => {
           }),
         },
       );
-      if (response.ok) sent++;
-      else failures.push(`${row.user_id}:${response.status}`);
+      if (response.ok) sent += 1;
+      else failures.add(row.user_id);
     }
 
-    await admin.from("notification_logs").insert(
-      allowedUsers.map(uid => ({
-        user_id: uid,
+    const { error: logError } = await admin.from("notification_logs").insert(
+      allowedUsers.map((userId) => ({
+        user_id: userId,
         event: input.event,
         channel: "fcm",
         title: finalTitle,
         body: finalBody || null,
         data: { ride_id: input.ride_id ?? null, url: finalUrl || null },
-        status: failures.some(f => f.startsWith(uid)) ? "failed" : "sent",
-      }))
+        status: failures.has(userId) ? "failed" : "sent",
+      })),
     );
+    if (logError) console.error("[APOIS FCM] notification_log_failed", logError.message);
 
-    return json(req, { ok: failures.length === 0, sent, failed: failures.length }, 200);
+    return json(req, { ok: failures.size === 0, sent, failed: failures.size }, 200);
   } catch (error) {
     console.error("[APOIS FCM]", error);
     return json(req, { error: "push_failed" }, 500);
