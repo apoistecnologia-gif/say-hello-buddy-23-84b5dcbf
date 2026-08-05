@@ -49,9 +49,9 @@ export function mercadoPagoBaseUrl(): string {
 }
 
 export function driverReturnUrl(): string {
-  const configured = Deno.env.get("MOVVI_DRIVER_SUBSCRIPTION_RETURN_URL")?.trim();
+  const configured = Deno.env.get("APOIS_DRIVER_SUBSCRIPTION_RETURN_URL")?.trim();
   if (configured?.startsWith("https://")) return configured;
-  return "https://app.movvidriver.com.br/motorista/assinatura";
+  return "https://say-hello-buddy-23.lovable.app/motorista/assinatura";
 }
 
 export async function loadBillingPlan(admin: any): Promise<BillingPlan> {
