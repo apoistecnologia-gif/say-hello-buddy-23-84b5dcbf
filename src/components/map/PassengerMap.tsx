@@ -4,6 +4,7 @@ import { useRoute } from "@/hooks/use-route";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { useDestination } from "@/hooks/use-destination";
 import { googleMapsLoader } from "@/services/google/google-maps-loader";
+import { MapPin } from "lucide-react";
 
 interface PassengerMapProps {
   origin: { lat: number; lng: number } | undefined;
