@@ -1,18 +1,19 @@
 import js from "@eslint/js";
-
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi", "backend-standalone", "supabase/functions"] },
+  { ignores: ["dist", ".output", ".vinxi"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+      },
     },
     plugins: {
       "react-hooks": reactHooks,
@@ -20,28 +21,31 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            {
-              name: "server-only",
-              message:
-                "TanStack Start does not use the Next.js `server-only` package. Rename the module to `*.server.ts` or mark it with `@tanstack/react-start/server-only`.",
-            },
-          ],
-        },
-      ],
       "react-refresh/only-export-components": "off",
-      "@typescript-eslint/no-unused-vars": "off",
-      "@typescript-eslint/no-explicit-any": "off",
-      "react-hooks/exhaustive-deps": "off",
-      "react-hooks/rules-of-hooks": "off",
-      "@typescript-eslint/ban-ts-comment": "off",
-      "no-var": "off",
-      "no-async-promise-executor": "off",
-      "prefer-const": "off",
-      "@typescript-eslint/no-empty-object-type": "off",
+      "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+      "@typescript-eslint/no-explicit-any": "error",
+      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/rules-of-hooks": "error",
+      "no-var": "error",
+      "prefer-const": "error",
     },
   },
+  // Dedicated config for Deno Edge Functions
+  {
+    files: ["supabase/functions/**/*.ts"],
+    languageOptions: {
+      globals: {
+        ...globals.node, // Closest approximation for some things, but we'll add Deno specifics
+        Deno: "readonly",
+        Request: "readonly",
+        Response: "readonly",
+        fetch: "readonly",
+        crypto: "readonly",
+        Headers: "readonly",
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn", // Legacy support for functions during transition
+    }
+  }
 );
