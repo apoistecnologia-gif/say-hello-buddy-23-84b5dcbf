@@ -6,6 +6,9 @@ verify_jwt = true
 [functions.approve-driver-and-create-mercadopago-subscription]
 verify_jwt = true
 
+[functions.cancel-ride]
+verify_jwt = true
+
 [functions.create-cancellation-fee-charge]
 verify_jwt = true
 
@@ -16,6 +19,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.dispatch-broadcast-test]
+verify_jwt = true
+
+[functions.driver-ride-action]
 verify_jwt = true
 
 [functions.mercadopago-health]
@@ -31,6 +37,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.passenger-routes-compute]
+verify_jwt = true
+
+[functions.process-ride-dispatch]
 verify_jwt = true
 
 [functions.regenerate-driver-mercadopago-charge]
