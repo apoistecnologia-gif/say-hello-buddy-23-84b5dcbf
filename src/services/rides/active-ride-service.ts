@@ -19,15 +19,24 @@ const TERMINAL_STATUSES: RideStatus[] = [
   "cancelada_motorista",
 ];
 
+const STATUS_ORDER: Record<RideStatus, number> = {
+  agendada: 0,
+  procurar_motorista: 1,
+  motorista_a_caminho: 2,
+  motorista_chegou: 3,
+  em_viagem: 4,
+  finalizada: 5,
+  cancelada_passageiro: 5,
+  cancelada_motorista: 5,
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
 function readRequiredString(record: Record<string, unknown>, key: string): string {
   const value = record[key];
-  if (typeof value !== "string" || !value.trim()) {
-    throw new Error("invalid_ride_response");
-  }
+  if (typeof value !== "string" || !value.trim()) throw new Error("invalid_ride_response");
   return value;
 }
 
@@ -58,9 +67,9 @@ function parseJsonValue(value: unknown): unknown {
   }
 }
 
-function readCoordinates(value: unknown): { lat: number; lng: number } {
+function readCoordinatesValue(value: unknown): { lat: number; lng: number } | null {
   const parsed = parseJsonValue(value);
-  if (!isRecord(parsed)) throw new Error("invalid_ride_response");
+  if (!isRecord(parsed)) return null;
 
   const lat = parsed["lat"];
   const lng = parsed["lng"];
@@ -70,10 +79,31 @@ function readCoordinates(value: unknown): { lat: number; lng: number } {
     typeof lng !== "number" ||
     !Number.isFinite(lng)
   ) {
-    throw new Error("invalid_ride_response");
+    return null;
   }
 
   return { lat, lng };
+}
+
+function readRideCoordinates(
+  record: Record<string, unknown>,
+  jsonKey: "origin" | "destination",
+): { lat: number; lng: number } {
+  const fromJson = readCoordinatesValue(record[jsonKey]);
+  if (fromJson) return fromJson;
+
+  const lat = record[`${jsonKey}_lat`];
+  const lng = record[`${jsonKey}_lng`];
+  if (
+    typeof lat === "number" &&
+    Number.isFinite(lat) &&
+    typeof lng === "number" &&
+    Number.isFinite(lng)
+  ) {
+    return { lat, lng };
+  }
+
+  throw new Error("invalid_ride_response");
 }
 
 function readIntermediates(value: unknown): unknown[] {
@@ -82,21 +112,10 @@ function readIntermediates(value: unknown): unknown[] {
 }
 
 function readStatus(value: unknown): RideStatus {
-  const allowed: RideStatus[] = [
-    "agendada",
-    "procurar_motorista",
-    "motorista_a_caminho",
-    "motorista_chegou",
-    "em_viagem",
-    "finalizada",
-    "cancelada_passageiro",
-    "cancelada_motorista",
-  ];
-
+  const allowed = Object.keys(STATUS_ORDER) as RideStatus[];
   if (typeof value === "string" && allowed.includes(value as RideStatus)) {
     return value as RideStatus;
   }
-
   throw new Error("invalid_ride_response");
 }
 
@@ -104,22 +123,17 @@ class ActiveRideService {
   private static instance: ActiveRideService;
   private channel: RealtimeChannel | null = null;
   private lastUpdateTimestamp = 0;
+  private lastStatus: RideStatus | null = null;
 
   private constructor() {}
 
   public static getInstance(): ActiveRideService {
-    if (!ActiveRideService.instance) {
-      ActiveRideService.instance = new ActiveRideService();
-    }
+    if (!ActiveRideService.instance) ActiveRideService.instance = new ActiveRideService();
     return ActiveRideService.instance;
   }
 
   public async getRideById(rideId: string, userId: string): Promise<ActiveRide> {
-    const { data, error } = await supabase
-      .from("rides")
-      .select("*")
-      .eq("id", rideId)
-      .single();
+    const { data, error } = await supabase.from("rides").select("*").eq("id", rideId).single();
 
     if (error) throw error;
     if (!data) throw new Error("not_found");
@@ -149,6 +163,7 @@ class ActiveRideService {
   ): RealtimeChannel {
     void this.unsubscribe();
     this.lastUpdateTimestamp = 0;
+    this.lastStatus = null;
 
     this.channel = supabase
       .channel(`ride_active_${rideId}`)
@@ -163,11 +178,18 @@ class ActiveRideService {
         (payload) => {
           try {
             const updatedRide = this.normalizeRide(payload.new);
-            const updateTimestamp = Date.parse(updatedRide.updated_at);
-            const safeTimestamp = Number.isFinite(updateTimestamp) ? updateTimestamp : Date.now();
+            if (updatedRide.id !== rideId) return;
 
-            if (safeTimestamp >= this.lastUpdateTimestamp) {
-              this.lastUpdateTimestamp = safeTimestamp;
+            const parsedTimestamp = Date.parse(updatedRide.updated_at);
+            const updateTimestamp = Number.isFinite(parsedTimestamp) ? parsedTimestamp : Date.now();
+            const isNewer = updateTimestamp > this.lastUpdateTimestamp;
+            const isSameUpdate = updateTimestamp === this.lastUpdateTimestamp;
+            const isForwardTransition =
+              !this.lastStatus || STATUS_ORDER[updatedRide.status] >= STATUS_ORDER[this.lastStatus];
+
+            if (isNewer || (isSameUpdate && isForwardTransition)) {
+              this.lastUpdateTimestamp = updateTimestamp;
+              this.lastStatus = updatedRide.status;
               onUpdate(updatedRide);
             }
           } catch (error) {
@@ -193,6 +215,7 @@ class ActiveRideService {
     const channel = this.channel;
     this.channel = null;
     this.lastUpdateTimestamp = 0;
+    this.lastStatus = null;
     return supabase.removeChannel(channel);
   }
 
@@ -207,8 +230,8 @@ class ActiveRideService {
       category: readRequiredString(data, "category"),
       origin_name: readRequiredString(data, "origin_name"),
       destination_name: readRequiredString(data, "destination_name"),
-      origin: readCoordinates(data["origin"]),
-      destination: readCoordinates(data["destination"]),
+      origin: readRideCoordinates(data, "origin"),
+      destination: readRideCoordinates(data, "destination"),
       intermediates: readIntermediates(data["intermediates"]),
       estimated_price: readRequiredNumber(data, "estimated_price"),
       payment_method: readRequiredString(data, "payment_method"),
@@ -216,53 +239,44 @@ class ActiveRideService {
       updated_at: readRequiredString(data, "updated_at"),
     };
 
-    const driverId = readOptionalString(data, "driver_id");
-    if (driverId) ride.driver_id = driverId;
-    const encodedPolyline = readOptionalString(data, "encoded_polyline");
-    if (encodedPolyline) ride.encoded_polyline = encodedPolyline;
-    const driverName = readOptionalString(data, "driver_name");
-    if (driverName) ride.driver_name = driverName;
-    const driverPhoto = readOptionalString(data, "driver_photo");
-    if (driverPhoto) ride.driver_photo = driverPhoto;
-    const driverPhone = readOptionalString(data, "driver_phone");
-    if (driverPhone) ride.driver_phone = driverPhone;
-    const driverVehicleModel = readOptionalString(data, "driver_vehicle_model");
-    if (driverVehicleModel) ride.driver_vehicle_model = driverVehicleModel;
-    const driverVehicleColor = readOptionalString(data, "driver_vehicle_color");
-    if (driverVehicleColor) ride.driver_vehicle_color = driverVehicleColor;
-    const driverVehiclePlate = readOptionalString(data, "driver_vehicle_plate");
-    if (driverVehiclePlate) ride.driver_vehicle_plate = driverVehiclePlate;
-    const securityCode = readOptionalString(data, "security_code");
-    if (securityCode) ride.security_code = securityCode;
-    const cancellationReason = readOptionalString(data, "cancellation_reason");
-    if (cancellationReason) ride.cancellation_reason = cancellationReason;
-    const cancelledBy = readOptionalString(data, "cancelled_by");
-    if (cancelledBy) ride.cancelled_by = cancelledBy;
-    const acceptedAt = readOptionalString(data, "accepted_at");
-    if (acceptedAt) ride.accepted_at = acceptedAt;
-    const driverArrivedAt = readOptionalString(data, "driver_arrived_at");
-    if (driverArrivedAt) ride.driver_arrived_at = driverArrivedAt;
-    const startedAt = readOptionalString(data, "started_at");
-    if (startedAt) ride.started_at = startedAt;
-    const completedAt = readOptionalString(data, "completed_at");
-    if (completedAt) ride.completed_at = completedAt;
-    const shareToken = readOptionalString(data, "share_token");
-    if (shareToken) ride.share_token = shareToken;
+    const optionalStrings: Array<[keyof ActiveRide, string]> = [
+      ["driver_id", "driver_id"],
+      ["encoded_polyline", "encoded_polyline"],
+      ["driver_name", "driver_name"],
+      ["driver_photo", "driver_photo"],
+      ["driver_phone", "driver_phone"],
+      ["driver_vehicle_model", "driver_vehicle_model"],
+      ["driver_vehicle_color", "driver_vehicle_color"],
+      ["driver_vehicle_plate", "driver_vehicle_plate"],
+      ["security_code", "security_code"],
+      ["cancellation_reason", "cancellation_reason"],
+      ["cancelled_by", "cancelled_by"],
+      ["accepted_at", "accepted_at"],
+      ["driver_arrived_at", "driver_arrived_at"],
+      ["started_at", "started_at"],
+      ["completed_at", "completed_at"],
+      ["share_token", "share_token"],
+    ];
 
-    const finalPrice = readOptionalNumber(data, "final_price");
-    if (finalPrice !== undefined) ride.final_price = finalPrice;
-    const driverRating = readOptionalNumber(data, "driver_rating");
-    if (driverRating !== undefined) ride.driver_rating = driverRating;
-    const driverLatitude = readOptionalNumber(data, "driver_latitude");
-    if (driverLatitude !== undefined) ride.driver_latitude = driverLatitude;
-    const driverLongitude = readOptionalNumber(data, "driver_longitude");
-    if (driverLongitude !== undefined) ride.driver_longitude = driverLongitude;
-    const driverHeading = readOptionalNumber(data, "driver_heading");
-    if (driverHeading !== undefined) ride.driver_heading = driverHeading;
-    const cancellationFee = readOptionalNumber(data, "cancellation_fee");
-    if (cancellationFee !== undefined) ride.cancellation_fee = cancellationFee;
-    const passengerRating = readOptionalNumber(data, "passenger_rating");
-    if (passengerRating !== undefined) ride.passenger_rating = passengerRating;
+    for (const [targetKey, sourceKey] of optionalStrings) {
+      const field = readOptionalString(data, sourceKey);
+      if (field !== undefined) (ride as Record<string, unknown>)[targetKey] = field;
+    }
+
+    const optionalNumbers: Array<[keyof ActiveRide, string]> = [
+      ["final_price", "final_price"],
+      ["driver_rating", "driver_rating"],
+      ["driver_latitude", "driver_latitude"],
+      ["driver_longitude", "driver_longitude"],
+      ["driver_heading", "driver_heading"],
+      ["cancellation_fee", "cancellation_fee"],
+      ["passenger_rating", "passenger_rating"],
+    ];
+
+    for (const [targetKey, sourceKey] of optionalNumbers) {
+      const field = readOptionalNumber(data, sourceKey);
+      if (field !== undefined) (ride as Record<string, unknown>)[targetKey] = field;
+    }
 
     const serviceDetails = parseJsonValue(data["service_details"]);
     if (isRecord(serviceDetails)) ride.service_details = serviceDetails;
@@ -279,7 +293,7 @@ class ActiveRideService {
         Boolean(ride.driver_id) &&
         ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
       canOpenSafety: ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
-      canRate: status === "finalizada" && !ride.passenger_rating,
+      canRate: status === "finalizada" && ride.passenger_rating === undefined,
       canRequestAgain: isTerminal,
       canReturnHome: isTerminal,
       canViewReceipt: status === "finalizada",
