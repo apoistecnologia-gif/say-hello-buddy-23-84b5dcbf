@@ -99,16 +99,19 @@ function CadastroPage() {
         if (error.message.includes("User already registered")) {
           toast.error("Este e-mail já está cadastrado.");
         } else {
-          toast.error(`Erro no cadastro: ${error.message}`);
+          // Formatador de erro seguro conforme requisito 9
+          const errorMessage = error.message || "Erro desconhecido";
+          const errorCode = (error as any).code ? ` (${(error as any).code})` : "";
+          toast.error(`Erro no cadastro: ${errorMessage}${errorCode}`);
         }
       } else if (!data.user) {
-        // Tratar data.user nulo como falha
         toast.error("Falha no cadastro: o servidor não retornou um usuário.");
       } else if (data.session) {
         toast.success("Cadastro realizado com sucesso!");
         navigate({ to: "/inicio" });
       } else {
-        toast.success("Cadastro realizado! Verifique seu e-mail para confirmar a conta.");
+        // Se ainda não houver sessão, avisar sobre confirmação de e-mail (requisito 6)
+        toast.error("A confirmação de e-mail ainda está ativada no projeto backend.");
         navigate({ to: "/login" });
       }
     } catch (err: any) {
