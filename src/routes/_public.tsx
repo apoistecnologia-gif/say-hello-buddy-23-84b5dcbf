@@ -11,11 +11,13 @@ export const Route = createFileRoute("/_public")({
 
 function PublicLayout() {
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-yellow-500/30">
-      <AuthGuard>
-        <Outlet />
-      </AuthGuard>
-      <Toaster />
+    <div className="min-h-screen bg-zinc-950 flex justify-center selection:bg-yellow-500/30">
+      <div className="relative w-full max-w-[430px] min-h-[100dvh] bg-black overflow-hidden flex flex-col">
+        <AuthGuard>
+          <Outlet />
+        </AuthGuard>
+        <Toaster />
+      </div>
     </div>
   );
 }
