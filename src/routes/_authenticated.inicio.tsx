@@ -27,6 +27,10 @@ export const Route = createFileRoute("/_authenticated/inicio")({
   component: InicioPage,
 });
 
+function readString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
 function InicioPage() {
   const navigate = useNavigate();
   const { address, status: addressStatus } = usePickupAddress();
@@ -68,7 +72,7 @@ function InicioPage() {
         <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl flex items-center justify-between">
           <div className="flex flex-col min-w-0">
             <h1 className="text-xs font-black text-white uppercase tracking-tighter opacity-70">
-              Olá, {profile?.full_name?.split(" ")[0] || "Passageiro"}
+              Olá, {readString(profile?.full_name || profile?.name, "Passageiro").split(" ")[0]}
             </h1>
             <p className="text-[13px] font-bold text-white truncate max-w-[220px]">
               {currentAddressText}
