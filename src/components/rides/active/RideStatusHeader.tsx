@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { RideStatus } from "@/types/rides/active-ride";
 import { Search, Navigation, MapPin, CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useActiveRide } from "@/hooks/rides/use-active-ride";
 
 interface RideStatusHeaderProps {
   status: RideStatus;
@@ -15,18 +16,73 @@ function formatDistance(distanceMeters: number): string {
   return `${(distanceMeters / 1000).toFixed(distanceMeters < 10_000 ? 1 : 0).replace(".", ",")} km`;
 }
 
+function distanceBetweenMeters(
+  from: { lat: number; lng: number },
+  to: { lat: number; lng: number },
+): number {
+  const earthRadiusMeters = 6_371_000;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const latitudeDelta = toRadians(to.lat - from.lat);
+  const longitudeDelta = toRadians(to.lng - from.lng);
+  const fromLatitude = toRadians(from.lat);
+  const toLatitude = toRadians(to.lat);
+
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(fromLatitude) * Math.cos(toLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function estimateUrbanArrivalMinutes(distanceMeters: number): number {
+  const routedDistanceMeters = distanceMeters * 1.28;
+  const averageUrbanMetersPerMinute = 350;
+  return Math.max(1, Math.ceil(routedDistanceMeters / averageUrbanMetersPerMinute));
+}
+
 export const RideStatusHeader: React.FC<RideStatusHeaderProps> = ({
   status,
   isRefreshing,
   driverDistanceMeters,
   estimatedArrivalMinutes,
 }) => {
+  const { ride } = useActiveRide();
+
+  const derivedEstimate = useMemo(() => {
+    if (
+      status !== "motorista_a_caminho" ||
+      !ride ||
+      typeof ride.driver_latitude !== "number" ||
+      !Number.isFinite(ride.driver_latitude) ||
+      typeof ride.driver_longitude !== "number" ||
+      !Number.isFinite(ride.driver_longitude)
+    ) {
+      return null;
+    }
+
+    const distance = distanceBetweenMeters(
+      { lat: ride.driver_latitude, lng: ride.driver_longitude },
+      ride.origin,
+    );
+
+    if (!Number.isFinite(distance) || distance < 0) return null;
+
+    return {
+      distanceMeters: distance,
+      arrivalMinutes: estimateUrbanArrivalMinutes(distance),
+    };
+  }, [ride, status]);
+
+  const effectiveDistanceMeters = driverDistanceMeters ?? derivedEstimate?.distanceMeters ?? null;
+  const effectiveArrivalMinutes =
+    estimatedArrivalMinutes ?? derivedEstimate?.arrivalMinutes ?? null;
+
   const hasDriverEstimate =
     status === "motorista_a_caminho" &&
-    typeof driverDistanceMeters === "number" &&
-    Number.isFinite(driverDistanceMeters) &&
-    typeof estimatedArrivalMinutes === "number" &&
-    Number.isFinite(estimatedArrivalMinutes);
+    typeof effectiveDistanceMeters === "number" &&
+    Number.isFinite(effectiveDistanceMeters) &&
+    typeof effectiveArrivalMinutes === "number" &&
+    Number.isFinite(effectiveArrivalMinutes);
 
   const getStatusConfig = () => {
     switch (status) {
@@ -40,10 +96,10 @@ export const RideStatusHeader: React.FC<RideStatusHeaderProps> = ({
       case "motorista_a_caminho":
         return {
           title: hasDriverEstimate
-            ? `Chegada estimada em ${Math.max(1, Math.round(estimatedArrivalMinutes))} min`
+            ? `Chegada estimada em ${Math.max(1, Math.round(effectiveArrivalMinutes))} min`
             : "Motorista a caminho",
           subtitle: hasDriverEstimate
-            ? `Aproximadamente ${formatDistance(driverDistanceMeters)} do embarque`
+            ? `Aproximadamente ${formatDistance(effectiveDistanceMeters)} do embarque`
             : "O motorista já aceitou sua corrida",
           icon: <Navigation className="animate-bounce text-blue-500" size={20} />,
           color: "bg-blue-500/10 border-blue-500/20",
