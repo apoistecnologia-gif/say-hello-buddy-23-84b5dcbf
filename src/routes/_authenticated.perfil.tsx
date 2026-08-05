@@ -143,7 +143,7 @@ function MenuLink({
 }: {
   icon: React.ReactNode;
   label: string;
-  value?: string | null | undefined;
+  value?: string | null;
 }) {
   return (
     <button className="w-full flex items-center justify-between p-4 bg-[#121212] hover:bg-[#1a1a1a] rounded-xl transition-colors text-left group">

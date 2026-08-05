@@ -7,7 +7,7 @@ export type AuthState =
 
 export interface AuthProfile {
   id?: string;
-  auth_user_id?: string;
+  auth_user_id?: string | null;
   name?: string | null;
   full_name?: string | null;
   phone?: string | null;
