@@ -138,7 +138,7 @@ export async function createMonthlyPreference(args: {
   if (!token) throw new Error("MERCADOPAGO_ACCESS_TOKEN_MISSING");
 
   const returnUrl = driverReturnUrl();
-  const idempotencyKey = `movvi-charge-${args.chargeId}`.slice(0, 64);
+  const idempotencyKey = `apois-charge-${args.chargeId}`.slice(0, 64);
   const response = await fetch(`${mercadoPagoBaseUrl()}/checkout/preferences`, {
     method: "POST",
     headers: {
