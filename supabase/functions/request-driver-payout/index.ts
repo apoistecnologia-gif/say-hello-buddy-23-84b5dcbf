@@ -24,15 +24,15 @@ const MP_BASE_URL = (
   Deno.env.get("MERCADOPAGO_BASE_URL")?.trim() || "https://api.mercadopago.com"
 ).replace(/\/+$/, "");
 
-const cors: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-const json = (b: unknown, s = 200) =>
+import { getCorsHeaders } from "../_shared/cors.ts";
+
+const json = (b: unknown, s = 200, req?: Request) =>
   new Response(JSON.stringify(b), {
     status: s,
-    headers: { ...cors, "content-type": "application/json" },
+    headers: { 
+      ...(req ? getCorsHeaders(req) : {}),
+      "content-type": "application/json" 
+    },
   });
 
 type Withdrawal = {
@@ -46,8 +46,8 @@ type Withdrawal = {
 
 Deno.serve(async (req) => {
   try {
-    if (req.method === "OPTIONS") return new Response(null, { headers: cors });
-    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+    if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
+    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, req);
 
     const auth = req.headers.get("Authorization") ?? "";
     if (!auth.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       return json(
         {
           error: "payouts_disabled",
-          detail: "Saques de créditos MOVVI não estão habilitados.",
+          detail: "Saques de créditos APOIS não estão habilitados.",
         },
         503,
       );
@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
 
     const body = {
       amount: Number(w.amount),
-      description: `Saque MOVVI — motorista ${w.driver_id.slice(0, 8)}`,
+      description: `Saque APOIS — motorista ${w.driver_id.slice(0, 8)}`,
       external_reference: `payout:${w.id}`,
       receiver: {
         pix_key: w.pix_key,
@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
         withdrawalId: w.id,
         transferId,
         endToEndId: e2eId,
-      });
+      }, 200, req);
     }
 
     // Falha → estorna
@@ -207,9 +207,9 @@ Deno.serve(async (req) => {
       _reason: mpErrText || "Falha ao enviar Pix",
       _response: mpJson as never,
     });
-    return json({ error: "mp_transfer_failed", withdrawalId: w.id, detail: mpErrText }, 502);
+    return json({ error: "mp_transfer_failed", withdrawalId: w.id, detail: mpErrText }, 502, req);
   } catch (e) {
     console.error("[request-driver-payout] unexpected", e);
-    return json({ error: "unexpected", detail: String(e).slice(0, 300) }, 500);
+    return json({ error: "unexpected", detail: String(e).slice(0, 300) }, 500, req);
   }
 });

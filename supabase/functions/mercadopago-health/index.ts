@@ -4,35 +4,19 @@ import { mercadoPagoBaseUrl } from "../_shared/mercadopago.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const ALLOWED_ORIGINS = new Set([
-  "https://admin.movvidriver.com.br",
-  "http://localhost:8080",
-  "http://127.0.0.1:8080",
-]);
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-function headers(req: Request) {
-  const origin = req.headers.get("origin") ?? "";
-  return {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin)
-      ? origin
-      : "https://admin.movvidriver.com.br",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Content-Type": "application/json",
-    Vary: "Origin",
-  };
-}
 
 function json(req: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: headers(req),
+    headers: getCorsHeaders(req),
   });
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: headers(req) });
+    return new Response(null, { headers: getCorsHeaders(req) });
   }
   if (req.method !== "POST") return json(req, { ok: false, error: "method_not_allowed" }, 405);
 

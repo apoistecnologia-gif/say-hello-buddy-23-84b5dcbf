@@ -49,9 +49,9 @@ export function mercadoPagoBaseUrl(): string {
 }
 
 export function driverReturnUrl(): string {
-  const configured = Deno.env.get("MOVVI_DRIVER_SUBSCRIPTION_RETURN_URL")?.trim();
+  const configured = Deno.env.get("APOIS_DRIVER_SUBSCRIPTION_RETURN_URL")?.trim();
   if (configured?.startsWith("https://")) return configured;
-  return "https://app.movvidriver.com.br/motorista/assinatura";
+  return "https://say-hello-buddy-23.lovable.app/motorista/assinatura";
 }
 
 export async function loadBillingPlan(admin: any): Promise<BillingPlan> {
@@ -138,7 +138,7 @@ export async function createMonthlyPreference(args: {
   if (!token) throw new Error("MERCADOPAGO_ACCESS_TOKEN_MISSING");
 
   const returnUrl = driverReturnUrl();
-  const idempotencyKey = `movvi-charge-${args.chargeId}`.slice(0, 64);
+  const idempotencyKey = `apois-charge-${args.chargeId}`.slice(0, 64);
   const response = await fetch(`${mercadoPagoBaseUrl()}/checkout/preferences`, {
     method: "POST",
     headers: {
@@ -150,8 +150,8 @@ export async function createMonthlyPreference(args: {
       items: [
         {
           id: `mensalidade-${args.driver.id}`,
-          title: "Mensalidade Motorista MOVVI",
-          description: "Mensalidade mensal do motorista MOVVI",
+          title: "Mensalidade Motorista APOIS",
+          description: "Mensalidade mensal do motorista APOIS",
           quantity: 1,
           currency_id: "BRL",
           unit_price: args.plan.amount,

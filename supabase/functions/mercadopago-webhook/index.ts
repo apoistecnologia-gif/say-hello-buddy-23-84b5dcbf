@@ -13,7 +13,7 @@ function json(body: unknown, status = 200, req?: Request) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 
-      ...(req ? getCorsHeaders(req) : { "Access-Control-Allow-Origin": "*" }), 
+      ...(req ? getCorsHeaders(req) : {}),
       "content-type": "application/json" 
     },
   });
@@ -84,8 +84,8 @@ function mappedStatus(status: string): "active" | "pending" | "overdue" | "cance
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
-  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-  if (!MP_WEBHOOK_SECRET) return json({ error: "webhook_secret_not_configured" }, 503);
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, req);
+  if (!MP_WEBHOOK_SECRET) return json({ error: "webhook_secret_not_configured" }, 503, req);
 
   const rawBody = await req.text();
   let payload: {
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
   try {
     payload = rawBody ? JSON.parse(rawBody) : {};
   } catch {
-    return json({ error: "invalid_json" }, 400);
+    return json({ error: "invalid_json" }, 400, req);
   }
 
   const url = new URL(req.url);
@@ -111,13 +111,13 @@ Deno.serve(async (req) => {
       url.searchParams.get("id") ??
       "",
   );
-  if (!dataId || !type) return json({ ok: true, ignored: "missing_event_identity" });
+  if (!dataId || !type) return json({ ok: true, ignored: "missing_event_identity" }, 200, req);
 
   const requestId = req.headers.get("x-request-id") ?? "";
   const signature = req.headers.get("x-signature") ?? "";
   if (!(await verifySignature(dataId, requestId, signature).catch(() => false))) {
     console.error(`[MP Webhook] Invalid signature: dataId=${dataId}, requestId=${requestId}`);
-    return json({ error: "invalid_signature" }, 401);
+    return json({ error: "invalid_signature" }, 401, req);
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -134,8 +134,8 @@ Deno.serve(async (req) => {
     })
     .select("id")
     .single();
-  if (receiptError?.code === "23505") return json({ ok: true, duplicate: true });
-  if (receiptError || !receipt) return json({ error: "receipt_write_failed" }, 500);
+  if (receiptError?.code === "23505") return json({ ok: true, duplicate: true }, 200, req);
+  if (receiptError || !receipt) return json({ error: "receipt_write_failed" }, 500, req);
 
   const finishReceipt = async (status: string, detail?: string) => {
     await admin
@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
   try {
     if (type !== "payment") {
       await finishReceipt("ignored", `unsupported_type:${type}`);
-      return json({ ok: true, ignored: type });
+      return json({ ok: true, ignored: type }, 200, req);
     }
 
     const payment = await mpFetch<{
@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
       if (feeError || !fee) throw new Error("CANCELLATION_FEE_NOT_FOUND");
       if (Math.abs(Number(payment.transaction_amount ?? 0) - Number(fee.fee_amount)) > 0.01) {
         await finishReceipt("rejected", "cancellation_fee_amount_mismatch");
-        return json({ error: "amount_mismatch" }, 422);
+        return json({ error: "amount_mismatch" }, 422, req);
       }
       if (payment.status === "approved" && !fee.is_paid) {
         const { error } = await admin.rpc("settle_cancellation_fee", {
@@ -214,12 +214,12 @@ Deno.serve(async (req) => {
         ok: true,
         processed: "cancellation_fee",
         status: payment.status,
-      });
+      }, 200, req);
     }
 
     if (kind !== "monthly_fee") {
       await finishReceipt("rejected", "unexpected_payment_kind");
-      return json({ error: "unexpected_payment_kind" }, 422);
+      return json({ error: "unexpected_payment_kind" }, 422, req);
     }
     const metadataDriverId = String(payment.metadata?.driver_id ?? "");
     const metadataChargeId = String(payment.metadata?.charge_id ?? "");
@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
       (chargeId && metadataChargeId && externalChargeId !== metadataChargeId)
     ) {
       await finishReceipt("rejected", "driver_reference_mismatch");
-      return json({ error: "driver_reference_mismatch" }, 422);
+      return json({ error: "driver_reference_mismatch" }, 422, req);
     }
 
     const { data: driver, error: driverError } = await admin
@@ -259,13 +259,13 @@ Deno.serve(async (req) => {
         .limit(1);
     } else {
       await finishReceipt("rejected", "missing_charge_identity");
-      return json({ error: "missing_charge_identity" }, 422);
+      return json({ error: "missing_charge_identity" }, 422, req);
     }
     const { data: subscription, error: subscriptionError } = await subscriptionQuery.maybeSingle();
     if (subscriptionError || !subscription) throw new Error("SUBSCRIPTION_CHARGE_NOT_FOUND");
     if (Math.abs(Number(payment.transaction_amount ?? 0) - Number(subscription.amount)) > 0.01) {
       await finishReceipt("rejected", "subscription_amount_mismatch");
-      return json({ error: "amount_mismatch" }, 422);
+      return json({ error: "amount_mismatch" }, 422, req);
     }
 
     const status = mappedStatus(payment.status);
@@ -292,7 +292,7 @@ Deno.serve(async (req) => {
         subscription.provider_payment_id !== String(payment.id)
       ) {
         await finishReceipt("rejected", "charge_already_paid_by_other_payment");
-        return json({ error: "charge_already_paid" }, 409);
+        return json({ error: "charge_already_paid" }, 409, req);
       }
       const { data: currentPaid, error: currentPaidError } = await admin
         .from("subscriptions")
@@ -469,11 +469,11 @@ Deno.serve(async (req) => {
     }
 
     await finishReceipt("processed");
-    return json({ ok: true, processed: "payment", status: payment.status });
+    return json({ ok: true, processed: "payment", status: payment.status }, 200, req);
   } catch (error) {
     const detail = String(error).slice(0, 500);
     console.error("[mercadopago-webhook]", detail);
     await finishReceipt("failed", detail);
-    return json({ error: "processing_failed" }, 500);
+    return json({ error: "processing_failed" }, 500, req);
   }
 });

@@ -1,18 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function json(body: unknown, status = 200) {
+function json(body: unknown, status = 200, req?: Request) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "content-type": "application/json" },
+    headers: { 
+      ...(req ? getCorsHeaders(req) : {}),
+      "content-type": "application/json" 
+    },
   });
 }
 
@@ -50,18 +48,18 @@ async function deleteRowsByUser(
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, req);
 
   const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
-  if (!token) return json({ error: "unauthorized" }, 401);
+  if (!token) return json({ error: "unauthorized" }, 401, req);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data: auth, error: authError } = await admin.auth.getUser(token);
   const userId = auth.user?.id;
-  if (authError || !userId) return json({ error: "unauthorized" }, 401);
+  if (authError || !userId) return json({ error: "unauthorized" }, 401, req);
 
   const { data: activeRide, error: rideError } = await admin
     .from("rides")
@@ -70,7 +68,7 @@ Deno.serve(async (req) => {
     .in("status", ["procurar_motorista", "motorista_a_caminho", "motorista_chegou", "em_viagem"])
     .limit(1)
     .maybeSingle();
-  if (rideError) return json({ error: "active_ride_check_failed" }, 500);
+  if (rideError) return json({ error: "active_ride_check_failed" }, 500, req);
   if (activeRide)
     return json(
       {
@@ -78,6 +76,7 @@ Deno.serve(async (req) => {
         message: "Finalize ou cancele a corrida ativa antes de excluir a conta.",
       },
       409,
+      req,
     );
 
   const { data: driver, error: driverError } = await admin
@@ -85,7 +84,7 @@ Deno.serve(async (req) => {
     .select("id")
     .eq("user_id", userId)
     .maybeSingle();
-  if (driverError) return json({ error: "driver_lookup_failed" }, 500);
+  if (driverError) return json({ error: "driver_lookup_failed" }, 500, req);
   const role = driver ? "motorista" : "passageiro";
 
   const { data: requestRow, error: requestError } = await admin
@@ -93,7 +92,7 @@ Deno.serve(async (req) => {
     .insert({ user_id: userId, role, status: "requested" })
     .select("id")
     .single();
-  if (requestError || !requestRow) return json({ error: "deletion_request_failed" }, 500);
+  if (requestError || !requestRow) return json({ error: "deletion_request_failed" }, 500, req);
 
   try {
     await Promise.all(
@@ -124,7 +123,7 @@ Deno.serve(async (req) => {
       .from("users")
       .update({
         name: "Conta excluída",
-        email: `deleted+${userId}@movvi.invalid`,
+        email: `deleted+${userId}@apois.invalid`,
         phone: null,
         cpf: null,
         avatar_url: null,
@@ -144,7 +143,7 @@ Deno.serve(async (req) => {
         .from("drivers")
         .update({
           name: "Conta excluída",
-          email: `deleted+${userId}@movvi.invalid`,
+          email: `deleted+${userId}@apois.invalid`,
           phone: "00000000000",
           cpf: userId.replaceAll("-", "").slice(0, 11),
           birth_date: null,
@@ -194,7 +193,7 @@ Deno.serve(async (req) => {
       })
       .eq("id", requestRow.id);
     if (completed.error) throw new Error(`complete_request:${completed.error.message}`);
-    return json({ ok: true });
+    return json({ ok: true }, 200, req);
   } catch (error) {
     await admin
       .from("account_deletion_requests")
@@ -204,6 +203,6 @@ Deno.serve(async (req) => {
       })
       .eq("id", requestRow.id);
     console.error("[delete-my-account]", error);
-    return json({ error: "account_deletion_failed" }, 500);
+    return json({ error: "account_deletion_failed" }, 500, req);
   }
 });
