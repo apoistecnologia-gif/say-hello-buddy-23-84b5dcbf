@@ -72,14 +72,27 @@ function CadastroPage() {
         },
       });
 
-      console.log("[DEBUG] signUp Return:", {
-        userPresent: !!data.user,
-        sessionPresent: !!data.session,
-        userId: data.user?.id,
-        errorName: error?.name,
-        errorMessage: error?.message,
-        errorStatus: error?.status
-      });
+      if (error) {
+        console.log("[DEBUG] signUp Error Detail:", {
+          error,
+          message: error.message,
+          name: error.name,
+          status: error.status,
+          code: (error as any).code,
+          cause: (error as any).cause,
+          json: JSON.stringify(error, null, 2)
+        });
+        
+        if (!(error as any).status) {
+          console.error("[DEBUG] Non-AuthApiError detected:", error);
+        }
+      } else {
+        console.log("[DEBUG] signUp Success:", {
+          userPresent: !!data.user,
+          sessionPresent: !!data.session,
+          userId: data.user?.id
+        });
+      }
 
       // 3. NÃO MOSTRAR SUCESSO QUANDO HOUVER ERRO
       if (error) {
