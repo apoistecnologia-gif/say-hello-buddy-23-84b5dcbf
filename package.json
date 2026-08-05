@@ -9,6 +9,7 @@
     "build": "vite build",
     "build:capacitor": "vite build --mode capacitor",
     "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "cap:sync": "npx cap sync android",
