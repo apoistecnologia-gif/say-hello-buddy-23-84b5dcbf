@@ -24,8 +24,11 @@ class GoogleMapsLoader {
     if (googleWindow.google?.maps?.importLibrary) return;
     if (this.loadPromise) return this.loadPromise;
 
-    const apiKey = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "").trim();
-    if (!apiKey) throw new Error("maps_configuration_missing");
+    const rawApiKey = import.meta.env["VITE_GOOGLE_MAPS_API_KEY"];
+    if (typeof rawApiKey !== "string" || rawApiKey.trim().length === 0) {
+      throw new Error("maps_configuration_missing");
+    }
+    const apiKey = rawApiKey.trim();
 
     this.loadPromise = new Promise<void>((resolve, reject) => {
       let settled = false;
