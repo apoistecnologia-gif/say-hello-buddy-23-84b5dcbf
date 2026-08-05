@@ -67,7 +67,7 @@ function PerfilPage() {
     <div className="flex flex-col min-h-screen bg-black text-white pb-24">
       <div className="p-6 pt-12 flex flex-col items-center border-b border-gray-900">
         <Avatar className="w-24 h-24 mb-4 border-2 border-yellow-500 p-1">
-          <AvatarImage src={currentProfile.avatar_url} />
+          <AvatarImage src={currentProfile.avatar_url || undefined} />
           <AvatarFallback className="bg-gray-800 text-yellow-500 text-3xl font-bold">
             {currentProfile.name.charAt(0) || user?.email?.charAt(0).toUpperCase()}
           </AvatarFallback>
