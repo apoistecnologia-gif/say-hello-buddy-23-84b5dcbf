@@ -1,7 +1,7 @@
 # MOVVI Backend Standalone
 
-Backend TanStack Start **server-only** apontado ao novo Supabase
-`wqbtnfbvqtkyywfcqjwa`. Serve exclusivamente as Server Functions e Server
+Backend TanStack Start **server-only** apontado ao Supabase Oficial da Lovable Cloud
+`zjphbuvcapwyuynadgdt`. Serve exclusivamente as Server Functions e Server
 Routes que os APKs Passageiro/Motorista consomem, além de webhooks
 públicos (`/api/public/hooks/*`).
 
@@ -44,7 +44,7 @@ prosseguir.
 
 ```bash
 supabase login
-supabase link --project-ref wqbtnfbvqtkyywfcqjwa
+supabase link --project-ref zjphbuvcapwyuynadgdt
 supabase functions deploy approve-driver-and-create-mercadopago-subscription
 supabase functions deploy create-my-mercadopago-subscription
 supabase functions deploy create-cancellation-fee-charge
