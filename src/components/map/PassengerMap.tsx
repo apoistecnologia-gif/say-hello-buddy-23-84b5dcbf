@@ -27,14 +27,14 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   const { destination: globalDestination } = useDestination();
 
   const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const polylineRef = useRef<any>(null);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const polylineRef = useRef<google.maps.Polyline | null>(null);
   const [mapStatus, setMapStatus] = React.useState<
     "loading" | "ready" | "configuration-error" | "api-error"
   >("loading");
 
-  const hasValidCoordinate = (val: any) => typeof val === "number" && Number.isFinite(val);
+  const hasValidCoordinate = (val: number | undefined | null): val is number => typeof val === "number" && Number.isFinite(val);
 
   const currentLat = customOrigin?.lat || location?.latitude;
   const currentLng = customOrigin?.lng || location?.longitude;
@@ -49,7 +49,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       try {
         setMapStatus("loading");
         console.log("[PassengerMap] Initializing Google Maps JS API...");
-        const mapsLib = (await googleMapsLoader.importLibrary("maps")) as any;
+        const mapsLib = (await googleMapsLoader.importLibrary("maps"));
 
         if (!mounted) return;
 
@@ -109,9 +109,10 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
           setMapStatus("ready");
           console.log("[PassengerMap] Map instance created successfully");
         }
-      } catch (err: any) {
-        console.error("[PassengerMap] Error loading Google Maps:", err);
-        if (err.message === "places_configuration_missing") {
+      } catch (err: unknown) {
+        const error = err as Error;
+        console.error("[PassengerMap] Error loading Google Maps:", error);
+        if (error.message === "places_configuration_missing") {
           setMapStatus("configuration-error");
         } else {
           setMapStatus("api-error");
