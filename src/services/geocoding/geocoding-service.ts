@@ -82,34 +82,55 @@ function parseGeocodePayload(value: unknown): GeocodePayload {
 
   const nestedGeo = value["geo"];
   const source = isRecord(nestedGeo) ? nestedGeo : value;
+  const payload: GeocodePayload = {};
+
+  const pickupLabel = readString(source, "pickupLabel");
+  const pickupShortLabel = readString(source, "pickupShortLabel");
+  const pickupSubLabel = readString(source, "pickupSubLabel");
+  const address = readString(source, "address");
+  const region = readString(source, "region");
+  const approximate = readBoolean(source, "approximate");
   const precision = readString(source, "precision");
   const confidence = readString(source, "confidence");
+  const components = readComponents(source["components"]);
+  const nearestPoi = readString(source, "nearestPoi");
+  const plusCode = readString(source, "plusCode");
+  const geocodedLat = readNumber(source, "geocodedLat");
+  const geocodedLng = readNumber(source, "geocodedLng");
 
-  return {
-    pickupLabel: readString(source, "pickupLabel"),
-    pickupShortLabel: readString(source, "pickupShortLabel"),
-    pickupSubLabel: readString(source, "pickupSubLabel"),
-    address: readString(source, "address"),
-    region: readString(source, "region"),
-    approximate: readBoolean(source, "approximate"),
-    precision:
-      precision === "exact" ||
-      precision === "approximate" ||
-      precision === "range" ||
-      precision === "interpolated" ||
-      precision === "unknown"
-        ? precision
-        : undefined,
-    confidence:
-      confidence === "high" || confidence === "medium" || confidence === "low" || confidence === "none"
-        ? confidence
-        : undefined,
-    components: readComponents(source["components"]),
-    nearestPoi: readString(source, "nearestPoi"),
-    plusCode: readString(source, "plusCode"),
-    geocodedLat: readNumber(source, "geocodedLat"),
-    geocodedLng: readNumber(source, "geocodedLng"),
-  };
+  if (pickupLabel) payload.pickupLabel = pickupLabel;
+  if (pickupShortLabel) payload.pickupShortLabel = pickupShortLabel;
+  if (pickupSubLabel) payload.pickupSubLabel = pickupSubLabel;
+  if (address) payload.address = address;
+  if (region) payload.region = region;
+  if (approximate !== undefined) payload.approximate = approximate;
+
+  if (
+    precision === "exact" ||
+    precision === "approximate" ||
+    precision === "range" ||
+    precision === "interpolated" ||
+    precision === "unknown"
+  ) {
+    payload.precision = precision;
+  }
+
+  if (
+    confidence === "high" ||
+    confidence === "medium" ||
+    confidence === "low" ||
+    confidence === "none"
+  ) {
+    payload.confidence = confidence;
+  }
+
+  if (components) payload.components = components;
+  if (nearestPoi) payload.nearestPoi = nearestPoi;
+  if (plusCode) payload.plusCode = plusCode;
+  if (geocodedLat !== undefined) payload.geocodedLat = geocodedLat;
+  if (geocodedLng !== undefined) payload.geocodedLng = geocodedLng;
+
+  return payload;
 }
 
 function readErrorMessage(error: unknown): string {
