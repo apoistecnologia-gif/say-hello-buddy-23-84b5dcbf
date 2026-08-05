@@ -34,9 +34,16 @@ function CadastroPage() {
     e.preventDefault();
 
     // 1. CONFIRMAR O SUPABASE USADO EM RUNTIME
-    console.log("[RUNTIME URL]", import.meta.env["VITE_SUPABASE_URL"]);
+    const url = import.meta.env["VITE_SUPABASE_URL"];
+    const key = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+    console.log("[RUNTIME URL]", url);
     console.log("[SUPABASE CLIENT URL]", (supabase as any).supabaseUrl);
-    console.log("[KEY SLICE]", import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]?.slice(0, 20));
+    console.log("[KEY SLICE]", key?.slice(0, 20));
+
+    if (url?.includes("zjphbuvcapwyuynadgdt")) {
+      toast.error("Erro crítico: O aplicativo ainda está conectado ao projeto temporário. Por favor, recarregue a página.");
+      return;
+    }
 
 
 
