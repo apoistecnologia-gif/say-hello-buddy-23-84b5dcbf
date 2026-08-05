@@ -119,7 +119,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       }
     };
 
-    initMap();
+    void initMap();
     return () => {
       mounted = false;
     };

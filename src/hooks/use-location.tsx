@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Geolocation, PermissionStatus } from "@capacitor/geolocation";
+import type { Position as CapacitorPosition } from "@capacitor/geolocation";
 
 export type LocationPermissionState =
   "unknown" | "prompt" | "granted" | "denied" | "blocked" | "unavailable";
@@ -8,7 +9,25 @@ export interface LocationData {
   latitude: number;
   longitude: number;
   accuracy: number;
-  timestamp?: number;
+  timestamp: number;
+}
+
+type BrowserPosition = globalThis.GeolocationPosition;
+
+function normalizePosition(
+  position: CapacitorPosition | BrowserPosition
+): LocationData {
+  const timestamp =
+    typeof position.timestamp === "number"
+      ? position.timestamp
+      : Date.now();
+
+  return {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    accuracy: position.coords.accuracy,
+    timestamp,
+  };
 }
 
 interface LocationContextType {
@@ -52,16 +71,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
-  const updateLocationState = (pos: any) => {
+  const updateLocationState = (pos: CapacitorPosition | BrowserPosition) => {
     if (pos && pos.coords) {
-      const { latitude, longitude, accuracy } = pos.coords;
+      const { latitude, longitude } = pos.coords;
       if (validateCoords(latitude, longitude)) {
-        const newData = {
-          latitude,
-          longitude,
-          accuracy,
-          timestamp: pos.timestamp,
-        };
+        const newData = normalizePosition(pos);
         setLocation(newData);
         setError(null);
         return true;

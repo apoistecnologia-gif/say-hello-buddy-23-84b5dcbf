@@ -19,6 +19,27 @@ export const Route = createFileRoute("/_authenticated/perfil")({
   component: PerfilPage,
 });
 
+interface PassengerProfile {
+  id?: string;
+  name: string;
+  phone: string | null;
+  avatar_url: string | null;
+  average_rating: number;
+  completed_rides: number;
+}
+
+function readString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function readNullableString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function readNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 function PerfilPage() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -28,19 +49,25 @@ function PerfilPage() {
     navigate({ to: "/login" });
   };
 
-  const currentProfile = profile || {
-    name: "Passageiro",
-    avatar_url: "",
-    phone: "",
-    average_rating: 5.0,
-    completed_rides: 0,
+  const rawProfile =
+    profile && typeof profile === "object" ? (profile as Record<string, unknown>) : {};
+
+  const currentProfile: PassengerProfile = {
+    name: readString(
+      rawProfile["name"] || rawProfile["full_name"],
+      readString(user?.user_metadata?.["full_name"], "Passageiro")
+    ),
+    phone: readNullableString(rawProfile["phone"]),
+    avatar_url: readNullableString(rawProfile["avatar_url"]),
+    average_rating: readNumber(rawProfile["average_rating"]),
+    completed_rides: readNumber(rawProfile["completed_rides"]),
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-black text-white pb-24">
       <div className="p-6 pt-12 flex flex-col items-center border-b border-gray-900">
         <Avatar className="w-24 h-24 mb-4 border-2 border-yellow-500 p-1">
-          <AvatarImage src={currentProfile.avatar_url} />
+          <AvatarImage src={currentProfile.avatar_url || undefined} />
           <AvatarFallback className="bg-gray-800 text-yellow-500 text-3xl font-bold">
             {currentProfile.name.charAt(0) || user?.email?.charAt(0).toUpperCase()}
           </AvatarFallback>
