@@ -101,8 +101,12 @@ function PerfilPage() {
               label="Dados Pessoais"
               value={currentProfile.name}
             />
-            <MenuLink icon={<Phone size={20} />} label="Telefone" value={currentProfile.phone} />
-            <MenuLink icon={<Mail size={20} />} label="E-mail" value={user?.email} />
+            <MenuLink
+              icon={<Phone size={20} />}
+              label="Telefone"
+              value={currentProfile.phone ?? ""}
+            />
+            <MenuLink icon={<Mail size={20} />} label="E-mail" value={user?.email ?? ""} />
           </div>
 
           <p className="text-xs font-bold text-gray-500 px-2 pt-6 pb-2 uppercase tracking-wider">
