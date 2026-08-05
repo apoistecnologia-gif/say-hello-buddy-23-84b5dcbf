@@ -22,7 +22,7 @@ END $$;
 -- 3. TABLES (Complete Schema)
 
 CREATE TABLE IF NOT EXISTS public.users (
-    id UUID PRIMARY KEY, -- Architecture A: same as auth.users.id
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE, -- Architecture A: same as auth.users.id
     name TEXT,
     email TEXT UNIQUE,
     phone TEXT,
