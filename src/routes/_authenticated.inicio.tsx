@@ -6,11 +6,8 @@ import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { useDestination } from "@/hooks/use-destination";
 import { useRoute } from "@/hooks/use-route";
 import { useRideCategories } from "@/hooks/use-ride-categories";
-import { usePricing } from "@/hooks/use-pricing";
-import { usePaymentMethods } from "@/hooks/use-payment-methods";
 import { useCheckoutPreparation } from "@/hooks/use-checkout-preparation";
 import { useRideRequest } from "@/hooks/rides/use-ride-request";
-import { LocationStatus } from "@/components/location/LocationStatus";
 import PassengerMap from "@/components/map/PassengerMap";
 import { CategorySelector } from "@/components/pricing/CategorySelector";
 import { RideStopsInput } from "@/components/rides/RideStopsInput";
@@ -22,8 +19,9 @@ import {
 import { CouponInput } from "@/components/coupons/CouponInput";
 import { CheckoutSummary } from "@/components/pricing/CheckoutSummary";
 import { FareDetails } from "@/components/pricing/FareDetails";
-import { MapPin, ChevronRight, Settings2, RefreshCw } from "lucide-react";
+import { MapPin, ChevronRight, Settings2, RefreshCw, Navigation } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BottomSheet } from "@/components/ui/bottom-sheet/BottomSheet";
 
 export const Route = createFileRoute("/_authenticated/inicio")({
   component: InicioPage,
@@ -32,8 +30,8 @@ export const Route = createFileRoute("/_authenticated/inicio")({
 function InicioPage() {
   const navigate = useNavigate();
   const { address, status: addressStatus } = usePickupAddress();
-  const { profile, authState } = useAuth();
-  const { destination, hasDestination } = useDestination();
+  const { profile } = useAuth();
+  const { hasDestination } = useDestination();
   const { route } = useRoute();
   const { selectedCategory } = useRideCategories();
   const { checkout } = useCheckoutPreparation();
@@ -48,16 +46,13 @@ function InicioPage() {
     navigate({ to: "/revisar-solicitacao" });
   };
 
-  return (
-    <div className="flex flex-col flex-1 bg-black text-white relative overflow-hidden">
-      {/* Debug Overlay - Somente em Dev (Oculto no Preview por padrão) */}
-      {import.meta.env.DEV && import.meta.env["VITE_SHOW_DEBUG"] === "true" && (
-        <div className="fixed top-0 left-1/2 -translate-x-1/2 z-[9999] bg-black/80 p-1 text-[8px] pointer-events-none w-full max-w-[430px]">
-          Auth: {authState} | Loc: {location ? "Sim" : "Não"} | Addr: {addressStatus}
-        </div>
-      )}
+  const currentAddressText = addressStatus === "identifying" 
+    ? "Buscando localização..." 
+    : address || "Sua localização atual";
 
-      {/* Mapa como fundo principal */}
+  return (
+    <div className="absolute inset-0 bg-zinc-950 overflow-hidden flex flex-col">
+      {/* MAPA FULLSCREEN */}
       <div className="absolute inset-0 z-0">
         <PassengerMap
           origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
@@ -68,17 +63,15 @@ function InicioPage() {
         />
       </div>
 
-      {/* Cabeçalho Flutuante */}
-      <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-[calc(env(safe-area-inset-top)+1rem)]">
-        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl flex items-center justify-between">
+      {/* GREETING CARD - FLOATING */}
+      <div className="absolute top-[calc(env(safe-area-inset-top)+12px)] left-4 right-4 z-20">
+        <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl flex items-center justify-between">
           <div className="flex flex-col min-w-0">
-            <h1 className="text-sm font-black text-white">
+            <h1 className="text-xs font-black text-white uppercase tracking-tighter opacity-70">
               Olá, {profile?.full_name?.split(" ")[0] || "Passageiro"}
             </h1>
-            <p className="text-[11px] font-medium text-gray-300 truncate max-w-[200px]">
-              {addressStatus === "identifying"
-                ? "Identificando..."
-                : address || "Sua localização atual"}
+            <p className="text-[13px] font-bold text-white truncate max-w-[220px]">
+              {currentAddressText}
             </p>
           </div>
           <div className="w-10 h-10 bg-apois-yellow rounded-2xl flex items-center justify-center shadow-lg shadow-apois-yellow/20 cursor-pointer active:scale-95 transition-all">
@@ -87,141 +80,140 @@ function InicioPage() {
         </div>
       </div>
 
-      {/* Campo de Destino Flutuante */}
-      <div className="absolute top-[calc(env(safe-area-inset-top)+84px)] left-0 right-0 z-20 px-4">
+      {/* DESTINATION CARD - FLOATING (UBER STYLE) */}
+      <div className="absolute top-[calc(env(safe-area-inset-top)+88px)] left-4 right-4 z-20">
         <div
           onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
           role="button"
           tabIndex={0}
-          className="w-full h-14 bg-white rounded-2xl flex items-center gap-4 px-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] active:scale-[0.98] transition-all cursor-pointer group"
+          className="w-full bg-white rounded-2xl flex items-center gap-4 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.2)] active:scale-[0.98] transition-all cursor-pointer group"
         >
-          <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center shrink-0">
-            <MapPin className="text-apois-yellow" size={20} />
+          <div className="w-10 h-10 bg-zinc-100 rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-2.5 h-2.5 bg-black rounded-sm" />
           </div>
-          <div className="flex-1">
-            <p className="text-black font-black text-sm uppercase tracking-tight group-active:text-zinc-700">
+          <div className="flex-1 border-l border-zinc-100 pl-4">
+            <p className="text-zinc-400 font-bold text-xs uppercase tracking-tight">
+              De: {currentAddressText.split(',')[0]}
+            </p>
+            <p className="text-black font-black text-[15px] uppercase tracking-tighter">
               Para onde vamos?
             </p>
-            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
-              Informe seu destino
-            </p>
           </div>
-          <ChevronRight size={20} className="text-zinc-300" />
+          <ChevronRight size={20} className="text-zinc-300 mr-2" />
         </div>
       </div>
 
-      {/* Botão de Recentralização */}
-      <div className="absolute right-4 bottom-[calc(180px+env(safe-area-inset-bottom))] z-20">
+      {/* RE-CENTER BUTTON */}
+      <div className="absolute right-4 bottom-[42%] z-20">
         <button
           type="button"
           onClick={() => refreshLocation()}
           disabled={isLocating}
-          className="w-12 h-12 bg-black/80 backdrop-blur-md border border-white/10 rounded-2xl flex items-center justify-center text-apois-yellow shadow-2xl active:scale-90 transition-all disabled:opacity-50"
+          className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black shadow-xl active:scale-90 transition-all disabled:opacity-50"
         >
-          <RefreshCw className={cn("w-5 h-5", isLocating && "animate-spin")} />
+          <Navigation className={cn("w-5 h-5 fill-current", isLocating && "animate-pulse")} />
         </button>
       </div>
 
-      {/* Painel Inferior Mobile (Compacto e Expansível) */}
-      <div className="absolute bottom-[calc(72px+env(safe-area-inset-bottom))] left-0 right-0 z-30 px-4">
-        <div className="bg-[#1a1a1a] rounded-t-[32px] rounded-b-[32px] border border-white/10 shadow-[0_-8px_30px_rgba(0,0,0,0.4)] overflow-hidden">
-          {/* Drag Handle */}
-          <div className="w-full flex justify-center py-3">
-            <div className="w-12 h-1 bg-zinc-800 rounded-full" />
-          </div>
-
-          <div className="max-h-[50vh] overflow-y-auto no-scrollbar pb-6">
-            {hasDestination || route ? (
-              <div className="animate-in fade-in slide-in-from-bottom duration-300 space-y-4">
-                <div className="px-5 flex items-center justify-between">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                    Categorias disponíveis
-                  </p>
-                  {selectedCategory &&
-                    (selectedCategory.code === "fretes" ||
-                      selectedCategory.code === "guincho" ||
-                      selectedCategory.code === "envios") && (
-                      <button
-                        type="button"
-                        onClick={() => setIsFormOpen(true)}
-                        className="flex items-center gap-1.5 text-apois-yellow font-bold text-xs"
-                      >
-                        <Settings2 size={14} />
-                        Detalhes
-                      </button>
-                    )}
-                </div>
-
-                <RideStopsInput />
-                <CategorySelector />
-
-                <div className="px-5 space-y-4">
-                  <PaymentMethodSelector onOpenList={() => setIsPaymentListOpen(true)} />
-                  <CouponInput />
-
-                  <div className="pt-2">
-                    <FareDetails />
-                    <CheckoutSummary />
-                  </div>
-                </div>
-
-                <div className="px-5 pt-4">
+      {/* NATIVE BOTTOM SHEET */}
+      <BottomSheet 
+        isOpen={true} 
+        onClose={() => {}} 
+        preventClose={true}
+      >
+        <div className="w-full">
+          {hasDestination || route ? (
+            <div className="animate-in fade-in slide-in-from-bottom duration-300 space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                  Selecione sua categoria
+                </p>
+                {selectedCategory && ["fretes", "guincho", "envios"].includes(selectedCategory.code) && (
                   <button
                     type="button"
-                    onClick={handleReview}
-                    disabled={!checkout.readiness}
-                    className={cn(
-                      "w-full flex items-center justify-center gap-2 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
-                      checkout.readiness
-                        ? "bg-apois-yellow text-black shadow-apois-yellow/20"
-                        : "bg-zinc-800 text-zinc-600 cursor-not-allowed",
-                    )}
+                    onClick={() => setIsFormOpen(true)}
+                    className="flex items-center gap-1.5 text-apois-yellow font-bold text-xs"
                   >
-                    Revisar Solicitação
-                    <ChevronRight size={20} strokeWidth={3} />
+                    <Settings2 size={14} />
+                    Detalhes
                   </button>
+                )}
+              </div>
+
+              <RideStopsInput />
+              <CategorySelector />
+
+              <div className="space-y-4">
+                <PaymentMethodSelector onOpenList={() => setIsPaymentListOpen(true)} />
+                <CouponInput />
+
+                <div className="pt-2">
+                  <FareDetails />
+                  <CheckoutSummary />
                 </div>
               </div>
-            ) : (
-              <div className="px-5 space-y-6">
-                <div className="flex flex-col gap-1">
-                  <h2 className="text-lg font-black text-white">Para onde vamos hoje?</h2>
-                  <p className="text-xs text-zinc-500 font-medium">
-                    Escolha um destino ou use um atalho
-                  </p>
-                </div>
 
-                {/* Favoritos / Atalhos */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-zinc-900/50 p-4 rounded-2xl border border-white/5 flex flex-col gap-2 cursor-pointer active:scale-95 transition-all">
-                    <div className="w-8 h-8 bg-zinc-800 rounded-lg flex items-center justify-center text-apois-yellow">
-                      <MapPin size={18} />
-                    </div>
-                    <span className="text-xs font-bold">Casa</span>
-                  </div>
-                  <div className="bg-zinc-900/50 p-4 rounded-2xl border border-white/5 flex flex-col gap-2 cursor-pointer active:scale-95 transition-all">
-                    <div className="w-8 h-8 bg-zinc-800 rounded-lg flex items-center justify-center text-apois-yellow">
-                      <RefreshCw size={18} />
-                    </div>
-                    <span className="text-xs font-bold">Trabalho</span>
-                  </div>
-                </div>
-
-                {/* Ação Principal no Painel */}
+              <div className="pt-2">
                 <button
-                  onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
-                  className="w-full py-4 bg-apois-yellow text-black font-black rounded-2xl active:scale-95 shadow-lg shadow-apois-yellow/10 uppercase tracking-widest text-xs"
+                  type="button"
+                  onClick={handleReview}
+                  disabled={!checkout.readiness}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
+                    checkout.readiness
+                      ? "bg-apois-yellow text-black shadow-apois-yellow/20"
+                      : "bg-zinc-800 text-zinc-600 cursor-not-allowed",
+                  )}
                 >
-                  Escolher destino
+                  Confirmar {selectedCategory?.name || "Solicitação"}
+                  <ChevronRight size={20} strokeWidth={3} />
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-6 pt-2">
+              <div className="flex flex-col gap-1">
+                <h2 className="text-xl font-black text-white tracking-tighter">Para onde vamos hoje?</h2>
+                <p className="text-sm text-zinc-500 font-medium">
+                  Atalhos salvos e destinos frequentes
+                </p>
+              </div>
+
+              {/* FAVORITOS / ATALHOS */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-zinc-900/80 p-4 rounded-2xl border border-white/5 flex items-center gap-3 cursor-pointer active:scale-95 transition-all">
+                  <div className="w-8 h-8 bg-zinc-800 rounded-lg flex items-center justify-center text-zinc-400">
+                    <MapPin size={18} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black text-white">CASA</span>
+                    <span className="text-[10px] text-zinc-500 truncate">Sua residência</span>
+                  </div>
+                </div>
+                <div className="bg-zinc-900/80 p-4 rounded-2xl border border-white/5 flex items-center gap-3 cursor-pointer active:scale-95 transition-all">
+                  <div className="w-8 h-8 bg-zinc-800 rounded-lg flex items-center justify-center text-zinc-400">
+                    <MapPin size={18} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-black text-white">TRABALHO</span>
+                    <span className="text-[10px] text-zinc-500 truncate">Seu escritório</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
+                className="w-full py-5 bg-white text-black font-black rounded-2xl active:scale-95 shadow-xl uppercase tracking-tighter text-sm flex items-center justify-center gap-2"
+              >
+                <MapPin size={18} strokeWidth={3} />
+                Escolher destino no mapa
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      </BottomSheet>
 
       <ServiceDetailsForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
-
       <PaymentMethodList isOpen={isPaymentListOpen} onClose={() => setIsPaymentListOpen(false)} />
     </div>
   );

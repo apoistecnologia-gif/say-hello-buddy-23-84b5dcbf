@@ -245,13 +245,13 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       style={{ minHeight: "100%" }}
     >
       {/* Fallback do Mapa (Sempre visível se o Google não carregar) */}
-      <div className="absolute inset-0 z-0 bg-zinc-900 flex flex-col items-center justify-center opacity-40">
-        <div className="w-full h-full opacity-20" style={{
-          backgroundImage: `radial-gradient(circle at 2px 2px, #444 1px, transparent 0)`,
-          backgroundSize: '24px 24px'
+      <div className="absolute inset-0 z-0 bg-zinc-950 flex flex-col items-center justify-center">
+        <div className="w-full h-full opacity-10" style={{
+          backgroundImage: `radial-gradient(circle at 2px 2px, #333 1px, transparent 0)`,
+          backgroundSize: '32px 32px'
         }} />
         <div className="absolute inset-0 flex items-center justify-center">
-           <MapPin size={48} className="text-zinc-800 animate-pulse" />
+           <div className="w-16 h-16 border-4 border-zinc-800 border-t-apois-yellow rounded-full animate-spin" />
         </div>
       </div>
 
