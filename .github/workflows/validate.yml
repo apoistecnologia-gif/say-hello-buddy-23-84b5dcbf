@@ -31,6 +31,20 @@ jobs:
       - name: TypeScript
         run: bun run typecheck
 
+      - name: Validate Supabase migration timestamps
+        shell: bash
+        run: |
+          set -euo pipefail
+          duplicates="$(find supabase/migrations -maxdepth 1 -type f -name '*.sql' -printf '%f\n' \
+            | sed -E 's/^([0-9]{14}).*/\1/' \
+            | sort \
+            | uniq -d)"
+          if [ -n "$duplicates" ]; then
+            echo "Timestamps duplicados encontrados nas migrations:"
+            echo "$duplicates"
+            exit 1
+          fi
+
       - name: Lint corrected authentication and location files
         run: >-
           bunx eslint
