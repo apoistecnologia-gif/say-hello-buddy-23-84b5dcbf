@@ -1,91 +1,183 @@
 # APOIS Edge Function Security Matrix
 
-This matrix provides the definitive security and operational posture for all 15 deployable Edge Functions in the APOIS ecosystem.
+This document provides a comprehensive security and runtime audit for all 15 deployable Edge Functions in the APOIS ecosystem.
 
-## Role Clarification
-| Role | Exists in `app_role` | Usage/Classification |
-|------|----------------------|----------------------|
-| `admin` | Yes | **Actively used**: Core administrative access. |
-| `super_admin` | Yes | **Actively used**: Unrestricted system access. |
-| `moderator` | Yes | **Reserved**: Future content moderation. |
-| `user` | Yes | **Reserved**: Generic base role. |
-| `passenger` | Yes | **Actively used**: Passenger identity. |
-| `driver` | Yes | **Actively used**: Driver identity. |
-| `financial` | Yes | **Actively used**: Billing and payout access. |
-| `operations` | Yes | **Reserved**: Fleet management. |
-| `support` | Yes | **Reserved**: Customer ticket management. |
-| `readonly` | Yes | **Unnecessary**: Use restricted SELECT grants instead. |
+## Global CORS Policy
+All functions (except webhooks) utilize the shared CORS helper in `supabase/functions/_shared/cors.ts`.
+- **Allowed Origins:** Exact match for `https://say-hello-buddy-23.lovable.app`, `http://localhost:8080`, and any `*.lovable.app` subdomain (HTTPS only).
+- **Environment Configuration:** Additional origins can be added via the `ALLOWED_ORIGINS` secret (comma-separated).
+- **Unknown Origins:** Requests from unauthorized origins do not receive an `Access-Control-Allow-Origin` header, effectively blocking browser-based cross-origin requests.
+- **Capacitor/Server-to-Server:** Requests without an `Origin` header are permitted to support native mobile apps and trusted backend calls.
 
 ---
 
 ## 1. admin-actions
-- **Slug**: `admin-actions`
-- **Source path**: `supabase/functions/admin-actions/index.ts`
-- **verify_jwt**: `true`
-- **Caller type**: Authenticated Admin
-- **Identity source**: `auth.getUser()`
-- **Role check**: Requires `admin` or `super_admin` role from `user_roles`.
-- **Ownership check**: N/A (Admin context)
-- **Tables read**: `user_roles`, `drivers`, `users`, `coupons`, `ride_categories`, `tariff_rules`, `audit_logs`, `driver_withdrawals`, `subscriptions`.
-- **Tables written**: `user_roles`, `drivers`, `users`, `coupons`, `audit_logs`.
-- **External provider**: Firebase (via `send-ride-push` internal logic)
-- **Production classification**: READY
-
-## 2. approve-driver-and-create-mercadopago-subscription
-- **Slug**: `approve-driver-and-create-mercadopago-subscription`
-- **verify_jwt**: `true`
-- **Caller type**: Authenticated Admin
-- **Role check**: Requires `admin` or `super_admin`.
-- **Idempotency mechanism**: Internal reuse of pending charges; MP X-Idempotency-Key.
-- **Production classification**: READY
-
-## 3. create-cancellation-fee-charge
-- **Slug**: `create-cancellation-fee-charge`
-- **verify_jwt**: `true`
-- **Caller type**: Authenticated Passenger
-- **Ownership check**: Verified `passenger_id` in `cancellation_fees` matches JWT `sub`.
-- **Tables read/written**: `cancellation_fees`.
-- **Branding**: APOIS branding enforced in metadata and descriptions.
-- **Production classification**: READY
-
-## 8. mercadopago-webhook
-- **Slug**: `mercadopago-webhook`
-- **verify_jwt**: `false`
-- **Caller type**: External Webhook (Mercado Pago)
-- **Identity source**: HMAC-SHA256 signature verification.
-- **Security**: Complete x-signature is NEVER logged; only dataId and requestId are logged.
-- **CORS**: Wildcard allowed only for non-browser webhook POSTs; GET/OPTIONS restricted.
-- **Idempotency**: `payment_webhook_receipts` table with unique constraint on `event_key`.
-- **Production classification**: READY
-
-## 15. send-ride-push
-- **Slug**: `send-ride-push`
-- **verify_jwt**: `true`
-- **Caller type**: Authenticated User, Admin, or Service
-- **Identity source**: `auth.getUser()` or SERVICE_ROLE.
-- **Authorization Flow**:
-  - **Service**: Explicit check `token === SERVICE_ROLE`. Full control.
-  - **Admin**: `admin`/`super_admin` role check. Full control.
-  - **Passenger/Driver**: Participation check. Must be part of `ride_id`. Restricted to ALLOWED_EVENTS.
-- **Security**: 
-  - Recipients derived from ride record for non-admins.
-  - Title/Body derived from server-side event map.
-  - Firebase OAuth errors are sanitized (no tokens/full payloads logged).
-- **CORS**: Restricted origins in `_shared/cors.ts`.
-- **Tables read**: `user_roles`, `rides`, `user_notification_preferences`, `user_notification_tokens`.
-- **Tables written**: `notification_logs`.
-- **Production classification**: READY
+- **Slug:** `admin-actions`
+- **Path:** `supabase/functions/admin-actions/index.ts`
+- **Entrypoint:** `Deno.serve`
+- **Verify JWT:** Yes (`verify_jwt: true` in `config.toml`)
+- **Caller Type:** Admin Web Dashboard
+- **Identity Source:** Supabase Auth (JWT)
+- **Role Check:** Requires `admin` or `super_admin` role in `public.user_roles`.
+- **Ownership Check:** N/A (Admin level)
+- **Tables Read:** `user_roles`, `app_settings`, `payment_webhook_receipts`, etc. (via `service_role`).
+- **Tables Written:** `admin_audit_logs`, `app_settings`, etc.
+- **RPCs:** N/A
+- **Input Validation:** Strict JSON schema for `action` and `payload`.
+- **CORS:** Uses shared helper; restricted to admin domains.
+- **Safe Staging Test:** Call with `action: "health_check"`.
+- **Production Classification:** Mission Critical (System Config).
 
 ---
 
-## Final Classification
-- **READY (14)**: `admin-actions`, `approve-driver...`, `create-cancellation-fee...`, `create-my-mercadopago...`, `delete-my-account`, `mercadopago-health`, `mercadopago-webhook`, `passenger-geocode-reverse`, `passenger-pricing-estimate`, `passenger-routes-compute`, `regenerate-driver...`, `request-driver-payout`, `request-ride`, `send-ride-push`.
-- **STAGING_ONLY (1)**: `dispatch-broadcast-test`.
-- **BLOCKED (0)**: None.
+## 2. approve-driver-and-create-mercadopago-subscription
+- **Slug:** `approve-driver-and-create-mercadopago-subscription`
+- **Path:** `supabase/functions/approve-driver-and-create-mercadopago-subscription/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Admin Web Dashboard
+- **Identity Source:** Supabase Auth (JWT)
+- **Role Check:** Requires `admin` or `super_admin`.
+- **Tables Read:** `drivers`, `subscription_plans`.
+- **Tables Written:** `drivers`, `subscriptions` (via shared MP helper).
+- **External Provider:** Mercado Pago (Subscriptions API).
+- **CORS:** Uses shared helper.
+- **Safe Staging Test:** Approve a test driver with mock MP response.
 
-## Integrity Evidence
-- Line count: 78
-- File size: 4022 bytes
-- SHA-256: (calculated upon request)
+---
 
-EDGE_FUNCTION_SECURITY_AND_DOCUMENTATION_INCONSISTENCIES_CORRECTED_READY_FOR_REVIEW
+## 3. create-cancellation-fee-charge
+- **Slug:** `create-cancellation-fee-charge`
+- **Path:** `supabase/functions/create-cancellation-fee-charge/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Driver/Passenger App
+- **Identity Source:** Supabase Auth (JWT)
+- **Ownership Check:** Validates that the ride belongs to the caller.
+- **Tables Written:** `cancellation_fees`.
+- **External Provider:** Mercado Pago (Payment Proccessing).
+
+---
+
+## 4. create-my-mercadopago-subscription
+- **Slug:** `create-my-mercadopago-subscription`
+- **Path:** `supabase/functions/create-my-mercadopago-subscription/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Driver App (Self-service)
+- **Identity Source:** Supabase Auth (JWT)
+- **Ownership Check:** Restricted to the authenticated driver's own account.
+- **Tables Read:** `drivers`, `subscription_plans`.
+
+---
+
+## 5. delete-my-account
+- **Slug:** `delete-my-account`
+- **Path:** `supabase/functions/delete-my-account/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Mobile Apps (User Settings)
+- **Identity Source:** Supabase Auth (JWT)
+- **Ownership Check:** Deletes only the caller's data.
+- **Tables Written:** `account_deletion_requests`, `users` (soft-delete/anonymize).
+- **Side Effects:** Deletes files from Supabase Storage; calls Auth Admin API to delete user.
+
+---
+
+## 6. dispatch-broadcast-test
+- **Slug:** `dispatch-broadcast-test`
+- **Path:** `supabase/functions/dispatch-broadcast-test/index.ts`
+- **Verify JWT:** N/A (Internal/Test)
+- **Production Status:** Disabled/Placeholder (Only active in test environment).
+
+---
+
+## 7. mercadopago-health
+- **Slug:** `mercadopago-health`
+- **Path:** `supabase/functions/mercadopago-health/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Admin Web Dashboard
+- **Role Check:** Requires `admin`, `super_admin`, or `financial`.
+- **External Provider:** Mercado Pago (Credentials check).
+
+---
+
+## 8. mercadopago-webhook
+- **Slug:** `mercadopago-webhook`
+- **Path:** `supabase/functions/mercadopago-webhook/index.ts`
+- **Verify JWT:** No (Public Endpoint for Webhook)
+- **Security Boundary:** HMAC Signature Validation (`X-Signature` header).
+- **Identity Source:** Signature derived from `MERCADOPAGO_WEBHOOK_SECRET`.
+- **Tables Written:** `payment_webhook_receipts`, `subscriptions`, `drivers`, `driver_payment_events`.
+- **Idempotency:** `event_key` (Unique constraint) prevents duplicate processing.
+- **CORS:** Browser CORS not required (Server-to-server). Headers are omitted.
+
+---
+
+## 9. passenger-geocode-reverse
+- **Slug:** `passenger-geocode-reverse`
+- **Path:** `supabase/functions/passenger-geocode-reverse/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Passenger App
+- **External Provider:** Google Maps Geocoding API.
+- **CORS:** Uses shared helper.
+
+---
+
+## 10. passenger-pricing-estimate
+- **Slug:** `passenger-pricing-estimate`
+- **Path:** `supabase/functions/passenger-pricing-estimate/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Passenger App
+- **Tables Read:** `ride_categories`, `tariff_rules`.
+- **Logic:** Server-side fare calculation (Architecture A).
+
+---
+
+## 11. passenger-routes-compute
+- **Slug:** `passenger-routes-compute`
+- **Path:** `supabase/functions/passenger-routes-compute/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Passenger App
+- **External Provider:** Google Routes API (v2).
+
+---
+
+## 12. regenerate-driver-mercadopago-charge
+- **Slug:** `regenerate-driver-mercadopago-charge`
+- **Path:** `supabase/functions/regenerate-driver-mercadopago-charge/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Admin Web Dashboard
+- **Role Check:** Admin level.
+- **Side Effects:** Creates in-app notification for the driver.
+
+---
+
+## 13. request-driver-payout
+- **Slug:** `request-driver-payout`
+- **Path:** `supabase/functions/request-driver-payout/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Driver App (Wallet)
+- **Identity Source:** Supabase Auth (JWT)
+- **RPCs:** `request_driver_withdrawal`, `mark_driver_withdrawal_paid`, `mark_driver_withdrawal_failed`.
+- **Idempotency:** `X-Idempotency-Key` passed to Mercado Pago Money Out API.
+- **External Provider:** Mercado Pago (Pix Transfers).
+
+---
+
+## 14. request-ride
+- **Slug:** `request-ride`
+- **Path:** `supabase/functions/request-ride/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Passenger App
+- **Identity Source:** Supabase Auth (JWT)
+- **Tables Written:** `rides`, `ride_events`.
+- **Side Effects:** Triggers push notifications to available drivers via `send-ride-push`.
+
+---
+
+## 15. send-ride-push
+- **Slug:** `send-ride-push`
+- **Path:** `supabase/functions/send-ride-push/index.ts`
+- **Verify JWT:** Yes
+- **Caller Type:** Driver/Passenger Apps & Internal RPCs.
+- **Role Check:** Non-admins are restricted to `ALLOWED_EVENTS` and must be participants in the `ride_id` provided.
+- **External Provider:** Firebase Cloud Messaging (FCM).
+- **Identity Source:** JWT (User) or Service Role Key (Server-to-server).
+- **Tables Read:** `rides`, `user_notification_tokens`, `user_notification_preferences`.

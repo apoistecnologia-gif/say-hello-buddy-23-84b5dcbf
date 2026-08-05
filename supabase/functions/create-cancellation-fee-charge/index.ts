@@ -28,7 +28,7 @@ function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 
-      ...(req ? getCorsHeaders(req) : { "Access-Control-Allow-Origin": "*" }),
+      ...(req ? getCorsHeaders(req) : {}),
       "content-type": "application/json" 
     },
   });

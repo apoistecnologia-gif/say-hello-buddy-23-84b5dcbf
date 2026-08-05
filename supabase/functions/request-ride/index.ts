@@ -1,18 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "content-type": "application/json" },
+    headers: { 
+      ...(req ? getCorsHeaders(req) : {}),
+      "content-type": "application/json" 
+    },
   });
 }
 
@@ -399,7 +397,7 @@ async function notifyCandidates(ride: any, userIds: string[]): Promise<void> {
     body: JSON.stringify({
       user_ids: userIds,
       event: "driver.new_ride_request",
-      title: "MOVVI • Nova corrida disponível",
+      title: "APOIS • Nova corrida disponível",
       body: `${ride.origin_name} → ${ride.destination_name}`,
       url: "/motorista/app",
       ride_id: ride.id,
@@ -411,8 +409,8 @@ async function notifyCandidates(ride: any, userIds: string[]): Promise<void> {
 
 Deno.serve(async (req) => {
   try {
-    if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+    if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
+    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, req);
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace(/^Bearer\s+/i, "").trim();
