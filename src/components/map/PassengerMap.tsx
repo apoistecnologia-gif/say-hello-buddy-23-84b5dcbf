@@ -15,11 +15,21 @@ interface PassengerMapProps {
 }
 
 type MapStatus = "loading" | "ready" | "configuration-error" | "api-error";
+type Coordinate = { lat: number; lng: number };
 
 const DEFAULT_CENTER = { lat: -9.3891, lng: -40.5031 };
+const DRIVER_ANIMATION_MS = 900;
+const CAMERA_UPDATE_INTERVAL_MS = 1800;
 
 const isCoordinate = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
+
+const interpolateCoordinate = (from: Coordinate, to: Coordinate, progress: number): Coordinate => ({
+  lat: from.lat + (to.lat - from.lat) * progress,
+  lng: from.lng + (to.lng - from.lng) * progress,
+});
+
+const easeOutCubic = (progress: number): number => 1 - Math.pow(1 - progress, 3);
 
 const PassengerMap: React.FC<PassengerMapProps> = ({
   origin: customOrigin,
@@ -35,10 +45,15 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const staticMarkersRef = useRef<any[]>([]);
+  const driverMarkerRef = useRef<any>(null);
+  const driverPositionRef = useRef<Coordinate | null>(null);
+  const driverAnimationRef = useRef<number | null>(null);
   const polylineRef = useRef<any>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const authFailureCleanupRef = useRef<(() => void) | null>(null);
+  const cameraInitializedRef = useRef(false);
+  const lastCameraUpdateRef = useRef(0);
   const [status, setStatus] = useState<MapStatus>("loading");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -55,6 +70,17 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     const lng = "longitude" in value ? value.longitude : value.lng;
     return isCoordinate(lat) && isCoordinate(lng) ? { lat, lng } : null;
   }, [customDestination, globalDestination]);
+
+  const validDriverLocation = useMemo<Coordinate | null>(() => {
+    if (
+      !driverLocation ||
+      !isCoordinate(driverLocation.lat) ||
+      !isCoordinate(driverLocation.lng)
+    ) {
+      return null;
+    }
+    return { lat: driverLocation.lat, lng: driverLocation.lng };
+  }, [driverLocation]);
 
   const initializeMap = useCallback(async (): Promise<void> => {
     if (!mapElementRef.current) return;
@@ -87,6 +113,9 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
         backgroundColor: "#e5e7eb",
       });
 
+      cameraInitializedRef.current = false;
+      driverPositionRef.current = null;
+
       resizeObserverRef.current?.disconnect();
       resizeObserverRef.current = new ResizeObserver(() => {
         const maps = (window as any).google?.maps;
@@ -112,6 +141,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       resizeObserverRef.current = null;
       authFailureCleanupRef.current?.();
       authFailureCleanupRef.current = null;
+      if (driverAnimationRef.current !== null) cancelAnimationFrame(driverAnimationRef.current);
     };
   }, [initializeMap]);
 
@@ -120,8 +150,8 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     const maps = (window as any).google?.maps;
     if (!maps) return;
 
-    for (const marker of markersRef.current) marker.setMap(null);
-    markersRef.current = [];
+    for (const marker of staticMarkersRef.current) marker.setMap(null);
+    staticMarkersRef.current = [];
     polylineRef.current?.setMap(null);
     polylineRef.current = null;
 
@@ -129,7 +159,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     let pointCount = 0;
 
     const addCircleMarker = (
-      position: { lat: number; lng: number },
+      position: Coordinate,
       title: string,
       color: string,
       scale = 8,
@@ -138,6 +168,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
         map: mapRef.current,
         position,
         title,
+        optimized: true,
         icon: {
           path: maps.SymbolPath.CIRCLE,
           scale,
@@ -147,7 +178,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
           strokeWeight: 2,
         },
       });
-      markersRef.current.push(marker);
+      staticMarkersRef.current.push(marker);
       bounds.extend(position);
       pointCount += 1;
     };
@@ -162,16 +193,14 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
         position,
         title: stop.label,
         label: { text: String(index + 1), color: "#000000", fontWeight: "700" },
+        optimized: true,
       });
-      markersRef.current.push(marker);
+      staticMarkersRef.current.push(marker);
       bounds.extend(position);
       pointCount += 1;
     });
 
     if (destination) addCircleMarker(destination, "Destino", "#111111", 9);
-    if (driverLocation && isCoordinate(driverLocation.lat) && isCoordinate(driverLocation.lng)) {
-      addCircleMarker(driverLocation, "Motorista", "#2563eb", 8);
-    }
 
     if (route?.decodedPoints && route.decodedPoints.length > 1) {
       const path = route.decodedPoints.map((point) => ({ lat: point.lat, lng: point.lng }));
@@ -187,6 +216,11 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       pointCount += path.length;
     }
 
+    if (validDriverLocation) {
+      bounds.extend(validDriverLocation);
+      pointCount += 1;
+    }
+
     if (pointCount > 1) {
       mapRef.current.fitBounds(bounds, { top: 170, right: 40, bottom: 330, left: 40 });
     } else if (origin) {
@@ -196,11 +230,97 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       mapRef.current.setCenter(DEFAULT_CENTER);
       mapRef.current.setZoom(13);
     }
-  }, [destination, driverLocation, orderedStops, origin, route?.decodedPoints, status]);
+
+    cameraInitializedRef.current = true;
+  }, [destination, orderedStops, origin, route?.decodedPoints, status]);
+
+  useEffect(() => {
+    if (!mapRef.current || status !== "ready") return;
+    const maps = (window as any).google?.maps;
+    if (!maps) return;
+
+    if (!validDriverLocation) {
+      driverMarkerRef.current?.setMap(null);
+      driverMarkerRef.current = null;
+      driverPositionRef.current = null;
+      return;
+    }
+
+    const heading = isCoordinate(driverLocation?.heading) ? driverLocation.heading : 0;
+    const icon = {
+      path: maps.SymbolPath.FORWARD_CLOSED_ARROW,
+      scale: 6,
+      rotation: heading,
+      fillColor: "#2563eb",
+      fillOpacity: 1,
+      strokeColor: "#ffffff",
+      strokeWeight: 2,
+      anchor: new maps.Point(0, 2),
+    };
+
+    if (!driverMarkerRef.current) {
+      driverMarkerRef.current = new maps.Marker({
+        map: mapRef.current,
+        position: validDriverLocation,
+        title: "Motorista",
+        zIndex: 50,
+        optimized: true,
+        icon,
+      });
+      driverPositionRef.current = validDriverLocation;
+    } else {
+      driverMarkerRef.current.setIcon(icon);
+      driverMarkerRef.current.setMap(mapRef.current);
+
+      const start = driverPositionRef.current ?? validDriverLocation;
+      const target = validDriverLocation;
+      const startedAt = performance.now();
+
+      if (driverAnimationRef.current !== null) cancelAnimationFrame(driverAnimationRef.current);
+
+      const animate = (now: number) => {
+        const progress = Math.min(1, (now - startedAt) / DRIVER_ANIMATION_MS);
+        const position = interpolateCoordinate(start, target, easeOutCubic(progress));
+        driverMarkerRef.current?.setPosition(position);
+        driverPositionRef.current = position;
+
+        if (progress < 1) {
+          driverAnimationRef.current = requestAnimationFrame(animate);
+        } else {
+          driverPositionRef.current = target;
+          driverAnimationRef.current = null;
+        }
+      };
+
+      driverAnimationRef.current = requestAnimationFrame(animate);
+    }
+
+    const now = Date.now();
+    if (
+      !isStatic &&
+      cameraInitializedRef.current &&
+      now - lastCameraUpdateRef.current >= CAMERA_UPDATE_INTERVAL_MS
+    ) {
+      lastCameraUpdateRef.current = now;
+
+      if (origin) {
+        const midpoint = {
+          lat: (origin.lat + validDriverLocation.lat) / 2,
+          lng: (origin.lng + validDriverLocation.lng) / 2,
+        };
+        mapRef.current.panTo(midpoint);
+      } else {
+        mapRef.current.panTo(validDriverLocation);
+      }
+    }
+  }, [driverLocation?.heading, isStatic, origin, status, validDriverLocation]);
 
   const retry = () => {
     googleMapsLoader.reset();
     mapRef.current = null;
+    driverMarkerRef.current = null;
+    driverPositionRef.current = null;
+    cameraInitializedRef.current = false;
     setReloadKey((value) => value + 1);
   };
 
