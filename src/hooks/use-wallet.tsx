@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { WalletSummary } from "@/types/payments";
 import { walletService } from "@/services/wallet/wallet-service";
 import { useAuth } from "@/hooks/use-auth";
@@ -18,68 +25,84 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const activeRequest = useRef(0);
   const [wallet, setWallet] = useState<WalletSummary | null>(null);
   const [state, setState] = useState<WalletState>("loading");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadWallet = useCallback(async () => {
-    if (!user) {
+    const requestId = ++activeRequest.current;
+
+    if (!userId) {
       setWallet(null);
       setState("not_found");
+      setError(null);
+      setIsLoading(false);
       return;
     }
 
+    setIsLoading(true);
+    setState((currentState) =>
+      currentState === "available" || currentState === "blocked" ? currentState : "loading",
+    );
+
     try {
-      setIsLoading(true);
-      const data = await walletService.getWallet(user.id);
+      const data = await walletService.getWallet(userId);
+      if (requestId !== activeRequest.current) return;
 
       if (!data) {
         setWallet(null);
         setState("not_found");
       } else {
-        const normalizedWallet: WalletSummary = {
-          ...data,
-          available_balance: data.balance,
-          status: data.isBlocked ? "blocked" : "active",
-        };
-        setWallet(normalizedWallet);
+        setWallet(data);
         setState(data.isBlocked ? "blocked" : "available");
       }
+
       setError(null);
     } catch (err) {
+      if (requestId !== activeRequest.current) return;
+
+      console.error("[WalletProvider] Wallet load failed", err);
+      setWallet(null);
       setError("wallet_load_failed");
       setState("failed");
     } finally {
-      setIsLoading(false);
+      if (requestId === activeRequest.current) setIsLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    loadWallet();
+    void loadWallet();
 
-    if (!user) return;
+    if (!userId) return;
 
     const channel = supabase
-      .channel("wallet_changes")
+      .channel(`passenger_wallet:${userId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "passenger_wallets",
-          filter: `passenger_id=eq.${user.id}`,
+          filter: `passenger_id=eq.${userId}`,
         },
         () => {
-          loadWallet();
+          void loadWallet();
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("[WalletProvider] Realtime unavailable", { status, userId });
+        }
+      });
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
+      activeRequest.current += 1;
+      void supabase.removeChannel(channel);
     };
-  }, [user, loadWallet]);
+  }, [userId, loadWallet]);
 
   return (
     <WalletContext.Provider value={{ wallet, state, isLoading, error, refresh: loadWallet }}>
