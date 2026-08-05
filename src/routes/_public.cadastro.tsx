@@ -33,10 +33,7 @@ function CadastroPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. CONFIRMAR O SUPABASE USADO EM RUNTIME
-    console.log("[RUNTIME URL]", import.meta.env["VITE_SUPABASE_URL"]);
-    console.log("[SUPABASE CLIENT URL]", (supabase as any).supabaseUrl);
-    console.log("[KEY SLICE]", import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]?.slice(0, 20));
+    // Logs de auditoria removidos após validação de ambiente oficial.
 
 
 

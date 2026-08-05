@@ -1,17 +1,16 @@
 import { DestinationHistoryItem } from "../../types/destinations";
 import { supabase } from "@/integrations/supabase/client";
 
-const getStorageKey = (key: string) => {
-  const user = supabase.auth.getUser();
-  // We can't use await inside get/save synchronously, but we can try to get ID
-  // For safety, let's assume session is loaded.
-  const userId = "anonymous"; // Fallback
-  return `apois:passageiro:${userId}:${key}`;
+const getProjectTokenKey = () => {
+  const url = (supabase as any).supabaseUrl || "";
+  const projectRef = url.split(".")[0]?.split("//")[1] || "unknown";
+  return `sb-${projectRef}-auth-token`;
 };
 
 class DestinationStorage {
   private static getUserId(): string {
-    const session = localStorage.getItem(`sb-zjphbuvcapwyuynadgdt-auth-token`);
+    const tokenKey = getProjectTokenKey();
+    const session = localStorage.getItem(tokenKey);
     if (session) {
       try {
         const parsed = JSON.parse(session);
