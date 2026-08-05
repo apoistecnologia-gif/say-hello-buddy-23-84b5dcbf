@@ -27,31 +27,30 @@ interface PassengerProfile {
   completedRides: number;
 }
 
+const readNonEmptyString = (value: unknown): string | undefined =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+
 const normalizeProfile = (
   profile: ReturnType<typeof useAuth>["profile"],
   email: string | undefined,
-): PassengerProfile => ({
-  name:
-    typeof profile?.name === "string" && profile.name.trim().length > 0
-      ? profile.name.trim()
-      : email?.split("@")[0] || "Passageiro",
-  avatarUrl:
-    typeof profile?.avatar_url === "string" && profile.avatar_url.trim().length > 0
-      ? profile.avatar_url
-      : undefined,
-  phone:
-    typeof profile?.phone === "string" && profile.phone.trim().length > 0
-      ? profile.phone
-      : undefined,
-  averageRating:
-    typeof profile?.average_rating === "number" && Number.isFinite(profile.average_rating)
-      ? profile.average_rating
-      : 5,
-  completedRides:
-    typeof profile?.completed_rides === "number" && Number.isFinite(profile.completed_rides)
-      ? profile.completed_rides
-      : 0,
-});
+): PassengerProfile => {
+  const fallbackName = readNonEmptyString(email?.split("@")[0]) ?? "Passageiro";
+  const name = readNonEmptyString(profile?.name) ?? readNonEmptyString(profile?.full_name) ?? fallbackName;
+
+  return {
+    name,
+    avatarUrl: readNonEmptyString(profile?.avatar_url),
+    phone: readNonEmptyString(profile?.phone),
+    averageRating:
+      typeof profile?.average_rating === "number" && Number.isFinite(profile.average_rating)
+        ? profile.average_rating
+        : 5,
+    completedRides:
+      typeof profile?.completed_rides === "number" && Number.isFinite(profile.completed_rides)
+        ? profile.completed_rides
+        : 0,
+  };
+};
 
 function PerfilPage() {
   const { user, profile, signOut } = useAuth();
