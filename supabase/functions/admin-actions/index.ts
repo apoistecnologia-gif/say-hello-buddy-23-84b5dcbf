@@ -51,11 +51,6 @@ function json(req: Request, body: unknown, status = 200): Response {
     headers: { ...getCorsHeaders(req), "content-type": "application/json" },
   });
 }
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders(req), "content-type": "application/json" },
-  });
-}
 
 function fail(message: string, status = 400): never {
   throw Object.assign(new Error(message), { status });
