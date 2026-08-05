@@ -3,6 +3,12 @@ project_id = "vqtucstyduxrqjgyigfk"
 [functions.admin-actions]
 verify_jwt = true
 
+[functions.admin-operations-action]
+verify_jwt = true
+
+[functions.admin-operations-read]
+verify_jwt = true
+
 [functions.approve-driver-and-create-mercadopago-subscription]
 verify_jwt = true
 
