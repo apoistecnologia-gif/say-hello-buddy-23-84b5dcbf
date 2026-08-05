@@ -118,7 +118,7 @@ class RideRequestService {
     }
   }
 
-  async cancelRide(rideId: string): Promise<RideCancellationResponse> {
+  async cancelRide(rideId: string, reason?: string): Promise<RideCancellationResponse> {
     if (!rideId.trim()) {
       return {
         ok: false,
@@ -128,10 +128,10 @@ class RideRequestService {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke("request-ride", {
+      const { data, error } = await supabase.functions.invoke("cancel-ride", {
         body: {
-          action: "cancel",
           ride_id: rideId,
+          ...(reason?.trim() ? { reason: reason.trim() } : {}),
         },
       });
 
