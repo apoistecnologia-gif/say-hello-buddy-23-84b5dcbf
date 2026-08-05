@@ -22,16 +22,15 @@ const MP_BASE_URL = (
   Deno.env.get("MERCADOPAGO_BASE_URL")?.trim() || "https://api.mercadopago.com"
 ).replace(/\/+$/, "");
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { getCorsHeaders } from "../_shared/cors.ts";
 
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "content-type": "application/json" },
+    headers: { 
+      ...(req ? getCorsHeaders(req) : { "Access-Control-Allow-Origin": "*" }),
+      "content-type": "application/json" 
+    },
   });
 }
 
@@ -71,7 +70,7 @@ type FeeRow = {
 
 Deno.serve(async (req) => {
   try {
-    if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+    if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
     if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -141,11 +140,11 @@ Deno.serve(async (req) => {
       .eq("auth_user_id", userId)
       .maybeSingle();
     const email =
-      usr?.email ?? userRes?.user?.email ?? `passageiro-${userId.slice(0, 8)}@movvi.app`;
-    const [firstName, ...rest] = String(usr?.name ?? "Passageiro MOVVI")
+      usr?.email ?? userRes?.user?.email ?? `passageiro-${userId.slice(0, 8)}@apois.app`;
+    const [firstName, ...rest] = String(usr?.name ?? "Passageiro APOIS")
       .trim()
       .split(/\s+/);
-    const lastName = rest.join(" ") || "MOVVI";
+    const lastName = rest.join(" ") || "APOIS";
 
     const expiresAtIso = new Date(now + 60 * 60 * 1000).toISOString();
 
@@ -171,7 +170,7 @@ Deno.serve(async (req) => {
         },
         body: JSON.stringify({
           transaction_amount: Number(fee.fee_amount),
-          description: "Multa de cancelamento — MOVVI",
+          description: "Multa de cancelamento — APOIS",
           payment_method_id: "pix",
           date_of_expiration: expiresAtIso,
           external_reference: `fee:${fee.id}`,
