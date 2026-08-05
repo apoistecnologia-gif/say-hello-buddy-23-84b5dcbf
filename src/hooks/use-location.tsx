@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { Geolocation } from "@capacitor/geolocation";
+import type { Position as CapacitorPosition } from "@capacitor/geolocation";
 
 export type LocationPermissionState =
   | "unknown"
@@ -20,8 +21,11 @@ export interface LocationData {
   latitude: number;
   longitude: number;
   accuracy: number;
-  timestamp?: number;
+  timestamp: number;
 }
+
+type BrowserPosition = globalThis.GeolocationPosition;
+type SupportedPosition = CapacitorPosition | BrowserPosition;
 
 interface LocationContextType {
   location: LocationData | null;
@@ -47,6 +51,13 @@ const isValidCoordinate = (latitude: number, longitude: number) =>
   longitude >= -180 &&
   longitude <= 180;
 
+const normalizePosition = (position: SupportedPosition): LocationData => ({
+  latitude: position.coords.latitude,
+  longitude: position.coords.longitude,
+  accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : 0,
+  timestamp: typeof position.timestamp === "number" ? position.timestamp : Date.now(),
+});
+
 const normalizePermission = (value: string | undefined): LocationPermissionState => {
   if (value === "granted" || value === "prompt" || value === "denied") return value;
   if (value === "prompt-with-rationale") return "prompt";
@@ -69,7 +80,7 @@ const readCachedLocation = (): LocationData | null => {
       latitude: parsed.latitude,
       longitude: parsed.longitude,
       accuracy: typeof parsed.accuracy === "number" ? parsed.accuracy : 0,
-      timestamp: typeof parsed.timestamp === "number" ? parsed.timestamp : undefined,
+      timestamp: typeof parsed.timestamp === "number" ? parsed.timestamp : Date.now(),
     };
   } catch {
     return null;
@@ -78,8 +89,8 @@ const readCachedLocation = (): LocationData | null => {
 
 const classifyLocationError = (error: unknown) => {
   const record = error as { code?: number | string; message?: string };
-  const message = String(record?.message ?? "").toLowerCase();
-  const code = String(record?.code ?? "");
+  const message = String(record.message ?? "").toLowerCase();
+  const code = String(record.code ?? "");
 
   if (code === "1" || message.includes("denied") || message.includes("permission")) {
     return {
@@ -117,18 +128,11 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const clearLocationError = useCallback(() => setError(null), []);
 
-  const updateLocationState = useCallback((position: GeolocationPosition) => {
-    const { latitude, longitude, accuracy } = position.coords;
-    if (!isValidCoordinate(latitude, longitude)) return false;
-
-    const nextLocation: LocationData = {
-      latitude,
-      longitude,
-      accuracy: Number.isFinite(accuracy) ? accuracy : 0,
-      timestamp: position.timestamp,
-    };
-
+  const updateLocationState = useCallback((position: SupportedPosition) => {
+    const nextLocation = normalizePosition(position);
+    if (!isValidCoordinate(nextLocation.latitude, nextLocation.longitude)) return false;
     if (!mountedRef.current) return false;
+
     setLocation(nextLocation);
     setError(null);
     try {
@@ -176,7 +180,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           return;
         }
 
-        let position: GeolocationPosition;
+        let position: CapacitorPosition;
         try {
           position = await Geolocation.getCurrentPosition({
             enableHighAccuracy: true,
@@ -203,7 +207,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } catch (locationError) {
         const classified = classifyLocationError(locationError);
         console.error("[LocationProvider] Position request failed", {
-          code: (locationError as { code?: unknown })?.code ?? "unknown",
+          code: (locationError as { code?: unknown }).code ?? "unknown",
           message:
             locationError instanceof Error ? locationError.message : "location_unknown_error",
         });
