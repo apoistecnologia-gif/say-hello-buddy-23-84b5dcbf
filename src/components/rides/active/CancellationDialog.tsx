@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,12 @@ interface CancellationDialogProps {
   onSuccess: () => void;
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message
+    ? error.message
+    : "Erro ao cancelar corrida.";
+}
+
 export const CancellationDialog: React.FC<CancellationDialogProps> = ({
   isOpen,
   onClose,
@@ -27,20 +33,41 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
   const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleCancel = async () => {
+  useEffect(() => {
+    if (!isOpen) {
+      setIsCancelling(false);
+      setError(null);
+    }
+  }, [isOpen]);
+
+  const handleCancel = async (): Promise<void> => {
+    if (isCancelling) return;
+
     setIsCancelling(true);
     setError(null);
+
     try {
-      await rideRequestService.cancelRide(rideId);
+      const response = await rideRequestService.cancelRide(rideId);
+      if (!response.ok) {
+        setError(response.message || "Não foi possível cancelar a corrida.");
+        return;
+      }
+
       onSuccess();
-    } catch (err: any) {
-      setError(err.message || "Erro ao cancelar corrida.");
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
       setIsCancelling(false);
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open && !isCancelling) onClose();
+      }}
+    >
       <DialogContent className="bg-zinc-950 border-white/10 text-white max-w-[90vw] rounded-3xl p-6">
         <DialogHeader>
           <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
@@ -60,14 +87,18 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
               Taxas de cancelamento ajudam a compensar o tempo e combustível do motorista parceiro.
             </p>
           </div>
-          {error && <p className="text-[11px] text-red-500 font-bold px-2">{error}</p>}
+          {error && (
+            <p role="alert" className="text-[11px] text-red-500 font-bold px-2">
+              {error}
+            </p>
+          )}
         </div>
 
         <DialogFooter className="flex flex-col gap-2 mt-2">
           <Button
             variant="destructive"
             className="w-full h-12 rounded-2xl font-black text-sm"
-            onClick={handleCancel}
+            onClick={() => void handleCancel()}
             disabled={isCancelling}
           >
             {isCancelling ? <Loader2 className="animate-spin mr-2" size={18} /> : null}
