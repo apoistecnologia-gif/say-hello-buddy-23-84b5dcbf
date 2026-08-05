@@ -95,7 +95,7 @@ async function main() {
   }
 
   console.log("\n== Edge Functions ==");
-  console.log("(Verifique via CLI: supabase functions list --project-ref wqbtnfbvqtkyywfcqjwa)");
+  console.log("(Verifique via CLI: supabase functions list --project-ref zjphbuvcapwyuynadgdt)");
   for (const f of REQUIRED_EDGE_FUNCTIONS) console.log(`  esperado: ${f}`);
 
   console.log("\nOK.");
