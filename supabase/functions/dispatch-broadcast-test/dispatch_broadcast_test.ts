@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 // Integration test: APOIS broadcast dispatch
-//  1. Quando uma corrida é ofertada, TODOS os motoristas elegíveis aparecem
+//  1. Quando uma corrida é ofertada, todos os motoristas elegíveis aparecem
 //  2. O sistema respeita raio de busca e status "online"
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -47,7 +47,7 @@ async function createTestDriver(label: string, lat: number, lng: number) {
   return { id: auth.user.id, email };
 }
 
-Deno.test("broadcast dispatch — todos os motoristas recebem a oferta simultaneamente", async () => {
+Deno.test("broadcast dispatch — todos os motoristas recebem a oferta", async () => {
   const drivers = [];
   try {
     // 3 motoristas no raio de 5km

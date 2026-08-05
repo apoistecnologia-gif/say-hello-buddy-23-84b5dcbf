@@ -84,7 +84,7 @@ All functions (except webhooks) utilize the shared CORS helper in `supabase/func
 - **Slug:** `dispatch-broadcast-test`
 - **Path:** `supabase/functions/dispatch-broadcast-test/index.ts`
 - **Verify JWT:** N/A (Internal/Test)
-- **Production Status:** Disabled/Placeholder (Only active in test environment).
+- **Production Status:** Disabled/Draft (Only active in test environment).
 
 ---
 

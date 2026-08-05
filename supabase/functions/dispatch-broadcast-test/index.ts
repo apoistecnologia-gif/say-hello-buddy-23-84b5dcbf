@@ -1,4 +1,4 @@
-// Placeholder handler. The real content of this function is the Deno test
+// The real content of this function is the Deno test
 // file co-located in this folder (dispatch_broadcast_test.ts), executed via
 // the Supabase edge-function test runner.
 Deno.serve(
