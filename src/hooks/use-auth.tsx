@@ -12,16 +12,17 @@ export type AuthState =
 export interface AuthProfile {
   id: string;
   name: string | null;
-  email?: string | null;
+  full_name: string | null;
+  email: string | null;
   phone: string | null;
   avatar_url: string | null;
-  city?: string | null;
-  average_rating?: number | null;
-  completed_rides?: number | null;
-  is_blocked?: boolean | null;
-  blocked_reason?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
+  city: string | null;
+  average_rating: number | null;
+  completed_rides: number | null;
+  is_blocked: boolean | null;
+  blocked_reason: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 interface AuthContextType {
@@ -51,28 +52,27 @@ const normalizeProfile = (value: unknown): AuthProfile | null => {
     return typeof field === "string" ? field : null;
   };
 
-  const readOptionalNumber = (key: string): number | null | undefined => {
+  const readNullableNumber = (key: string): number | null => {
     const field = record[key];
-    if (field === null) return null;
-    return typeof field === "number" && Number.isFinite(field) ? field : undefined;
+    return typeof field === "number" && Number.isFinite(field) ? field : null;
   };
 
-  const readOptionalBoolean = (key: string): boolean | null | undefined => {
+  const readNullableBoolean = (key: string): boolean | null => {
     const field = record[key];
-    if (field === null) return null;
-    return typeof field === "boolean" ? field : undefined;
+    return typeof field === "boolean" ? field : null;
   };
 
   return {
     id,
     name: readNullableString("name"),
+    full_name: readNullableString("full_name"),
     email: readNullableString("email"),
     phone: readNullableString("phone"),
     avatar_url: readNullableString("avatar_url"),
     city: readNullableString("city"),
-    average_rating: readOptionalNumber("average_rating"),
-    completed_rides: readOptionalNumber("completed_rides"),
-    is_blocked: readOptionalBoolean("is_blocked"),
+    average_rating: readNullableNumber("average_rating"),
+    completed_rides: readNullableNumber("completed_rides"),
+    is_blocked: readNullableBoolean("is_blocked"),
     blocked_reason: readNullableString("blocked_reason"),
     created_at: readNullableString("created_at"),
     updated_at: readNullableString("updated_at"),
