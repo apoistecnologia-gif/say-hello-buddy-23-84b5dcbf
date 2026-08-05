@@ -1,7 +1,7 @@
 import { supabase } from "./src/integrations/supabase/client";
 
 async function testSignup() {
-  const testEmail = `test_${Math.random().toString(36).substring(7)}@example.com`;
+  const testEmail = `test_session_${Math.random().toString(36).substring(7)}@example.com`;
   const testPassword = 'XyZ7!9qR2#vB8wL' + Math.random().toString(36).substring(2);
   const testName = 'Test User';
   const testPhone = '11999999999';
