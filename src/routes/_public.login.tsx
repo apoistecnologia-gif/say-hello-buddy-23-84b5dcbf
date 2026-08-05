@@ -62,7 +62,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-black text-white px-6 py-8 sm:py-12 items-center justify-center safe-top safe-bottom">
+    <div className="flex flex-col flex-1 bg-black text-white px-6 py-8 sm:py-12 items-center justify-center safe-top safe-bottom">
       <div className="w-full max-w-[400px] flex flex-col items-center">
         {/* LOGOMARCA OFICIAL */}
         <div className="mb-8 flex justify-center w-full">

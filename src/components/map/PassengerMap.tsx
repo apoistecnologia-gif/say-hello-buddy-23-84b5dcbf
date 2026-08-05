@@ -4,6 +4,7 @@ import { useRoute } from "@/hooks/use-route";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { useDestination } from "@/hooks/use-destination";
 import { googleMapsLoader } from "@/services/google/google-maps-loader";
+import { MapPin } from "lucide-react";
 
 interface PassengerMapProps {
   origin: { lat: number; lng: number } | undefined;
@@ -60,7 +61,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
             },
             zoom: 15,
             disableDefaultUI: true,
-            backgroundColor: "transparent",
+            backgroundColor: "#121212",
             styles: [
               {
                 elementType: "geometry",
@@ -243,9 +244,20 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       className="w-full h-full bg-zinc-950 overflow-hidden relative flex items-center justify-center"
       style={{ minHeight: "100%" }}
     >
+      {/* Fallback do Mapa (Sempre visível se o Google não carregar) */}
+      <div className="absolute inset-0 z-0 bg-zinc-900 flex flex-col items-center justify-center opacity-40">
+        <div className="w-full h-full opacity-20" style={{
+          backgroundImage: `radial-gradient(circle at 2px 2px, #444 1px, transparent 0)`,
+          backgroundSize: '24px 24px'
+        }} />
+        <div className="absolute inset-0 flex items-center justify-center">
+           <MapPin size={48} className="text-zinc-800 animate-pulse" />
+        </div>
+      </div>
+
       <div
         ref={mapRef}
-        className="w-full h-full absolute inset-0 z-0"
+        className="w-full h-full absolute inset-0 z-10"
         style={{ background: "transparent" }}
       />
 

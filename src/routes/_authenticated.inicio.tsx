@@ -49,10 +49,10 @@ function InicioPage() {
   };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-black text-white relative overflow-hidden">
-      {/* Debug Overlay - Somente em Dev */}
-      {import.meta.env.DEV && (
-        <div className="fixed top-0 left-0 z-[9999] bg-black/80 p-1 text-[8px] pointer-events-none">
+    <div className="flex flex-col flex-1 bg-black text-white relative overflow-hidden">
+      {/* Debug Overlay - Somente em Dev (Oculto no Preview por padrão) */}
+      {import.meta.env.DEV && import.meta.env["VITE_SHOW_DEBUG"] === "true" && (
+        <div className="fixed top-0 left-1/2 -translate-x-1/2 z-[9999] bg-black/80 p-1 text-[8px] pointer-events-none w-full max-w-[430px]">
           Auth: {authState} | Loc: {location ? "Sim" : "Não"} | Addr: {addressStatus}
         </div>
       )}
