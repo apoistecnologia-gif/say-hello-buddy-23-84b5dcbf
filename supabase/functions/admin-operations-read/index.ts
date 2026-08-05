@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
         count(admin, "drivers", (q) => q.eq("is_online", true)),
         count(admin, "cancellation_fees", (q) => q.in("status", ["pending", "unpaid"])),
         count(admin, "passenger_wallets", (q) => q.eq("is_blocked", true)),
-        count(admin, "driver_payout_requests", (q) => q.in("status", ["pending", "processing"])),
+        count(admin, "driver_withdrawals", (q) => q.in("status", ["pending", "processing"])),
       ]);
 
       const { data: latestRides, error: ridesError } = await admin
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
           ? admin.from("driver_wallets").select("*").eq("driver_id", ride.driver_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
         ride.driver_id
-          ? admin.from("driver_wallet_transactions").select("*").eq("ride_id", rideId).order("created_at", { ascending: false })
+          ? admin.from("driver_wallet_transactions").select("*").eq("source_ride_id", rideId).order("created_at", { ascending: false })
           : Promise.resolve({ data: [], error: null }),
       ]);
       for (const result of [fee, passengerWallet, driverWallet, transactions]) {
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
       const status = typeof body?.status === "string" ? body.status.trim() : "";
       let query = admin
         .from("rides")
-        .select("id,status,origin_name,destination_name,passenger_id,driver_id,estimated_price,final_price,payment_method,cancellation_fee,created_at,updated_at")
+        .select("id,status,origin_name,destination_name,passenger_id,driver_id,estimated_price,final_price,payment_method,created_at,updated_at")
         .order("updated_at", { ascending: false })
         .limit(limit);
       if (status) query = query.eq("status", status);
@@ -141,10 +141,6 @@ Deno.serve(async (req) => {
     return json(req, { ok: false, error: "unknown_action" }, 404);
   } catch (error) {
     console.error("[admin-operations-read] fatal", error);
-    return json(req, {
-      ok: false,
-      error: "internal_error",
-      detail: error instanceof Error ? error.message : String(error),
-    }, 500);
+    return json(req, { ok: false, error: "internal_error" }, 500);
   }
 });
