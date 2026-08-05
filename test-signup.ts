@@ -2,7 +2,7 @@ import { supabase } from "./src/integrations/supabase/client";
 
 async function testSignup() {
   const testEmail = `test_${Math.random().toString(36).substring(7)}@example.com`;
-  const testPassword = 'Password123!';
+  const testPassword = 'P@ssw0rd!LongerAndComplex2026';
   const testName = 'Test User';
   const testPhone = '11999999999';
 
