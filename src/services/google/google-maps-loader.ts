@@ -1,116 +1,105 @@
 import { PLACES_CONFIG } from "../places/places-config";
 
-/**
- * Carregador centralizado para a Google Maps JavaScript API.
- * Garante que a biblioteca seja carregada apenas uma vez e reutiliza a Promise.
- */
+const SCRIPT_ID = "apois-google-maps-js";
+
+type GoogleWindow = Window & {
+  google?: { maps?: { importLibrary?: (name: string) => Promise<unknown> } };
+  gm_authFailure?: () => void;
+};
+
+/** Loads Google Maps JavaScript API once and exposes importLibrary safely. */
 class GoogleMapsLoader {
   private static instance: GoogleMapsLoader;
   private loadPromise: Promise<void> | null = null;
-  private timeoutId: NodeJS.Timeout | null = null;
 
   private constructor() {}
 
   public static getInstance(): GoogleMapsLoader {
-    if (!GoogleMapsLoader.instance) {
-      GoogleMapsLoader.instance = new GoogleMapsLoader();
-    }
+    if (!GoogleMapsLoader.instance) GoogleMapsLoader.instance = new GoogleMapsLoader();
     return GoogleMapsLoader.instance;
   }
 
-  /**
-   * Carrega a biblioteca Google Maps JS com os módulos necessários.
-   * Utiliza a estratégia moderna de importLibrary.
-   */
   public async load(): Promise<void> {
-    if (this.loadPromise) {
-      return this.loadPromise;
-    }
+    const googleWindow = window as GoogleWindow;
+    if (googleWindow.google?.maps?.importLibrary) return;
+    if (this.loadPromise) return this.loadPromise;
 
-    const apiKey = import.meta.env["VITE_GOOGLE_MAPS_API_KEY"];
-    if (!apiKey) {
-      console.error("VITE_GOOGLE_MAPS_API_KEY is not defined");
-      throw new Error("places_configuration_missing");
-    }
+    const apiKey = String(import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? "").trim();
+    if (!apiKey) throw new Error("maps_configuration_missing");
 
-    this.loadPromise = new Promise((resolve, reject) => {
-      // Timeout lógico para carregamento
-      this.timeoutId = setTimeout(() => {
-        this.loadPromise = null;
-        reject(new Error("places_timeout"));
-      }, PLACES_CONFIG.TIMEOUT_MS);
+    this.loadPromise = new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeoutId);
+        if (error) {
+          this.loadPromise = null;
+          reject(error);
+        } else {
+          resolve();
+        }
+      };
 
-      // Verificação de script já existente (prevenção contra duplicados)
-      if ((window as any).google?.maps?.importLibrary) {
-        this.clearTimer();
-        resolve();
+      const timeoutId = window.setTimeout(
+        () => finish(new Error("maps_timeout")),
+        Math.max(PLACES_CONFIG.TIMEOUT_MS, 15000),
+      );
+
+      const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+      if (existing) {
+        existing.addEventListener(
+          "load",
+          () => {
+            googleWindow.google?.maps?.importLibrary
+              ? finish()
+              : finish(new Error("maps_api_unavailable"));
+          },
+          { once: true },
+        );
+        existing.addEventListener(
+          "error",
+          () => finish(new Error("maps_script_failed")),
+          { once: true },
+        );
         return;
       }
 
-      // Injeta o bootstrap loader moderno do Google Maps
-      // @ts-ignore
-      (function (g: any) {
-        var h: any,
-          a: any,
-          k: any,
-          p = "The Google Maps JavaScript API",
-          c = "google",
-          l = "importLibrary",
-          q = "__ib__",
-          m = document,
-          b: any = window;
-        b = b[c] || (b[c] = {});
-        var d = b.maps || (b.maps = {}),
-          r = new Set(),
-          e = new URLSearchParams(),
-          u = () =>
-            h ||
-            (h = new Promise(async (f: any, n: any) => {
-              await (a = m.createElement("script"));
-              e.set("libraries", [...r] + "");
-              for (k in g)
-                e.set(
-                  k.replace(/[A-Z]/g, (t: any) => "_" + t[0].toLowerCase()),
-                  g[k],
-                );
-              e.set("callback", c + ".maps." + q);
-              a.src = `https://maps.googleapis.com/maps/api/js?` + e;
-              d[q] = f;
-              a.onerror = () => (h = n(Error(p + " could not load.")));
-              m.head.append(a);
-            }));
-        d[l] = async (f: any, ...n: any[]) => r.add(f) && u().then(() => d[l](f, ...n));
-      })({
-        key: apiKey,
-        v: "weekly",
-      });
-
-      const checkInterval = setInterval(() => {
-        const maps = (window as any).google?.maps;
-        if (maps && typeof maps.importLibrary === "function") {
-          clearInterval(checkInterval);
-          this.clearTimer();
-          resolve();
-        }
-      }, 100);
+      const script = document.createElement("script");
+      script.id = SCRIPT_ID;
+      script.async = true;
+      script.defer = true;
+      script.src =
+        "https://maps.googleapis.com/maps/api/js?" +
+        new URLSearchParams({
+          key: apiKey,
+          v: "weekly",
+          loading: "async",
+          libraries: "places,marker",
+          auth_referrer_policy: "origin",
+        }).toString();
+      script.onload = () => {
+        googleWindow.google?.maps?.importLibrary
+          ? finish()
+          : finish(new Error("maps_api_unavailable"));
+      };
+      script.onerror = () => finish(new Error("maps_script_failed"));
+      document.head.appendChild(script);
     });
 
     return this.loadPromise;
   }
 
-  private clearTimer() {
-    if (this.timeoutId) {
-      clearTimeout(this.timeoutId);
-      this.timeoutId = null;
-    }
+  public async importLibrary(name: string): Promise<unknown> {
+    await this.load();
+    const importLibrary = (window as GoogleWindow).google?.maps?.importLibrary;
+    if (!importLibrary) throw new Error("maps_api_unavailable");
+    return importLibrary(name);
   }
 
-  /**
-   * Importa uma biblioteca específica do Google Maps.
-   */
-  public async importLibrary(name: string): Promise<any> {
-    await this.load();
-    return (window as any).google.maps.importLibrary(name);
+  public reset(): void {
+    this.loadPromise = null;
+    document.getElementById(SCRIPT_ID)?.remove();
   }
 }
 
