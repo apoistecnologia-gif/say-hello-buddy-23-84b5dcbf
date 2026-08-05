@@ -15,7 +15,7 @@
 | **passenger-geocode-reverse** | true | User | Converts Lat/Lng to address | `GOOGLE_MAPS_PLATFORM_API_KEY` | None | Google Maps | Safe |
 | **passenger-pricing-estimate** | true | User | Calculates estimated ride price | None | `tariff_rules`, `ride_categories` | None | Safe |
 | **passenger-routes-compute** | true | User | Computes path and distance | `GOOGLE_MAPS_PLATFORM_API_KEY` | None | Google Maps | Safe |
-| **regenerate-driver-...** | true | Admin/User | Re-triggers failed MP charges | `MERCADOPAGO_ACCESS_TOKEN` | `subscriptions`, `driver_payment_events` | Mercado Pago | Safe |
+| **regenerate-driver-mercadopago-charge** | true | Admin/User | Re-triggers failed MP charges | `MERCADOPAGO_ACCESS_TOKEN` | `subscriptions`, `driver_payment_events` | Mercado Pago | Safe |
 | **request-driver-payout** | true | User | Requests wallet withdrawal | None | `driver_withdrawals`, `passenger_wallets`, `drivers` | None | Safe |
 | **request-ride** | true | User | Creates ride and dispatches drivers | `GOOGLE_MAPS_PLATFORM_API_KEY` | `rides`, `drivers`, `tariff_rules`, `subscriptions`, `driver_preferences` | Google Maps | **Risk** (Creates Ride) |
 | **send-ride-push** | true | JWT (Internal) | Sends FCM notifications | `FCM_PROJECT_ID`, `FCM_CLIENT_EMAIL`, `FCM_PRIVATE_KEY` | `user_notification_tokens`, `notification_logs` | Firebase | Safe |
