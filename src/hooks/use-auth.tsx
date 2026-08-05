@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Session, User } from "@supabase/supabase-js";
+import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
 export type AuthState =
@@ -9,10 +9,25 @@ export type AuthState =
   | "configuration_error"
   | "connection_error";
 
+export interface AuthProfile {
+  id: string;
+  name: string | null;
+  email?: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  city?: string | null;
+  average_rating?: number | null;
+  completed_rides?: number | null;
+  is_blocked?: boolean | null;
+  blocked_reason?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: Record<string, unknown> | null;
+  profile: AuthProfile | null;
   authState: AuthState;
   isLoading: boolean;
   error: string | null;
@@ -25,10 +40,49 @@ const PROFILE_RETRY_DELAYS_MS = [0, 350, 900];
 
 const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
+const normalizeProfile = (value: unknown): AuthProfile | null => {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const id = typeof record["id"] === "string" ? record["id"] : null;
+  if (!id) return null;
+
+  const readNullableString = (key: string): string | null => {
+    const field = record[key];
+    return typeof field === "string" ? field : null;
+  };
+
+  const readOptionalNumber = (key: string): number | null | undefined => {
+    const field = record[key];
+    if (field === null) return null;
+    return typeof field === "number" && Number.isFinite(field) ? field : undefined;
+  };
+
+  const readOptionalBoolean = (key: string): boolean | null | undefined => {
+    const field = record[key];
+    if (field === null) return null;
+    return typeof field === "boolean" ? field : undefined;
+  };
+
+  return {
+    id,
+    name: readNullableString("name"),
+    email: readNullableString("email"),
+    phone: readNullableString("phone"),
+    avatar_url: readNullableString("avatar_url"),
+    city: readNullableString("city"),
+    average_rating: readOptionalNumber("average_rating"),
+    completed_rides: readOptionalNumber("completed_rides"),
+    is_blocked: readOptionalBoolean("is_blocked"),
+    blocked_reason: readNullableString("blocked_reason"),
+    created_at: readNullableString("created_at"),
+    updated_at: readNullableString("updated_at"),
+  };
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
+  const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [authState, setAuthState] = useState<AuthState>("initializing");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (requestId !== activeProfileRequest.current) return null;
 
       if (!profileError && data) {
-        const normalizedProfile = data as Record<string, unknown>;
+        const normalizedProfile = normalizeProfile(data);
         setProfile(normalizedProfile);
         return normalizedProfile;
       }
@@ -84,7 +138,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Authentication remains valid even if the profile trigger is temporarily delayed.
     if (requestId === activeProfileRequest.current) setProfile(null);
     return null;
   }, []);
