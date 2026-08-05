@@ -31,62 +31,78 @@ jobs:
       - name: TypeScript
         run: bun run typecheck
 
-      - name: Validate Supabase migrations
+      - name: Validate Supabase migration names and timestamps
         shell: bash
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from collections import Counter
-          from datetime import datetime
-          from pathlib import Path
-          import re
-          import sys
 
-          root = Path("supabase/migrations")
-          files = sorted(root.glob("*.sql"))
-          errors: list[str] = []
-          timestamps: list[str] = []
-          pattern = re.compile(r"^(\d{14})_([a-z0-9][a-z0-9_-]*)\.sql$")
+          migrations_dir="supabase/migrations"
+          if [ ! -d "$migrations_dir" ]; then
+            echo "Diretório de migrations não encontrado: $migrations_dir"
+            exit 1
+          fi
 
-          if not root.is_dir():
-              errors.append("pasta supabase/migrations não encontrada")
-          if not files:
-              errors.append("nenhuma migration SQL encontrada")
+          mapfile -t files < <(find "$migrations_dir" -maxdepth 1 -type f -name '*.sql' -printf '%f\n' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "Nenhuma migration SQL encontrada."
+            exit 1
+          fi
 
-          for path in files:
-              match = pattern.fullmatch(path.name)
-              if not match:
-                  errors.append(f"nome inválido: {path.name}")
-                  continue
+          timestamps=()
+          for file in "${files[@]}"; do
+            if [[ ! "$file" =~ ^([0-9]{14})_([a-z0-9]+([_-][a-z0-9]+)*)\.sql$ ]]; then
+              echo "Nome de migration inválido: $file"
+              exit 1
+            fi
 
-              timestamp, description = match.groups()
-              timestamps.append(timestamp)
+            timestamp="${BASH_REMATCH[1]}"
+            description="${BASH_REMATCH[2]}"
 
-              try:
-                  datetime.strptime(timestamp, "%Y%m%d%H%M%S")
-              except ValueError:
-                  errors.append(f"timestamp impossível: {path.name}")
+            if ! date -u -d "${timestamp:0:4}-${timestamp:4:2}-${timestamp:6:2} ${timestamp:8:2}:${timestamp:10:2}:${timestamp:12:2}" '+%Y%m%d%H%M%S' >/tmp/normalized_timestamp 2>/dev/null; then
+              echo "Timestamp impossível em migration: $file"
+              exit 1
+            fi
 
-              if len(description) < 3:
-                  errors.append(f"descrição curta demais: {path.name}")
-              if "__" in description or "--" in description:
-                  errors.append(f"separador duplicado na descrição: {path.name}")
-              if path.stat().st_size == 0:
-                  errors.append(f"arquivo vazio: {path.name}")
+            normalized="$(cat /tmp/normalized_timestamp)"
+            if [ "$normalized" != "$timestamp" ]; then
+              echo "Timestamp não normalizado em migration: $file"
+              exit 1
+            fi
 
-          duplicates = sorted(ts for ts, count in Counter(timestamps).items() if count > 1)
-          for timestamp in duplicates:
-              names = ", ".join(path.name for path in files if path.name.startswith(timestamp))
-              errors.append(f"timestamp duplicado {timestamp}: {names}")
+            if [ "${#description}" -lt 3 ]; then
+              echo "Descrição muito curta em migration: $file"
+              exit 1
+            fi
 
-          if errors:
-              print("Falhas encontradas nas migrations:")
-              for error in errors:
-                  print(f"- {error}")
-              sys.exit(1)
+            if [[ "$description" == *"__"* || "$description" == *"--"* ]]; then
+              echo "Separadores duplicados em migration: $file"
+              exit 1
+            fi
 
-          print(f"Migrations validadas: {len(files)} arquivos, timestamps únicos e calendariamente válidos.")
-          PY
+            if [ ! -s "$migrations_dir/$file" ]; then
+              echo "Migration vazia: $file"
+              exit 1
+            fi
+
+            if ! grep -Eq '(^|[[:space:]])(BEGIN;|CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|GRANT|REVOKE|COMMENT|DO[[:space:]]+\$\$)' "$migrations_dir/$file"; then
+              echo "Migration sem comando SQL reconhecível: $file"
+              exit 1
+            fi
+
+            if grep -Eq '^[[:space:]]*(TRUNCATE[[:space:]]+|DROP[[:space:]]+DATABASE|DROP[[:space:]]+SCHEMA[[:space:]]+(public|auth)([[:space:]]|;))' "$migrations_dir/$file"; then
+              echo "Comando destrutivo proibido em migration: $file"
+              exit 1
+            fi
+
+            timestamps+=("$timestamp")
+          done
+
+          duplicates="$(printf '%s\n' "${timestamps[@]}" | sort | uniq -d)"
+          if [ -n "$duplicates" ]; then
+            echo "Timestamps duplicados encontrados nas migrations:"
+            echo "$duplicates"
+            exit 1
+          fi
 
       - name: Lint corrected authentication and location files
         run: >-
