@@ -33,17 +33,7 @@ function CadastroPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 1. CONFIRMAR O SUPABASE USADO EM RUNTIME
-    const url = import.meta.env["VITE_SUPABASE_URL"];
-    const key = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
-    console.log("[RUNTIME URL]", url);
-    console.log("[SUPABASE CLIENT URL]", (supabase as any).supabaseUrl);
-    console.log("[KEY SLICE]", key?.slice(0, 20));
-
-    if (url?.includes("zjphbuvcapwyuynadgdt")) {
-      toast.error("Erro crítico: O aplicativo ainda está conectado ao projeto temporário. Por favor, recarregue a página.");
-      return;
-    }
+    // Logs de auditoria removidos após validação de ambiente oficial.
 
 
 
