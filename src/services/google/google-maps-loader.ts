@@ -28,7 +28,7 @@ class GoogleMapsLoader {
     }
 
     const apiKey = import.meta.env["VITE_GOOGLE_MAPS_API_KEY"];
-    if (!apiKey) {
+    if (typeof apiKey !== "string" || apiKey.trim().length === 0) {
       console.error("VITE_GOOGLE_MAPS_API_KEY is not defined");
       throw new Error("places_configuration_missing");
     }

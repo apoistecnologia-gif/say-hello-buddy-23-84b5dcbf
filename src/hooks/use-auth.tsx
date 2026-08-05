@@ -5,10 +5,23 @@ import { Session, User } from "@supabase/supabase-js";
 export type AuthState =
   "initializing" | "authenticated" | "unauthenticated" | "configuration_error" | "connection_error";
 
+export interface AuthProfile {
+  id?: string;
+  auth_user_id?: string;
+  name?: string | null;
+  full_name?: string | null;
+  phone?: string | null;
+  avatar_url?: string | null;
+  average_rating?: number | null;
+  completed_rides?: number | null;
+  is_blocked?: boolean | null;
+  blocked_reason?: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
-  profile: any | null;
+  profile: AuthProfile | null;
   authState: AuthState;
   isLoading: boolean;
   error: string | null;
@@ -21,7 +34,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<any | null>(null);
+  const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [authState, setAuthState] = useState<AuthState>("initializing");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
