@@ -150,8 +150,8 @@ export async function createMonthlyPreference(args: {
       items: [
         {
           id: `mensalidade-${args.driver.id}`,
-          title: "Mensalidade Motorista MOVVI",
-          description: "Mensalidade mensal do motorista MOVVI",
+          title: "Mensalidade Motorista APOIS",
+          description: "Mensalidade mensal do motorista APOIS",
           quantity: 1,
           currency_id: "BRL",
           unit_price: args.plan.amount,
