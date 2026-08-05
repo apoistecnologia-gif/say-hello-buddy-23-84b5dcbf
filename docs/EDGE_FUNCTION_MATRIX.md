@@ -5,9 +5,9 @@
 | Function Slug | verify_jwt | Authentication | Purpose | Required Secrets | Tables Used | External APIs | Staging Test |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **admin-actions** | true | Admin Role | Admin operations (coupons, categories, push) | `SUPABASE_SERVICE_ROLE_KEY` | `drivers`, `users`, `ride_categories`, `tariff_rules`, `coupons`, `notifications_broadcast`, `notification_logs` | None | Safe |
-| **approve-driver-...** | true | Admin Role | Approves driver & sets up MP subscription | `MERCADOPAGO_ACCESS_TOKEN` | `drivers`, `subscriptions`, `subscription_plans`, `driver_payment_events` | Mercado Pago | Safe |
-| **create-cancellation-...** | true | JWT (Internal) | Charges MP for cancellation fees | `MERCADOPAGO_ACCESS_TOKEN` | `cancellation_fees`, `rides`, `payment_methods` | Mercado Pago | Safe |
-| **create-my-...** | true | User | Creates personal MP subscription | `MERCADOPAGO_ACCESS_TOKEN` | `drivers`, `subscription_plans`, `subscriptions` | Mercado Pago | Safe |
+| **approve-driver-and-create-mercadopago-subscription** | true | Admin Role | Approves driver & sets up MP subscription | `MERCADOPAGO_ACCESS_TOKEN` | `drivers`, `subscriptions`, `subscription_plans`, `driver_payment_events` | Mercado Pago | Safe |
+| **create-cancellation-fee-charge** | true | JWT (Internal) | Charges MP for cancellation fees | `MERCADOPAGO_ACCESS_TOKEN` | `cancellation_fees`, `rides`, `payment_methods` | Mercado Pago | Safe |
+| **create-my-mercadopago-subscription** | true | User | Creates personal MP subscription | `MERCADOPAGO_ACCESS_TOKEN` | `drivers`, `subscription_plans`, `subscriptions` | Mercado Pago | Safe |
 | **delete-my-account** | true | User | GDPR deletion request | None | `account_deletion_requests`, `users`, `drivers`, `passenger_wallets` | None | Safe |
 | **dispatch-broadcast-test** | true | Admin Role | Tests Realtime notification delivery | None | `drivers` | None | Safe (Dev only) |
 | **mercadopago-health** | false | Public | MP Webhook connectivity check | None | None | None | Safe |
