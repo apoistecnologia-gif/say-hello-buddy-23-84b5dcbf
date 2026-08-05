@@ -36,20 +36,48 @@ ON CONFLICT (code) DO UPDATE SET
     updated_at = NOW();
 
 -- 3. TARIFF RULES (IDEMPOTENT UPSERT)
--- Note: Using category_key and field_key for legacy Edge Function compatibility
-INSERT INTO public.tariff_rules (category_key, field_key, city, value, base_fare, min_fare, per_km, per_min)
-VALUES 
-    ('carros', 'base', 'default', 5.00, 5.00, 8.00, 2.00, 0.50),
-    ('motos', 'base', 'default', 3.00, 3.00, 5.00, 1.20, 0.30),
-    ('fretes', 'base', 'default', 50.00, 50.00, 80.00, 5.00, 1.00),
-    ('guincho', 'base', 'default', 100.00, 100.00, 150.00, 10.00, 0.00),
-    ('envios', 'base', 'default', 10.00, 10.00, 15.00, 2.50, 0.50)
-ON CONFLICT (category_key, field_key, city) DO UPDATE SET
-    value = EXCLUDED.value,
+-- Enforcing schema: category_id, city, base_fare, min_fare, per_km, per_min, stop_fee, fixed_fee, dynamic_multiplier, is_active
+INSERT INTO public.tariff_rules (
+    category_id, 
+    city, 
+    base_fare, 
+    min_fare, 
+    per_km, 
+    per_min, 
+    stop_fee, 
+    fixed_fee, 
+    dynamic_multiplier, 
+    is_active
+)
+SELECT 
+    rc.id,
+    t.city,
+    t.base_fare,
+    t.min_fare,
+    t.per_km,
+    t.per_min,
+    t.stop_fee,
+    t.fixed_fee,
+    t.dynamic_multiplier,
+    t.is_active
+FROM (
+    VALUES 
+        ('carros', 'default', 5.00, 8.00, 2.00, 0.50, 0.00, 0.00, 1.00, TRUE),
+        ('motos', 'default', 3.00, 5.00, 1.20, 0.30, 0.00, 0.00, 1.00, TRUE),
+        ('fretes', 'default', 50.00, 80.00, 5.00, 1.00, 0.00, 0.00, 1.00, TRUE),
+        ('guincho', 'default', 100.00, 150.00, 10.00, 0.00, 0.00, 0.00, 1.00, TRUE),
+        ('envios', 'default', 10.00, 15.00, 2.50, 0.50, 0.00, 0.00, 1.00, TRUE)
+) AS t(code, city, base_fare, min_fare, per_km, per_min, stop_fee, fixed_fee, dynamic_multiplier, is_active)
+JOIN public.ride_categories rc ON rc.code = t.code
+ON CONFLICT (category_id, city) DO UPDATE SET
     base_fare = EXCLUDED.base_fare,
     min_fare = EXCLUDED.min_fare,
     per_km = EXCLUDED.per_km,
     per_min = EXCLUDED.per_min,
+    stop_fee = EXCLUDED.stop_fee,
+    fixed_fee = EXCLUDED.fixed_fee,
+    dynamic_multiplier = EXCLUDED.dynamic_multiplier,
+    is_active = EXCLUDED.is_active,
     updated_at = NOW();
 
 COMMIT;
