@@ -33,23 +33,7 @@ function createSupabaseClient() {
   const SUPABASE_URL = import.meta.env["VITE_SUPABASE_URL"];
   const SUPABASE_PUBLISHABLE_KEY = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
 
-  // Runtime Audit (Temporary for troubleshooting)
-  try {
-    console.log("--- SUPABASE RUNTIME AUDIT ---");
-    console.log("import.meta.env.VITE_SUPABASE_URL:", SUPABASE_URL);
-    console.log("import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY:", SUPABASE_PUBLISHABLE_KEY?.substring(0, 20) + "...");
-    
-    if (SUPABASE_URL) {
-      const url = new URL(SUPABASE_URL);
-      console.log("supabase.supabaseUrl hostname:", url.hostname);
-      console.log("Project Ref:", url.hostname.split('.')[0]);
-    }
-    console.log("------------------------------");
-  } catch (e) {
-    console.error("Audit failed", e);
-  }
-
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY || SUPABASE_URL.includes("zjphbuvcapwyuynadgdt")) {
+  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const message = "Supabase não configurado corretamente neste ambiente. Verifique as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.";
     console.error(`[Supabase Error] ${message}`, { url: SUPABASE_URL });
     if (import.meta.env.DEV) {
@@ -57,7 +41,7 @@ function createSupabaseClient() {
     }
   }
 
-  const client = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
       fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
     },
@@ -68,11 +52,6 @@ function createSupabaseClient() {
       detectSessionInUrl: true,
     },
   });
-
-  // Final check on the actual client instance
-  console.log("Client Instance URL:", (client as any).supabaseUrl);
-
-  return client;
 }
 
 let _supabase: ReturnType<typeof createSupabaseClient> | undefined;
