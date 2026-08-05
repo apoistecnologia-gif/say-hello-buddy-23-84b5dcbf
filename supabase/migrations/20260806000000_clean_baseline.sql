@@ -10,12 +10,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 2. ENUMS
 DO $$ BEGIN
-    CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user', 'passenger', 'driver');
-    CREATE TYPE public.driver_approval_status AS ENUM ('pendente', 'em_analise', 'aprovado', 'rejeitado', 'bloqueado');
-    CREATE TYPE public.driver_subscription_status AS ENUM ('ativa', 'vencida', 'cancelada', 'teste', 'overdue');
-    CREATE TYPE public.payment_status AS ENUM ('pendente', 'pago', 'falhou', 'estornado', 'approved', 'rejected', 'refunded', 'charged_back', 'cancelled');
+    CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user', 'passenger', 'driver', 'super_admin', 'financial', 'operations', 'support', 'readonly');
+    CREATE TYPE public.driver_approval_status AS ENUM ('pendente', 'em_analise', 'aprovado', 'rejeitado', 'bloqueado', 'reprovado');
+    CREATE TYPE public.driver_subscription_status AS ENUM ('ativa', 'vencida', 'cancelada', 'teste', 'overdue', 'active', 'inactive', 'pending', 'suspended', 'expired', 'blocked');
+    CREATE TYPE public.payment_status AS ENUM ('pendente', 'pago', 'falhou', 'estornado', 'approved', 'rejected', 'refunded', 'charged_back', 'cancelled', 'authorized', 'in_process', 'unpaid');
     CREATE TYPE public.ride_status AS ENUM ('agendada', 'procurar_motorista', 'motorista_a_caminho', 'motorista_chegou', 'em_viagem', 'finalizada', 'cancelada_passageiro', 'cancelada_motorista', 'expired');
-    CREATE TYPE public.withdrawal_status AS ENUM ('pending', 'processing', 'paid', 'failed');
+    CREATE TYPE public.withdrawal_status AS ENUM ('pending', 'processing', 'paid', 'failed', 'rejected');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -32,6 +32,14 @@ CREATE TABLE IF NOT EXISTS public.users (
     average_rating NUMERIC(3,2) DEFAULT 0,
     total_ratings INTEGER DEFAULT 0,
     completed_rides INTEGER DEFAULT 0,
+    cpf TEXT,
+    birth_date DATE,
+    gender TEXT,
+    emergency_contact_name TEXT,
+    emergency_contact_phone TEXT,
+    preferences JSONB DEFAULT "{}",
+    deleted_at TIMESTAMPTZ,
+    auth_user_id UUID,
     blocked_at TIMESTAMPTZ,
     block_reason TEXT,
     suspended_until TIMESTAMPTZ,
@@ -74,6 +82,36 @@ CREATE TABLE IF NOT EXISTS public.drivers (
     current_lat NUMERIC(10,8),
     current_lng NUMERIC(11,8),
     last_location_at TIMESTAMPTZ,
+    motivo_reprovacao TEXT,
+    approved_at TIMESTAMPTZ,
+    suspended_at TIMESTAMPTZ,
+    payment_status public.payment_status,
+    subscription_expires_at TIMESTAMPTZ,
+    subscription_grace_days INTEGER DEFAULT 0,
+    subscription_admin_note TEXT,
+    documents_status TEXT,
+    photo_url TEXT,
+    selfie_url TEXT,
+    cnh_url TEXT,
+    cnh_back_url TEXT,
+    vehicle_document_url TEXT,
+    vehicle_photo_url TEXT,
+    insurance_url TEXT,
+    pix_key TEXT,
+    pix_key_type TEXT,
+    pix_holder_name TEXT,
+    mercadopago_payer_id TEXT,
+    mercadopago_preapproval_id TEXT,
+    mercadopago_init_point TEXT,
+    asaas_customer_id TEXT,
+    asaas_subscription_id TEXT,
+    last_invoice_url TEXT,
+    cpf TEXT,
+    birth_date DATE,
+    city TEXT,
+    state TEXT,
+    current_heading NUMERIC,
+    current_speed NUMERIC,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -111,6 +149,9 @@ CREATE TABLE IF NOT EXISTS public.tariff_rules (
     valid_to TIMESTAMPTZ,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    category_key TEXT, -- legacy
+    field_key TEXT, -- legacy
+    value NUMERIC, -- legacy
     UNIQUE(category_id, city)
 );
 
@@ -132,6 +173,23 @@ CREATE TABLE IF NOT EXISTS public.rides (
     duration_min NUMERIC(10,2),
     payment_method TEXT NOT NULL,
     request_key UUID UNIQUE, -- Idempotency key
+    candidate_driver_ids UUID[],
+    offered_driver_ids UUID[],
+    current_offer_driver_id UUID,
+    request_expires_at TIMESTAMPTZ,
+    search_expires_at TIMESTAMPTZ,
+    dispatch_attempts INTEGER DEFAULT 0,
+    accepted_driver_id UUID REFERENCES public.drivers(id),
+    driver_arrived_at TIMESTAMPTZ,
+    started_at TIMESTAMPTZ,
+    pickup_label TEXT,
+    pickup_short_label TEXT,
+    pickup_address TEXT,
+    pickup_place_id TEXT,
+    pickup_source TEXT,
+    service_details JSONB,
+    scheduled_for TIMESTAMPTZ,
+    rejected_driver_ids UUID[]
     accepted_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     cancelled_at TIMESTAMPTZ,
@@ -145,10 +203,13 @@ CREATE TABLE IF NOT EXISTS public.cancellation_fees (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     ride_id UUID REFERENCES public.rides(id),
     passenger_id UUID REFERENCES public.users(id) NOT NULL,
-    amount NUMERIC(10,2) NOT NULL,
+    value NUMERIC(10,2) NOT NULL,
+    paid_at TIMESTAMPTZ,
     reason TEXT,
     status TEXT DEFAULT 'pending',
     is_paid BOOLEAN DEFAULT FALSE,
+    fee_amount NUMERIC(10,2),
+    mp_payment_id TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -161,6 +222,9 @@ CREATE TABLE IF NOT EXISTS public.subscription_plans (
     description TEXT,
     price NUMERIC(10,2) NOT NULL CHECK (price >= 0),
     billing_cycle_days INTEGER NOT NULL DEFAULT 30,
+    promotional_price NUMERIC(10,2),
+    grace_period_days INTEGER DEFAULT 0,
+    enabled BOOLEAN DEFAULT TRUE,
     is_active BOOLEAN DEFAULT TRUE,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -175,6 +239,10 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     period_start TIMESTAMPTZ,
     period_end TIMESTAMPTZ,
     grace_until TIMESTAMPTZ,
+    amount NUMERIC(10,2),
+    paid_at TIMESTAMPTZ,
+    provider_reference TEXT,
+    provider_payment_id TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -184,10 +252,11 @@ CREATE TABLE IF NOT EXISTS public.driver_payment_events (
     driver_id UUID REFERENCES public.drivers(id) ON DELETE CASCADE,
     subscription_id UUID REFERENCES public.subscriptions(id) ON DELETE CASCADE,
     provider TEXT NOT NULL,
-    provider_id TEXT UNIQUE, -- MP payment_id
+    mp_payment_id TEXT UNIQUE, -- MP payment_id
     event_type TEXT NOT NULL,
     status public.payment_status NOT NULL,
-    amount NUMERIC(10,2) NOT NULL,
+    value NUMERIC(10,2) NOT NULL,
+    paid_at TIMESTAMPTZ,
     raw_payload JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -196,10 +265,113 @@ CREATE TABLE IF NOT EXISTS public.payment_webhook_receipts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     provider TEXT NOT NULL,
     provider_event_id TEXT UNIQUE NOT NULL, -- MP event_id
+    event_key TEXT UNIQUE,
+    request_id TEXT,
     status TEXT NOT NULL, -- processed, error, pending
     detail TEXT,
     raw_payload JSONB,
     processed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+CREATE TABLE IF NOT EXISTS public.user_notification_preferences (
+    user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    ride_updates BOOLEAN DEFAULT TRUE,
+    ride_requests BOOLEAN DEFAULT TRUE,
+    promotions BOOLEAN DEFAULT TRUE,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.notification_inbox (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    body TEXT,
+    category TEXT,
+    data JSONB,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.notifications_broadcast (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    body TEXT,
+    audience_type TEXT,
+    audience_filter JSONB,
+    sent_by UUID REFERENCES public.users(id),
+    delivery_count INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.favorite_places (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    address TEXT NOT NULL,
+    lat NUMERIC(10,8) NOT NULL,
+    lng NUMERIC(11,8) NOT NULL,
+    place_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.recent_places (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    address TEXT NOT NULL,
+    lat NUMERIC(10,8) NOT NULL,
+    lng NUMERIC(11,8) NOT NULL,
+    place_id TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.favorite_drivers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    passenger_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    driver_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(passenger_id, driver_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.passenger_emergency_contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    passenger_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.driver_emergency_contacts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    driver_user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.driver_amenities (
+    user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    has_wifi BOOLEAN DEFAULT FALSE,
+    has_ac BOOLEAN DEFAULT TRUE,
+    has_charger BOOLEAN DEFAULT FALSE,
+    has_water BOOLEAN DEFAULT FALSE,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.driver_public_locations (
+    user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    lat NUMERIC(10,8),
+    lng NUMERIC(11,8),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.gps_diagnostics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    event TEXT NOT NULL,
+    metadata JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -521,3 +693,21 @@ GRANT UPDATE (read_at) ON public.notifications TO authenticated;
 GRANT ALL ON public.user_notification_tokens TO authenticated;
 
 COMMIT;
+
+-- 10. INDEXES (Optimized for Edge Functions)
+CREATE INDEX IF NOT EXISTS idx_rides_passenger_id ON public.rides(passenger_id);
+CREATE INDEX IF NOT EXISTS idx_rides_driver_id ON public.rides(driver_id);
+CREATE INDEX IF NOT EXISTS idx_rides_accepted_driver_id ON public.rides(accepted_driver_id);
+CREATE INDEX IF NOT EXISTS idx_rides_status ON public.rides(status);
+CREATE INDEX IF NOT EXISTS idx_rides_request_key ON public.rides(request_key);
+CREATE INDEX IF NOT EXISTS idx_drivers_user_id ON public.drivers(user_id);
+CREATE INDEX IF NOT EXISTS idx_drivers_is_online ON public.drivers(is_online) WHERE is_online = TRUE;
+CREATE INDEX IF NOT EXISTS idx_drivers_approval_status ON public.drivers(approval_status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_driver_id ON public.subscriptions(driver_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON public.subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_payment_webhook_receipts_event_key ON public.payment_webhook_receipts(event_key);
+CREATE INDEX IF NOT EXISTS idx_driver_withdrawals_driver_id ON public.driver_withdrawals(driver_id);
+CREATE INDEX IF NOT EXISTS idx_driver_withdrawals_status ON public.driver_withdrawals(status);
+CREATE INDEX IF NOT EXISTS idx_user_notification_tokens_user_id ON public.user_notification_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_user_id ON public.notification_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_account_deletion_requests_user_id ON public.account_deletion_requests(user_id);
