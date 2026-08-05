@@ -6,6 +6,19 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const ADMIN_ROLES = ["admin", "super_admin", "operations", "financial", "support", "readonly"];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ACTIONS = new Set(["summary", "ride_detail", "rides", "withdrawals"]);
+const RIDE_STATUSES = new Set([
+  "agendada",
+  "procurar_motorista",
+  "motorista_a_caminho",
+  "motorista_chegou",
+  "em_viagem",
+  "finalizada",
+  "cancelada_passageiro",
+  "cancelada_motorista",
+  "expired",
+]);
+const WITHDRAWAL_STATUSES = new Set(["pending", "processing", "paid", "failed", "rejected"]);
 
 function json(req: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -56,8 +69,19 @@ Deno.serve(async (req) => {
     if (roleError) return json(req, { ok: false, error: "role_check_failed" }, 500);
     if (!roles?.length) return json(req, { ok: false, error: "forbidden" }, 403);
 
-    const body = await req.json().catch(() => ({}));
-    const action = String(body?.action ?? "summary");
+    let body: Record<string, unknown>;
+    try {
+      const parsed = await req.json();
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return json(req, { ok: false, error: "invalid_payload" }, 400);
+      }
+      body = parsed as Record<string, unknown>;
+    } catch {
+      return json(req, { ok: false, error: "invalid_json" }, 400);
+    }
+
+    const action = typeof body.action === "string" ? body.action.trim() : "summary";
+    if (!ACTIONS.has(action)) return json(req, { ok: false, error: "unknown_action" }, 404);
 
     if (action === "summary") {
       const activeStatuses = ["procurar_motorista", "motorista_a_caminho", "motorista_chegou", "em_viagem"];
@@ -95,20 +119,24 @@ Deno.serve(async (req) => {
     }
 
     if (action === "ride_detail") {
-      const rideId = String(body?.ride_id ?? "");
+      const rideId = typeof body.ride_id === "string" ? body.ride_id : "";
       if (!UUID_RE.test(rideId)) return json(req, { ok: false, error: "invalid_ride_id" }, 422);
-      const { data: ride, error: rideError } = await admin.from("rides").select("*").eq("id", rideId).maybeSingle();
+      const { data: ride, error: rideError } = await admin
+        .from("rides")
+        .select("id,status,passenger_id,driver_id,category,origin_name,origin_lat,origin_lng,destination_name,destination_lat,destination_lng,estimated_price,final_price,distance_km,duration_min,payment_method,accepted_at,driver_arrived_at,started_at,completed_at,cancelled_at,cancelled_by,cancellation_reason,created_at,updated_at")
+        .eq("id", rideId)
+        .maybeSingle();
       if (rideError) throw new Error(rideError.message);
       if (!ride) return json(req, { ok: false, error: "ride_not_found" }, 404);
 
       const [fee, passengerWallet, driverWallet, transactions] = await Promise.all([
-        admin.from("cancellation_fees").select("*").eq("ride_id", rideId).maybeSingle(),
-        admin.from("passenger_wallets").select("*").eq("passenger_id", ride.passenger_id).maybeSingle(),
+        admin.from("cancellation_fees").select("id,status,is_paid,fee_amount,value,paid_at,reason,created_at,updated_at").eq("ride_id", rideId).maybeSingle(),
+        admin.from("passenger_wallets").select("id,balance,currency,is_blocked,blocked_reason,updated_at").eq("passenger_id", ride.passenger_id).maybeSingle(),
         ride.driver_id
-          ? admin.from("driver_wallets").select("*").eq("driver_id", ride.driver_id).maybeSingle()
+          ? admin.from("driver_wallets").select("id,balance,available_balance,pending_balance,currency,updated_at").eq("driver_id", ride.driver_id).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
         ride.driver_id
-          ? admin.from("driver_wallet_transactions").select("*").eq("source_ride_id", rideId).order("created_at", { ascending: false })
+          ? admin.from("driver_wallet_transactions").select("id,amount,status,source,description,created_at,updated_at").eq("source_ride_id", rideId).order("created_at", { ascending: false }).limit(100)
           : Promise.resolve({ data: [], error: null }),
       ]);
       for (const result of [fee, passengerWallet, driverWallet, transactions]) {
@@ -125,20 +153,38 @@ Deno.serve(async (req) => {
     }
 
     if (action === "rides") {
-      const limit = integer(body?.limit, 50, 1, 200);
-      const status = typeof body?.status === "string" ? body.status.trim() : "";
+      const limit = integer(body.limit, 50, 1, 200);
+      const offset = integer(body.offset, 0, 0, 100_000);
+      const status = typeof body.status === "string" ? body.status.trim() : "";
+      if (status && !RIDE_STATUSES.has(status)) {
+        return json(req, { ok: false, error: "invalid_ride_status" }, 422);
+      }
       let query = admin
         .from("rides")
         .select("id,status,origin_name,destination_name,passenger_id,driver_id,estimated_price,final_price,payment_method,created_at,updated_at")
         .order("updated_at", { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
       if (status) query = query.eq("status", status);
       const { data, error } = await query;
       if (error) throw new Error(error.message);
-      return json(req, { ok: true, rides: data ?? [] });
+      return json(req, { ok: true, offset, limit, rides: data ?? [] });
     }
 
-    return json(req, { ok: false, error: "unknown_action" }, 404);
+    const limit = integer(body.limit, 50, 1, 200);
+    const offset = integer(body.offset, 0, 0, 100_000);
+    const status = typeof body.status === "string" ? body.status.trim() : "";
+    if (status && !WITHDRAWAL_STATUSES.has(status)) {
+      return json(req, { ok: false, error: "invalid_withdrawal_status" }, 422);
+    }
+    let query = admin
+      .from("driver_withdrawals")
+      .select("id,driver_id,amount,status,pix_key_type,provider_status,processing_started_at,last_checked_at,attempt_count,rejection_reason,processed_at,created_at,updated_at")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (status) query = query.eq("status", status);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    return json(req, { ok: true, offset, limit, withdrawals: data ?? [] });
   } catch (error) {
     console.error("[admin-operations-read] fatal", error);
     return json(req, { ok: false, error: "internal_error" }, 500);
