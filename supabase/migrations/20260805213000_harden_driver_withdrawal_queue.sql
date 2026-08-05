@@ -12,30 +12,9 @@ ALTER TABLE public.driver_withdrawals
   ADD COLUMN IF NOT EXISTS attempt_count integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now();
 
--- Keep only the newest active request if legacy duplicates exist. Older rows are
--- returned to failed so their already reserved balance can be reconciled by the
--- existing failure/refund routine before production rollout.
-WITH ranked_active AS (
-  SELECT
-    id,
-    row_number() OVER (
-      PARTITION BY driver_id
-      ORDER BY created_at DESC, id DESC
-    ) AS position
-  FROM public.driver_withdrawals
-  WHERE status::text IN ('pending', 'processing')
-)
-UPDATE public.driver_withdrawals
-   SET status = 'failed',
-       rejection_reason = COALESCE(
-         rejection_reason,
-         'Solicitação duplicada encerrada durante endurecimento da fila.'
-       ),
-       updated_at = now()
- WHERE id IN (
-   SELECT id FROM ranked_active WHERE position > 1
- );
-
+-- Do not rewrite or refund legacy financial rows silently. If production still
+-- contains duplicate active requests, this index intentionally blocks deployment
+-- so the records can be reconciled explicitly with the provider first.
 CREATE UNIQUE INDEX IF NOT EXISTS ux_driver_withdrawals_one_active_per_driver
   ON public.driver_withdrawals(driver_id)
   WHERE status::text IN ('pending', 'processing');
