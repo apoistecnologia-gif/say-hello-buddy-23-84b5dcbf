@@ -174,8 +174,8 @@ CREATE TABLE IF NOT EXISTS public.payment_methods (
 
 -- 4. FUNCTIONS
 
--- Idempotent Role Helper
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role public.app_role)
+-- Hardened Role Helper
+CREATE OR REPLACE FUNCTION public.current_user_has_role(_role public.app_role)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
@@ -184,9 +184,12 @@ SET search_path = public
 AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.user_roles 
-    WHERE user_id = _user_id AND role = _role
+    WHERE user_id = auth.uid() AND role = _role
   );
 $$;
+
+REVOKE ALL ON FUNCTION public.current_user_has_role(public.app_role) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.current_user_has_role(public.app_role) TO authenticated;
 
 -- Correct handle_new_user (Architecture A, Idempotent, Metadata-Aware)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -266,6 +269,23 @@ BEGIN
     END LOOP;
 END $$;
 
+-- RPC for Notifications
+CREATE OR REPLACE FUNCTION public.mark_notification_read(_notification_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    UPDATE public.notifications
+    SET read_at = NOW()
+    WHERE id = _notification_id AND user_id = auth.uid();
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.mark_notification_read(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.mark_notification_read(UUID) TO authenticated;
+
 -- 6. INDEXES
 CREATE INDEX IF NOT EXISTS idx_rides_passenger_id ON public.rides(passenger_id);
 CREATE INDEX IF NOT EXISTS idx_rides_driver_id ON public.rides(driver_id);
@@ -286,57 +306,77 @@ BEGIN
     END LOOP;
 END $$;
 
--- 8. RLS POLICIES (Matrix Implementation)
+-- 8. RLS POLICIES (Hardened Matrix)
 
 -- USERS
-CREATE POLICY "Users can read own profile" ON public.users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Users can update own profile fields" ON public.users FOR UPDATE USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
-CREATE POLICY "Admins can manage all users" ON public.users FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "users_select_own" ON public.users FOR SELECT TO authenticated USING (auth.uid() = id);
+CREATE POLICY "users_update_own" ON public.users FOR UPDATE TO authenticated USING (auth.uid() = id) 
+WITH CHECK (
+    auth.uid() = id AND 
+    (id = EXCLUDED.id OR id IS NOT DISTINCT FROM EXCLUDED.id) -- Prevent changing ID
+);
+CREATE POLICY "users_admin_all" ON public.users FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
 -- USER_ROLES
-CREATE POLICY "Users can read own roles" ON public.user_roles FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Admins manage roles" ON public.user_roles FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "user_roles_select_own" ON public.user_roles FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "user_roles_admin_all" ON public.user_roles FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
 -- PASSENGER_WALLETS
-CREATE POLICY "Passengers read own wallet" ON public.passenger_wallets FOR SELECT USING (auth.uid() = passenger_id);
-CREATE POLICY "Service role manages wallets" ON public.passenger_wallets FOR ALL TO service_role USING (TRUE);
-CREATE POLICY "Admins read wallets" ON public.passenger_wallets FOR SELECT TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "passenger_wallets_select_own" ON public.passenger_wallets FOR SELECT TO authenticated USING (auth.uid() = passenger_id);
+CREATE POLICY "passenger_wallets_admin_select" ON public.passenger_wallets FOR SELECT TO authenticated USING (public.current_user_has_role('admin'));
 
--- DRIVERS
-CREATE POLICY "Drivers read/update own profile" ON public.drivers FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Drivers update location/online status" ON public.drivers FOR UPDATE USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Public read active drivers" ON public.drivers FOR SELECT USING (is_online = TRUE AND approval_status = 'aprovado');
-CREATE POLICY "Admins manage drivers" ON public.drivers FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+-- DRIVERS (Operational approach: column-level grants used in Section 9)
+CREATE POLICY "drivers_select_own" ON public.drivers FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "drivers_update_own" ON public.drivers FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "drivers_public_active_select" ON public.drivers FOR SELECT TO authenticated USING (is_online = TRUE AND approval_status = 'aprovado');
+CREATE POLICY "drivers_admin_all" ON public.drivers FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
 -- RIDES
-CREATE POLICY "Passengers manage own rides" ON public.rides FOR ALL USING (auth.uid() = passenger_id);
-CREATE POLICY "Drivers read assigned/available rides" ON public.rides FOR SELECT USING (auth.uid() = (SELECT user_id FROM public.drivers WHERE id = driver_id) OR status = 'procurar_motorista');
-CREATE POLICY "Drivers update assigned rides" ON public.rides FOR UPDATE USING (auth.uid() = (SELECT user_id FROM public.drivers WHERE id = driver_id));
-CREATE POLICY "Admins manage all rides" ON public.rides FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+CREATE POLICY "rides_select_passenger" ON public.rides FOR SELECT TO authenticated USING (auth.uid() = passenger_id);
+CREATE POLICY "rides_select_driver" ON public.rides FOR SELECT TO authenticated USING (
+    auth.uid() = (SELECT user_id FROM public.drivers WHERE id = driver_id) OR 
+    (status = 'procurar_motorista' AND public.current_user_has_role('driver'))
+);
+CREATE POLICY "rides_admin_all" ON public.rides FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
 -- CANCELLATION_FEES
-CREATE POLICY "Passengers read own fees" ON public.cancellation_fees FOR SELECT USING (auth.uid() = passenger_id);
-CREATE POLICY "Service role manages fees" ON public.cancellation_fees FOR ALL TO service_role USING (TRUE);
+CREATE POLICY "cancellation_fees_select_own" ON public.cancellation_fees FOR SELECT TO authenticated USING (auth.uid() = passenger_id);
+CREATE POLICY "cancellation_fees_admin_all" ON public.cancellation_fees FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
 -- NOTIFICATIONS
-CREATE POLICY "Users manage own notifications" ON public.notifications FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "Service role sends notifications" ON public.notifications FOR INSERT TO service_role WITH CHECK (TRUE);
+CREATE POLICY "notifications_select_own" ON public.notifications FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "notifications_update_own" ON public.notifications FOR UPDATE TO authenticated USING (auth.uid() = user_id) 
+WITH CHECK (
+    auth.uid() = user_id AND 
+    (user_id = EXCLUDED.user_id OR user_id IS NOT DISTINCT FROM EXCLUDED.user_id) AND -- Prevent ownership change
+    (title = EXCLUDED.title OR title IS NOT DISTINCT FROM EXCLUDED.title) -- Restricted to read_at conceptually (best handled by RPC)
+);
 
--- REFERENCE TABLES (Publicly readable)
-CREATE POLICY "Public read active categories" ON public.ride_categories FOR SELECT USING (is_active = TRUE);
-CREATE POLICY "Public read active tariff" ON public.tariff_rules FOR SELECT USING (is_active = TRUE);
-CREATE POLICY "Public read active payment" ON public.payment_methods FOR SELECT USING (is_active = TRUE);
+-- REFERENCE TABLES
+CREATE POLICY "ref_categories_select" ON public.ride_categories FOR SELECT TO authenticated USING (is_active = TRUE);
+CREATE POLICY "ref_tariff_select" ON public.tariff_rules FOR SELECT TO authenticated USING (is_active = TRUE);
+CREATE POLICY "ref_payment_select" ON public.payment_methods FOR SELECT TO authenticated USING (is_active = TRUE);
+CREATE POLICY "ref_admin_all_categories" ON public.ride_categories FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
+CREATE POLICY "ref_admin_all_tariff" ON public.tariff_rules FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
+CREATE POLICY "ref_admin_all_payment" ON public.payment_methods FOR ALL TO authenticated USING (public.current_user_has_role('admin'));
 
-CREATE POLICY "Admins manage reference data" ON public.ride_categories FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-CREATE POLICY "Admins manage tariff data" ON public.tariff_rules FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-CREATE POLICY "Admins manage payment methods" ON public.payment_methods FOR ALL TO authenticated USING (public.has_role(auth.uid(), 'admin'));
-
--- 9. GRANTS
+-- 9. GRANTS AND COLUMN-LEVEL SECURITY
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
+
+-- Revoke all table-level write grants from authenticated users by default
+REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM authenticated;
+
+-- Grant selective SELECT
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT INSERT, UPDATE ON public.users, public.rides, public.drivers TO authenticated;
+
+-- Grant selective UPDATE for USERS (own profile)
+GRANT UPDATE (name, phone, avatar_url, city) ON public.users TO authenticated;
+
+-- Grant selective UPDATE for DRIVERS (own operation)
+GRANT UPDATE (is_online, current_lat, current_lng, last_location_at) ON public.drivers TO authenticated;
+
+-- Grant selective UPDATE for NOTIFICATIONS (read status)
+GRANT UPDATE (read_at) ON public.notifications TO authenticated;
 
 COMMIT;
