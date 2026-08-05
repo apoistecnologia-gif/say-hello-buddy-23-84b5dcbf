@@ -1,14 +1,5 @@
 project_id = "vqtucstyduxrqjgyigfk"
 
-[functions.mercadopago-webhook]
-verify_jwt = false
-
-[functions.mercadopago-health]
-verify_jwt = false
-
-[functions.request-ride]
-verify_jwt = true
-
 [functions.admin-actions]
 verify_jwt = true
 
@@ -27,6 +18,12 @@ verify_jwt = true
 [functions.dispatch-broadcast-test]
 verify_jwt = true
 
+[functions.mercadopago-health]
+verify_jwt = true
+
+[functions.mercadopago-webhook]
+verify_jwt = false
+
 [functions.passenger-geocode-reverse]
 verify_jwt = true
 
@@ -40,6 +37,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.request-driver-payout]
+verify_jwt = true
+
+[functions.request-ride]
 verify_jwt = true
 
 [functions.send-ride-push]

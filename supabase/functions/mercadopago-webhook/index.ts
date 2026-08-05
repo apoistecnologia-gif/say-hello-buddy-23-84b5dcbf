@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
   const requestId = req.headers.get("x-request-id") ?? "";
   const signature = req.headers.get("x-signature") ?? "";
   if (!(await verifySignature(dataId, requestId, signature).catch(() => false))) {
+    console.error(`[MP Webhook] Invalid signature: dataId=${dataId}, requestId=${requestId}, signature=${signature}`);
     return json({ error: "invalid_signature" }, 401);
   }
 
