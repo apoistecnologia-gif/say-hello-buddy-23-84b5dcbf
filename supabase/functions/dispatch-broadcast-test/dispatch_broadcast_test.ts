@@ -36,7 +36,7 @@ const DEST = { lat: -23.5605, lng: -46.6433 };
 type CreatedDriver = { authId: string; email: string };
 
 async function createTestDriver(label: string): Promise<CreatedDriver> {
-  const email = `dispatch-test-${label}-${crypto.randomUUID()}@movvi.test`;
+  const email = `dispatch-test-${label}-${crypto.randomUUID()}@apois.test`;
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password: "Test1234!",
@@ -99,7 +99,7 @@ Deno.test("broadcast dispatch — todos os motoristas recebem a oferta simultane
   let rideId: string | undefined;
   try {
     // Cria um passageiro (precisa de auth.user real por FK em rides.passenger_id).
-    const paxEmail = `dispatch-test-pax-${crypto.randomUUID()}@movvi.test`;
+    const paxEmail = `dispatch-test-pax-${crypto.randomUUID()}@apois.test`;
     const pax = await admin.auth.admin.createUser({
       email: paxEmail,
       password: "Test1234!",

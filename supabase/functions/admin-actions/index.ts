@@ -675,7 +675,7 @@ async function runAction(
       await ensureOk(
         await admin.from("notification_inbox").insert({
           user_id: ticket.user_id,
-          title: "Resposta do suporte MOVVI",
+          title: "Resposta do suporte APOIS",
           body: message,
           category: "support",
           data: { ticket_id: ticketId, reply_id: reply.id },
