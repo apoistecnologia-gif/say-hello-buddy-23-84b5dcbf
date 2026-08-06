@@ -4,11 +4,11 @@ export interface PaymentMethod {
   id: string;
   code: PaymentMethodCode;
   name: string;
-  label?: string; // For backward compatibility
+  label?: string;
   description?: string | null;
   icon?: string | null;
   isActive: boolean;
-  enabled?: boolean; // For backward compatibility
+  enabled?: boolean;
   sortOrder: number;
   requiresBalance?: boolean;
 }
@@ -23,7 +23,6 @@ export interface PassengerWallet {
   updatedAt: string;
 }
 
-// For backward compatibility with existing components
 export interface WalletSummary extends PassengerWallet {
   available_balance: number;
   status: "active" | "blocked";
@@ -44,6 +43,7 @@ export interface CheckoutEstimate {
   finalTotal: number;
   readiness: boolean;
   blockingReasons: string[];
+  missingRequirements: string[];
 }
 
 export interface CouponValidationResult {
