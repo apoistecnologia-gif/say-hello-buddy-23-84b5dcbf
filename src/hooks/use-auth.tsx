@@ -91,9 +91,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const activeProfileRequest = useRef(0);
+  const activeAuthUserId = useRef<string | null>(null);
 
   const clearLocalSessionState = useCallback(() => {
     activeProfileRequest.current += 1;
+    activeAuthUserId.current = null;
     setSession(null);
     setUser(null);
     setProfile(null);
@@ -127,7 +129,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq("auth_user_id", userId)
         .maybeSingle();
 
-      // Compatibilidade com contas antigas em que o id público era igual ao id do Auth.
       if (!data && !profileError) {
         const legacyResult = await supabase
           .from("users")
@@ -167,19 +168,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const applySession = useCallback(
     async (nextSession: Session | null) => {
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+      const nextUser = nextSession?.user ?? null;
+      const nextUserId = nextUser?.id ?? null;
+      const userChanged = activeAuthUserId.current !== nextUserId;
 
-      if (!nextSession?.user) {
+      activeAuthUserId.current = nextUserId;
+      setSession(nextSession);
+      setUser(nextUser);
+
+      if (!nextUser) {
         activeProfileRequest.current += 1;
         setProfile(null);
         setAuthState("unauthenticated");
         return;
       }
 
-      setProfile(null);
+      if (userChanged) setProfile(null);
       setAuthState("authenticated");
-      await fetchProfile(nextSession.user.id);
+      await fetchProfile(nextUser.id);
     },
     [fetchProfile],
   );
@@ -234,9 +240,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
-      setIsLoading(false);
-      setError(null);
-      void applySession(nextSession);
+
+      void (async () => {
+        setIsLoading(true);
+        setError(null);
+        await applySession(nextSession);
+        if (mounted) setIsLoading(false);
+      })();
     });
 
     return () => {
