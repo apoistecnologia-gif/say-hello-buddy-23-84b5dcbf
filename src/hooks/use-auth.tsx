@@ -12,6 +12,7 @@ export type AuthState =
 
 export interface AuthProfile {
   id: string;
+  auth_user_id: string | null;
   name: string | null;
   full_name: string | null;
   email: string | null;
@@ -20,7 +21,7 @@ export interface AuthProfile {
   city: string | null;
   average_rating: number | null;
   completed_rides: number | null;
-  is_blocked: boolean | null;
+  is_blocked: boolean;
   blocked_reason: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -44,13 +45,14 @@ const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(r
 
 const normalizeProfile = (value: unknown): AuthProfile | null => {
   if (!value || typeof value !== "object") return null;
+
   const record = value as Record<string, unknown>;
   const id = typeof record["id"] === "string" ? record["id"] : null;
   if (!id) return null;
 
   const readNullableString = (key: string): string | null => {
     const field = record[key];
-    return typeof field === "string" ? field : null;
+    return typeof field === "string" && field.trim().length > 0 ? field : null;
   };
 
   const readNullableNumber = (key: string): number | null => {
@@ -58,23 +60,24 @@ const normalizeProfile = (value: unknown): AuthProfile | null => {
     return typeof field === "number" && Number.isFinite(field) ? field : null;
   };
 
-  const readNullableBoolean = (key: string): boolean | null => {
-    const field = record[key];
-    return typeof field === "boolean" ? field : null;
-  };
+  const name = readNullableString("name");
+  const blockedAt = readNullableString("blocked_at");
+  const suspendedAt = readNullableString("suspended_at");
+  const blockedReason = readNullableString("block_reason");
 
   return {
     id,
-    name: readNullableString("name"),
-    full_name: readNullableString("full_name"),
+    auth_user_id: readNullableString("auth_user_id"),
+    name,
+    full_name: name,
     email: readNullableString("email"),
     phone: readNullableString("phone"),
     avatar_url: readNullableString("avatar_url"),
     city: readNullableString("city"),
     average_rating: readNullableNumber("average_rating"),
     completed_rides: readNullableNumber("completed_rides"),
-    is_blocked: readNullableBoolean("is_blocked"),
-    blocked_reason: readNullableString("blocked_reason"),
+    is_blocked: Boolean(blockedAt || suspendedAt || blockedReason),
+    blocked_reason: blockedReason,
     created_at: readNullableString("created_at"),
     updated_at: readNullableString("updated_at"),
   };
@@ -118,11 +121,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (delay > 0) await sleep(delay);
       if (requestId !== activeProfileRequest.current) return null;
 
-      const { data, error: profileError } = await supabase
+      let { data, error: profileError } = await supabase
         .from("users")
         .select("*")
-        .eq("id", userId)
+        .eq("auth_user_id", userId)
         .maybeSingle();
+
+      // Compatibilidade com contas antigas em que o id público era igual ao id do Auth.
+      if (!data && !profileError) {
+        const legacyResult = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+
+        data = legacyResult.data;
+        profileError = legacyResult.error;
+      }
 
       if (requestId !== activeProfileRequest.current) return null;
 
@@ -140,7 +155,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    if (requestId === activeProfileRequest.current) setProfile(null);
+    if (requestId === activeProfileRequest.current) {
+      setProfile(null);
+      console.warn("[AuthProvider] Auth session exists without a readable public profile", {
+        authUserId: userId,
+      });
+    }
+
     return null;
   }, []);
 
@@ -156,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      setProfile(null);
       setAuthState("authenticated");
       await fetchProfile(nextSession.user.id);
     },
