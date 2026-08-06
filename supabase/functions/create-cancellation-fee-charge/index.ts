@@ -43,9 +43,13 @@ async function mpFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
 type FeeRow = {
   id: string;
   passenger_id: string;
-  amount: number;
+  amount: number | null;
+  fee_amount: number | null;
+  value: number | null;
   status: string | null;
+  is_paid: boolean | null;
   mp_payment_id: string | null;
+  mp_payment_status: string | null;
   mp_qr_code: string | null;
   mp_qr_code_base64: string | null;
   mp_ticket_url: string | null;
@@ -57,6 +61,14 @@ type PassengerProfile = {
   email: string | null;
   name: string | null;
 };
+
+function feeAmount(fee: FeeRow): number {
+  for (const candidate of [fee.amount, fee.fee_amount, fee.value]) {
+    const amount = Number(candidate);
+    if (Number.isFinite(amount) && amount > 0) return amount;
+  }
+  return 0;
+}
 
 async function resolvePassengerProfile(
   admin: ReturnType<typeof createClient>,
@@ -112,11 +124,7 @@ Deno.serve(async (req) => {
       return json({ error: "unauthorized", detail: authError?.message }, 401, req);
     }
 
-    const profile = await resolvePassengerProfile(
-      admin,
-      authUser.id,
-      authUser.email ?? null,
-    );
+    const profile = await resolvePassengerProfile(admin, authUser.id, authUser.email ?? null);
     if (!profile) return json({ error: "passenger_profile_missing" }, 404, req);
 
     let payload: { feeId?: string } = {};
@@ -129,9 +137,10 @@ Deno.serve(async (req) => {
     let query = admin
       .from("cancellation_fees")
       .select(
-        "id,passenger_id,amount,status,mp_payment_id,mp_qr_code,mp_qr_code_base64,mp_ticket_url,mp_expires_at",
+        "id,passenger_id,amount,fee_amount,value,status,is_paid,mp_payment_id,mp_payment_status,mp_qr_code,mp_qr_code_base64,mp_ticket_url,mp_expires_at",
       )
       .eq("passenger_id", profile.id)
+      .eq("is_paid", false)
       .in("status", ["pending", "open", "unpaid"])
       .order("created_at", { ascending: true })
       .limit(1);
@@ -156,13 +165,14 @@ Deno.serve(async (req) => {
     }
 
     const fee = feeData as FeeRow;
-    const amount = Number(fee.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return json({ error: "fee_amount_invalid" }, 422, req);
-    }
+    const amount = feeAmount(fee);
+    if (amount <= 0) return json({ error: "fee_amount_invalid" }, 422, req);
 
     const now = Date.now();
+    const paymentStatus = fee.mp_payment_status?.toLowerCase() ?? "";
+    const reusableStatus = !paymentStatus || ["pending", "in_process", "authorized", "approved"].includes(paymentStatus);
     const stillValid =
+      reusableStatus &&
       Boolean(fee.mp_payment_id) &&
       Boolean(fee.mp_qr_code) &&
       (!fee.mp_expires_at || new Date(fee.mp_expires_at).getTime() > now + 60_000);
@@ -218,7 +228,7 @@ Deno.serve(async (req) => {
           payment_method_id: "pix",
           date_of_expiration: expiresAt,
           external_reference: `fee:${fee.id}`,
-          notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
+          notification_url: `${SUPABASE_URL}/functions/v1/cancellation-fee-webhook`,
           metadata: {
             kind: "cancellation_fee",
             fee_id: fee.id,
@@ -251,7 +261,11 @@ Deno.serve(async (req) => {
 
     const transaction = pix.point_of_interaction?.transaction_data ?? {};
     const patch = {
+      amount,
+      fee_amount: amount,
+      value: amount,
       mp_payment_id: String(pix.id),
+      mp_payment_status: pix.status,
       mp_qr_code: transaction.qr_code ?? null,
       mp_qr_code_base64: transaction.qr_code_base64 ?? null,
       mp_ticket_url: transaction.ticket_url ?? null,
@@ -269,6 +283,14 @@ Deno.serve(async (req) => {
         feeId: fee.id,
         message: updateError.message,
       });
+      return json(
+        {
+          error: "pix_persistence_failed",
+          message: "O Pix foi criado, mas não pôde ser salvo com segurança. Tente novamente.",
+        },
+        500,
+        req,
+      );
     }
 
     if (!patch.mp_qr_code) {
