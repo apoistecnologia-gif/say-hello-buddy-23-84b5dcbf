@@ -150,6 +150,53 @@ Deno.serve(async (req) => {
     const input = (await req.json()) as PushBody;
     if (!input.event) return json(req, { error: "invalid_payload" }, 422);
 
+    // Diagnóstico de prontidão: NÃO envia notificação e NÃO revela segredos.
+    // Retorna apenas presença/ausência e formato da configuração.
+    if (input.event === "diagnostics.readiness") {
+      if (!isServiceRequest && !isAdmin) return json(req, { error: "forbidden" }, 403);
+
+      let serviceAccountShapeOk = false;
+      let hasProjectId = false;
+      let hasClientEmail = false;
+      let privateKeyLooksPkcs8 = false;
+
+      if (FIREBASE_B64) {
+        try {
+          const account = readServiceAccount();
+          hasProjectId = typeof account.project_id === "string" && account.project_id.length > 0;
+          hasClientEmail = typeof account.client_email === "string" && account.client_email.includes("@");
+          privateKeyLooksPkcs8 =
+            typeof account.private_key === "string" &&
+            account.private_key.includes("BEGIN PRIVATE KEY");
+          serviceAccountShapeOk = hasProjectId && hasClientEmail && privateKeyLooksPkcs8;
+        } catch {
+          serviceAccountShapeOk = false;
+        }
+      }
+
+      const { count: activeTokens } = await admin
+        .from("user_notification_tokens")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true)
+        .eq("permission_status", "granted");
+
+      return json(req, {
+        ok: true,
+        mode: "readiness",
+        sent: 0,
+        firebase_secret_present: FIREBASE_B64.length > 0,
+        service_account_parsable: serviceAccountShapeOk,
+        service_account_fields: {
+          project_id: hasProjectId,
+          client_email: hasClientEmail,
+          private_key_pkcs8: privateKeyLooksPkcs8,
+        },
+        fcm_api: "https://fcm.googleapis.com/v1/projects/{project_id}/messages:send",
+        android_channel_id: "apois_rides",
+        active_device_tokens: activeTokens ?? 0,
+      }, 200);
+    }
+
     let finalUserIds: string[] = [];
     let finalTitle = "";
     let finalBody = "";
