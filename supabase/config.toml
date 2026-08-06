@@ -42,6 +42,9 @@ verify_jwt = true
 [functions.passenger-pricing-estimate]
 verify_jwt = true
 
+[functions.passenger-ride-request]
+verify_jwt = true
+
 [functions.passenger-routes-compute]
 verify_jwt = true
 
