@@ -24,6 +24,7 @@ import { Route as PublicLoginRouteImport } from './routes/_public.login'
 import { Route as PublicRecuperarSenhaRouteImport } from './routes/_public.recuperar-senha'
 import { Route as PublicRedefinirSenhaRouteImport } from './routes/_public.redefinir-senha'
 import { Route as AuthenticatedCorridaRideIdRouteImport } from './routes/_authenticated.corrida.$rideId'
+import { Route as AuthenticatedCorridasRideIdRouteImport } from './routes/_authenticated.corridas.$rideId'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -102,6 +103,12 @@ const AuthenticatedCorridaRideIdRoute =
     path: '/corrida/$rideId',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedCorridasRideIdRoute =
+  AuthenticatedCorridasRideIdRouteImport.update({
+    id: '/corridas/$rideId',
+    path: '/corridas/$rideId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/recuperar-senha': typeof PublicRecuperarSenhaRoute
   '/redefinir-senha': typeof PublicRedefinirSenhaRoute
   '/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
+  '/corridas/$rideId': typeof AuthenticatedCorridasRideIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -132,6 +140,7 @@ export interface FileRoutesByTo {
   '/recuperar-senha': typeof PublicRecuperarSenhaRoute
   '/redefinir-senha': typeof PublicRedefinirSenhaRoute
   '/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
+  '/corridas/$rideId': typeof AuthenticatedCorridasRideIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -150,6 +159,7 @@ export interface FileRoutesById {
   '/_public/redefinir-senha': typeof PublicRedefinirSenhaRoute
   '/_public/': typeof PublicIndexRoute
   '/_authenticated/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
+  '/_authenticated/corridas/$rideId': typeof AuthenticatedCorridasRideIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/corrida/$rideId'
+    | '/corridas/$rideId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -182,6 +193,7 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/redefinir-senha'
     | '/corrida/$rideId'
+    | '/corridas/$rideId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -199,6 +211,7 @@ export interface FileRouteTypes {
     | '/_public/redefinir-senha'
     | '/_public/'
     | '/_authenticated/corrida/$rideId'
+    | '/_authenticated/corridas/$rideId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -313,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCorridaRideIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/corridas/$rideId': {
+      id: '/_authenticated/corridas/$rideId'
+      path: '/corridas/$rideId'
+      fullPath: '/corridas/$rideId'
+      preLoaderRoute: typeof AuthenticatedCorridasRideIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
   }
 }
 
@@ -325,6 +345,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedRevisarSolicitacaoRoute: typeof AuthenticatedRevisarSolicitacaoRoute
   AuthenticatedCorridaRideIdRoute: typeof AuthenticatedCorridaRideIdRoute
+  AuthenticatedCorridasRideIdRoute: typeof AuthenticatedCorridasRideIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -336,6 +357,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedRevisarSolicitacaoRoute: AuthenticatedRevisarSolicitacaoRoute,
   AuthenticatedCorridaRideIdRoute: AuthenticatedCorridaRideIdRoute,
+  AuthenticatedCorridasRideIdRoute: AuthenticatedCorridasRideIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
