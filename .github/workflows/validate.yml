@@ -76,6 +76,14 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: Publish homologation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: APOIS-Passageiro-Homologacao
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Full lint debt inventory
         continue-on-error: true
         run: bun run lint
