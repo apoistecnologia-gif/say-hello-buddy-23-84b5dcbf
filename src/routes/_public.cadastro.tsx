@@ -1,6 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Eye, EyeOff, LockKeyhole, Mail, Phone, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  LockKeyhole,
+  Mail,
+  Phone,
+  RefreshCw,
+  UserRound,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AppBrand } from "@/components/app/AppBrand";
 import { PrimaryButton } from "@/components/app/PrimaryButton";
@@ -35,6 +45,9 @@ const friendlyAuthError = (message: string) => {
   if (normalized.includes("fetch") || normalized.includes("network")) {
     return "Falha de conexão com o servidor. Verifique a internet e tente novamente.";
   }
+  if (normalized.includes("rate") || normalized.includes("too many")) {
+    return "Muitas tentativas seguidas. Aguarde um pouco e tente novamente.";
+  }
   return "Não foi possível criar a conta agora. Tente novamente em instantes.";
 };
 
@@ -50,8 +63,10 @@ function CadastroPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [createdEmail, setCreatedEmail] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { authState } = useAuth();
+  const { authState, refreshSession } = useAuth();
 
   useEffect(() => {
     if (authState === "authenticated") void navigate({ to: "/inicio", replace: true });
@@ -123,13 +138,14 @@ function CadastroPage() {
       }
 
       if (data.session) {
+        await refreshSession();
         toast.success("Conta criada com sucesso!");
         await navigate({ to: "/inicio", replace: true });
         return;
       }
 
-      toast.info("Conta criada. Confirme seu e-mail para entrar.");
-      await navigate({ to: "/login", replace: true });
+      setCreatedEmail(normalizedEmail);
+      toast.success("Conta criada. Confirme seu e-mail para entrar.");
     } catch (error) {
       console.error("[Cadastro] unexpected failure", {
         message: error instanceof Error ? error.message : "unknown_error",
@@ -139,6 +155,71 @@ function CadastroPage() {
       setLoading(false);
     }
   };
+
+  const handleResendConfirmation = async () => {
+    if (!createdEmail || resending) return;
+
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: createdEmail,
+      });
+
+      if (error) {
+        toast.error(friendlyAuthError(error.message));
+        return;
+      }
+
+      toast.success("Novo e-mail de confirmação enviado.");
+    } catch (error) {
+      console.error("[Cadastro] resend confirmation failed", {
+        message: error instanceof Error ? error.message : "unknown_error",
+      });
+      toast.error("Falha de conexão. Tente novamente.");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  if (createdEmail) {
+    return (
+      <PublicAuthShell contentClassName="items-center justify-center text-center">
+        <div className="flex w-full flex-col items-center">
+          <AppBrand compact />
+          <section className="app-surface mt-7 w-full rounded-3xl p-6" aria-live="polite">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-apois-success/30 bg-apois-success/10 text-apois-success">
+              <CheckCircle2 size={38} strokeWidth={2.4} />
+            </div>
+            <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-apois-success">
+              Cadastro concluído
+            </p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-white">Confirme seu e-mail</h1>
+            <p className="mt-3 text-sm leading-6 text-zinc-400">
+              Enviamos um link de confirmação para <strong className="text-white">{createdEmail}</strong>. Confira também a pasta de spam.
+            </p>
+
+            <Link
+              to="/login"
+              className="app-pressable app-gold-glow mt-6 flex min-h-14 w-full items-center justify-center rounded-2xl bg-apois-yellow px-5 font-black text-black"
+            >
+              Ir para o login
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => void handleResendConfirmation()}
+              disabled={resending}
+              className="app-pressable mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 text-sm font-black text-zinc-300 disabled:opacity-50"
+            >
+              <RefreshCw aria-hidden="true" size={17} className={resending ? "animate-spin" : undefined} />
+              {resending ? "Reenviando..." : "Reenviar confirmação"}
+            </button>
+          </section>
+        </div>
+      </PublicAuthShell>
+    );
+  }
 
   return (
     <PublicAuthShell contentClassName="py-6">
@@ -166,87 +247,35 @@ function CadastroPage() {
 
           <form onSubmit={handleRegister} className="space-y-4" noValidate>
             <div className="space-y-2">
-              <label htmlFor="name" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                Nome completo
-              </label>
+              <label htmlFor="name" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">Nome completo</label>
               <div className="relative">
                 <UserRound aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
-                <Input
-                  id="name"
-                  autoComplete="name"
-                  placeholder="Seu nome completo"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  disabled={loading}
-                  className={fieldClassName}
-                />
+                <Input id="name" autoComplete="name" placeholder="Seu nome completo" value={name} onChange={(event) => setName(event.target.value)} disabled={loading} className={fieldClassName} />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="email" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                E-mail
-              </label>
+              <label htmlFor="email" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">E-mail</label>
               <div className="relative">
                 <Mail aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
-                <Input
-                  id="email"
-                  type="email"
-                  inputMode="email"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  disabled={loading}
-                  className={fieldClassName}
-                />
+                <Input id="email" type="email" inputMode="email" autoCapitalize="none" autoComplete="email" placeholder="seu@email.com" value={email} onChange={(event) => setEmail(event.target.value)} disabled={loading} className={fieldClassName} />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="phone" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                Telefone
-              </label>
+              <label htmlFor="phone" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">Telefone</label>
               <div className="relative">
                 <Phone aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
-                <Input
-                  id="phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="(00) 00000-0000"
-                  value={phone}
-                  onChange={(event) => setPhone(formatPhone(event.target.value))}
-                  disabled={loading}
-                  className={fieldClassName}
-                />
+                <Input id="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="(00) 00000-0000" value={phone} onChange={(event) => setPhone(formatPhone(event.target.value))} disabled={loading} className={fieldClassName} />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                Senha
-              </label>
+              <label htmlFor="password" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">Senha</label>
               <div className="relative">
                 <LockKeyhole aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="new-password"
-                  placeholder="Crie uma senha segura"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  disabled={loading}
-                  className={`${fieldClassName} pr-12`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  disabled={loading}
-                  className="app-pressable absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-zinc-500 hover:bg-white/5 hover:text-white disabled:opacity-50"
-                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                >
+                <Input id="password" type={showPassword ? "text" : "password"} autoComplete="new-password" placeholder="Crie uma senha segura" value={password} onChange={(event) => setPassword(event.target.value)} disabled={loading} className={`${fieldClassName} pr-12`} />
+                <button type="button" onClick={() => setShowPassword((value) => !value)} disabled={loading} className="app-pressable absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-zinc-500 hover:bg-white/5 hover:text-white disabled:opacity-50" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}>
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
@@ -254,35 +283,17 @@ function CadastroPage() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="confirm-password" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                Confirmar senha
-              </label>
+              <label htmlFor="confirm-password" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">Confirmar senha</label>
               <div className="relative">
                 <LockKeyhole aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Digite a senha novamente"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  disabled={loading}
-                  className={fieldClassName}
-                />
+                <Input id="confirm-password" type="password" autoComplete="new-password" placeholder="Digite a senha novamente" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} disabled={loading} className={fieldClassName} />
               </div>
             </div>
 
             <div className="flex items-start gap-3 rounded-2xl border border-white/8 bg-black/35 p-4">
-              <Checkbox
-                id="terms"
-                checked={acceptTerms}
-                onCheckedChange={(checked) => setAcceptTerms(checked === true)}
-                disabled={loading}
-                className="mt-0.5 border-zinc-600 data-[state=checked]:border-apois-yellow data-[state=checked]:bg-apois-yellow data-[state=checked]:text-black"
-              />
+              <Checkbox id="terms" checked={acceptTerms} onCheckedChange={(checked) => setAcceptTerms(checked === true)} disabled={loading} className="mt-0.5 border-zinc-600 data-[state=checked]:border-apois-yellow data-[state=checked]:bg-apois-yellow data-[state=checked]:text-black" />
               <label htmlFor="terms" className="text-xs leading-5 text-zinc-400">
-                Li e aceito os <strong className="font-bold text-zinc-200">Termos de Uso</strong> e a{" "}
-                <strong className="font-bold text-zinc-200">Política de Privacidade</strong> da APOIS.
+                Li e aceito os <strong className="font-bold text-zinc-200">Termos de Uso</strong> e a <strong className="font-bold text-zinc-200">Política de Privacidade</strong> da APOIS.
               </label>
             </div>
 
@@ -293,10 +304,7 @@ function CadastroPage() {
         </section>
 
         <p className="mt-6 text-center text-sm text-zinc-500">
-          Já possui uma conta?{" "}
-          <Link to="/login" className="font-black text-apois-yellow">
-            Entrar
-          </Link>
+          Já possui uma conta? <Link to="/login" className="font-black text-apois-yellow">Entrar</Link>
         </p>
       </div>
     </PublicAuthShell>
