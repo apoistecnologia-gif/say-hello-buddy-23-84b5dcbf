@@ -1,31 +1,34 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Briefcase,
+  Check,
+  Clock,
+  Heart,
+  Home,
+  Loader2,
+  Map as MapIcon,
+  MapPin,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import PassengerMap from "@/components/map/PassengerMap";
+import { BottomSheet } from "@/components/ui/bottom-sheet/BottomSheet";
 import { useDestinationSearch } from "@/hooks/use-destination-search";
 import { useDestination } from "@/hooks/use-destination";
 import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { useDestinationHistory } from "@/hooks/use-destination-history";
+import { useLocation } from "@/hooks/use-location";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
+import { geocodingService } from "@/services/geocoding/geocoding-service";
 import { placesService } from "@/services/places/places-service";
-import {
-  ArrowLeft,
-  X,
-  MapPin,
-  Loader2,
-  AlertCircle,
-  Home,
-  Briefcase,
-  Clock,
-  Heart,
-  Plus,
-  Trash2,
-  Map as MapIcon,
-  Check,
-} from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
-import { PlaceSuggestion, DestinationAddress } from "@/types/places";
-import { BottomSheet } from "@/components/ui/bottom-sheet/BottomSheet";
-import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
+import type { DestinationHistoryItem, FavoriteIconType } from "@/types/destinations";
+import type { DestinationAddress, PlaceSuggestion } from "@/types/places";
 
 export const Route = createFileRoute("/_authenticated/buscar-destino")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -34,38 +37,110 @@ export const Route = createFileRoute("/_authenticated/buscar-destino")({
   component: BuscarDestinoPage,
 });
 
+type Coordinate = { lat: number; lng: number };
+
+const readErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object") {
+    const message = (error as Record<string, unknown>)["message"];
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
+};
+
+const historyItemToDestination = (item: DestinationHistoryItem): DestinationAddress => ({
+  placeId: item.placeId,
+  latitude: item.latitude,
+  longitude: item.longitude,
+  label: item.label,
+  ...(item.subLabel ? { subLabel: item.subLabel } : {}),
+  formattedAddress: item.formattedAddress,
+  name: item.name,
+  components: item.components,
+  types: item.types,
+  selectedAt: new Date().toISOString(),
+  source: item.favorite ? "recent" : item.source,
+});
+
 function BuscarDestinoPage() {
   const navigate = useNavigate();
   const { stop: isStopSelection } = Route.useSearch();
   const { pickupLabel } = usePickupAddress();
+  const { location } = useLocation();
   const { setDestination } = useDestination();
-  const { addStop } = useRideStops();
-  const { recent, favorites, addToHistory } = useDestinationHistory();
-  const { query, suggestions, status, isLoading, error, setQuery, clearQuery, reset } =
-    useDestinationSearch();
+  const { addStop, canAddStop } = useRideStops();
+  const {
+    recent,
+    favorites,
+    addToHistory,
+    addFavorite,
+    clearAllRecent,
+  } = useDestinationHistory();
+  const {
+    query,
+    suggestions,
+    status,
+    isLoading,
+    error,
+    setQuery,
+    clearQuery,
+    retry,
+    reset,
+  } = useDestinationSearch();
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(true);
   const [isPickingOnMap, setIsPickingOnMap] = useState(false);
+  const [mapCenter, setMapCenter] = useState<Coordinate | null>(null);
+  const [isResolvingMap, setIsResolvingMap] = useState(false);
+  const [mapSelectionError, setMapSelectionError] = useState<string | null>(null);
+  const [pendingFavoriteIcon, setPendingFavoriteIcon] = useState<FavoriteIconType | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const closeTimerRef = useRef<number | null>(null);
+
+  const homeFavorite = favorites.find((favorite) => favorite.icon === "home");
+  const workFavorite = favorites.find((favorite) => favorite.icon === "briefcase");
+  const otherFavorites = favorites.filter(
+    (favorite) => favorite.icon !== "home" && favorite.icon !== "briefcase",
+  );
 
   useEffect(() => {
-    if (isBottomSheetOpen) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 400);
-    }
-  }, [isBottomSheetOpen]);
+    if (!isBottomSheetOpen || isPickingOnMap) return;
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 300);
+    return () => window.clearTimeout(timer);
+  }, [isBottomSheetOpen, isPickingOnMap]);
 
-  const handleClose = () => {
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    };
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (isSelecting || isResolvingMap) return;
     setIsBottomSheetOpen(false);
-    setTimeout(() => {
-      reset();
-      navigate({ to: "/inicio" });
-    }, 300);
+    reset();
+    closeTimerRef.current = window.setTimeout(() => {
+      void navigate({ to: "/inicio" });
+    }, 220);
+  }, [isResolvingMap, isSelecting, navigate, reset]);
+
+  const savePendingFavorite = (details: DestinationAddress) => {
+    if (!pendingFavoriteIcon) return;
+    const nickname = pendingFavoriteIcon === "home" ? "Casa" : "Trabalho";
+    addFavorite(details, nickname, pendingFavoriteIcon);
+    setPendingFavoriteIcon(null);
+    toast.success(`${nickname} salvo nos seus favoritos.`);
   };
 
   const handleFinalSelection = (details: DestinationAddress) => {
+    if (isStopSelection && !canAddStop) {
+      toast.error("Você já adicionou o limite de três paradas.");
+      return;
+    }
+
+    savePendingFavorite(details);
+
     if (isStopSelection) {
       addStop({
         placeId: details.placeId,
@@ -77,8 +152,15 @@ function BuscarDestinoPage() {
         source: details.source === "google_places" ? "google_places" : "recent",
       });
     } else {
-      setDestination(details);
+      setDestination({
+        label: details.label,
+        formattedAddress: details.formattedAddress,
+        latitude: details.latitude,
+        longitude: details.longitude,
+        placeId: details.placeId,
+      });
     }
+
     handleClose();
   };
 
@@ -90,112 +172,248 @@ function BuscarDestinoPage() {
       const details = await placesService.selectPrediction(suggestion);
       addToHistory(details);
       handleFinalSelection(details);
-    } catch (err: any) {
-      toast.error(err.message || "Não foi possível carregar os detalhes deste local.");
+    } catch (selectionError: unknown) {
+      toast.error(
+        readErrorMessage(
+          selectionError,
+          "Não foi possível carregar os detalhes deste local.",
+        ),
+      );
     } finally {
       setIsSelecting(false);
     }
   };
 
-  const handleSelectHistoryItem = (item: DestinationAddress) => {
-    addToHistory(item);
-    handleFinalSelection(item);
+  const handleSelectHistoryItem = (item: DestinationHistoryItem) => {
+    const details = historyItemToDestination(item);
+    addToHistory(details);
+    handleFinalSelection(details);
   };
 
-  const handleQuickAction = async (type: "home" | "briefcase") => {
-    const existing = favorites.find((f) => f.icon === type);
+  const handleQuickAction = (type: "home" | "briefcase") => {
+    const existing = type === "home" ? homeFavorite : workFavorite;
     if (existing) {
-      handleSelectHistoryItem(existing as DestinationAddress);
-    } else {
-      toast.info(`Pesquise o endereço para definir sua ${type === "home" ? "Casa" : "Trabalho"}.`);
-      inputRef.current?.focus();
+      handleSelectHistoryItem(existing);
+      return;
     }
+
+    setPendingFavoriteIcon(type);
+    toast.info(
+      `Pesquise e selecione o endereço para salvar como ${type === "home" ? "Casa" : "Trabalho"}.`,
+    );
+    inputRef.current?.focus();
+  };
+
+  const openMapPicker = () => {
+    setMapCenter(
+      location ? { lat: location.latitude, lng: location.longitude } : null,
+    );
+    setMapSelectionError(null);
+    setIsBottomSheetOpen(false);
+    setIsPickingOnMap(true);
+  };
+
+  const closeMapPicker = () => {
+    if (isResolvingMap) return;
+    setIsPickingOnMap(false);
+    setMapSelectionError(null);
+    setIsBottomSheetOpen(true);
   };
 
   const handleConfirmMapSelection = async () => {
-    // Para simplificar e respeitar a regra de "transformar a Home em funcional", 
-    // a seleção no mapa deveria usar a posição central do mapa.
-    // Como estamos em um fluxo de busca, vamos obter o endereço aproximado do centro se possível.
-    toast.success("Destino selecionado no mapa!");
-    setIsPickingOnMap(false);
-    setIsBottomSheetOpen(true);
-    // Em produção, isso integraria com o PassengerMap para pegar a coordenada atual.
-  };
+    if (!mapCenter || isResolvingMap) {
+      toast.error("Mova o mapa até o local desejado e tente novamente.");
+      return;
+    }
 
-  const getFavoriteIcon = (iconName?: string) => {
-    switch (iconName) {
-      case "home":
-        return <Home className="w-5 h-5 text-blue-400" />;
-      case "briefcase":
-        return <Briefcase className="w-5 h-5 text-orange-400" />;
-      default:
-        return <Heart className="w-5 h-5 text-red-400" />;
+    setIsResolvingMap(true);
+    setMapSelectionError(null);
+
+    try {
+      const resolved = await geocodingService.resolvePickupAddress(mapCenter);
+      const formattedAddress =
+        resolved.address ||
+        [resolved.label, resolved.subLabel].filter(Boolean).join(", ") ||
+        `${mapCenter.lat.toFixed(6)}, ${mapCenter.lng.toFixed(6)}`;
+
+      const details: DestinationAddress = {
+        placeId: `map:${mapCenter.lat.toFixed(6)},${mapCenter.lng.toFixed(6)}`,
+        latitude: mapCenter.lat,
+        longitude: mapCenter.lng,
+        label: resolved.label || "Local selecionado no mapa",
+        ...(resolved.subLabel ? { subLabel: resolved.subLabel } : {}),
+        formattedAddress,
+        name: resolved.label || "Local selecionado no mapa",
+        components: {
+          ...(resolved.components?.rua ? { rua: resolved.components.rua } : {}),
+          ...(resolved.components?.numero ? { numero: resolved.components.numero } : {}),
+          ...(resolved.components?.bairro ? { bairro: resolved.components.bairro } : {}),
+          ...(resolved.components?.cidade ? { cidade: resolved.components.cidade } : {}),
+          ...(resolved.components?.estado ? { estado: resolved.components.estado } : {}),
+          ...(resolved.components?.estadoSigla
+            ? { estadoSigla: resolved.components.estadoSigla }
+            : {}),
+          ...(resolved.components?.pais ? { pais: resolved.components.pais } : {}),
+        },
+        types: ["map_selection"],
+        selectedAt: new Date().toISOString(),
+        source: "map",
+      };
+
+      addToHistory(details);
+      handleFinalSelection(details);
+    } catch (geocodeError: unknown) {
+      const message = readErrorMessage(
+        geocodeError,
+        "Não foi possível identificar esse ponto. Mova o mapa um pouco e tente novamente.",
+      );
+      setMapSelectionError(message);
+      toast.error(message);
+    } finally {
+      setIsResolvingMap(false);
     }
   };
 
-  const homeFav = favorites.find((f) => f.icon === "home");
-  const workFav = favorites.find((f) => f.icon === "briefcase");
-  const otherFavs = favorites.filter((f) => f.icon !== "home" && f.icon !== "briefcase");
+  const getFavoriteIcon = (iconName?: FavoriteIconType) => {
+    if (iconName === "home") return <Home className="h-5 w-5 text-apois-yellow" />;
+    if (iconName === "briefcase") return <Briefcase className="h-5 w-5 text-apois-yellow" />;
+    return <Heart className="h-5 w-5 text-apois-yellow" />;
+  };
+
+  const showSearchFailure = [
+    "failed",
+    "network_error",
+    "rate_limited",
+    "configuration_missing",
+  ].includes(status);
 
   return (
-    <div className="flex flex-col min-h-screen bg-transparent relative">
-      {/* PIN central fixo quando escolhendo no mapa */}
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#171a21]">
+      <div className="absolute inset-0">
+        <PassengerMap
+          origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
+          destination={undefined}
+          encodedPolyline={undefined}
+          driverLocation={undefined}
+          isStatic={!isPickingOnMap}
+          selectionMode={isPickingOnMap}
+          onCenterChange={setMapCenter}
+        />
+      </div>
+
       <AnimatePresence>
-        {isPickingOnMap && (
-          <div className="fixed inset-0 pointer-events-none flex items-center justify-center z-50">
-            <motion.div
-              initial={{ y: -20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-              className="flex flex-col items-center"
-            >
-              <div className="w-10 h-10 bg-apois-yellow rounded-full flex items-center justify-center shadow-2xl border-2 border-black">
-                <MapPin className="text-black" size={24} />
+        {isPickingOnMap ? (
+          <motion.div
+            key="map-picker-controls"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="pointer-events-none absolute inset-0 z-40"
+          >
+            <div className="app-safe-top app-safe-x pointer-events-auto pt-3">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-black/85 p-2 shadow-2xl backdrop-blur-xl">
+                <button
+                  type="button"
+                  onClick={closeMapPicker}
+                  disabled={isResolvingMap}
+                  className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/8 text-white disabled:opacity-50"
+                  aria-label="Voltar para a busca"
+                >
+                  <ArrowLeft size={21} />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-white">
+                    {isStopSelection ? "Escolha a parada no mapa" : "Escolha o destino no mapa"}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-zinc-400">
+                    Arraste o mapa e posicione o marcador no local exato.
+                  </p>
+                </div>
               </div>
-              <div className="w-1 h-4 bg-black" />
-            </motion.div>
-          </div>
-        )}
+            </div>
+
+            <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
+              <motion.div
+                animate={{ y: [0, -5, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                className="flex flex-col items-center"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-black bg-apois-yellow text-black shadow-2xl">
+                  <MapPin size={27} strokeWidth={2.8} />
+                </div>
+                <div className="h-5 w-1 rounded-full bg-black" />
+                <div className="h-2 w-6 rounded-full bg-black/35 blur-[2px]" />
+              </motion.div>
+            </div>
+
+            <div className="app-safe-bottom app-safe-x pointer-events-auto absolute inset-x-0 bottom-0 pb-4">
+              <div className="rounded-3xl border border-white/8 bg-black/90 p-4 shadow-2xl backdrop-blur-xl">
+                {mapSelectionError ? (
+                  <div className="mb-3 flex items-start gap-2 rounded-xl border border-apois-danger/20 bg-apois-danger/10 p-3 text-xs leading-5 text-red-300">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-apois-danger" />
+                    {mapSelectionError}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmMapSelection()}
+                  disabled={!mapCenter || isResolvingMap}
+                  className="app-pressable app-gold-glow flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow px-5 font-black text-black disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none"
+                >
+                  {isResolvingMap ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Check className="h-5 w-5" strokeWidth={3} />
+                  )}
+                  {isResolvingMap
+                    ? "Identificando endereço..."
+                    : isStopSelection
+                      ? "Confirmar parada"
+                      : "Confirmar destino"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
       </AnimatePresence>
 
-      {/* Botão de confirmação no mapa */}
-      {isPickingOnMap && (
-        <div className="fixed bottom-10 left-5 right-5 z-50">
-          <Button
-            onClick={handleConfirmMapSelection}
-            className="w-full h-16 bg-apois-yellow text-black font-black text-lg rounded-2xl shadow-2xl active:scale-95 transition-all"
-          >
-            Confirmar destino
-          </Button>
-        </div>
-      )}
-
-      <BottomSheet isOpen={isBottomSheetOpen} onClose={handleClose} preventClose={isSelecting}>
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="sticky top-0 bg-[#1a1a1a] pt-2 pb-4 z-30">
-            <div className="flex items-center gap-3 mb-6">
+      <BottomSheet
+        isOpen={isBottomSheetOpen}
+        onClose={handleClose}
+        preventClose={isSelecting || isResolvingMap}
+      >
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="sticky top-0 z-30 bg-[#1a1a1a] pb-4 pt-2">
+            <div className="mb-5 flex items-center gap-3">
               <button
+                type="button"
                 onClick={handleClose}
                 aria-label="Voltar"
-                className="p-2 -ml-2 text-white active:bg-white/10 rounded-full transition-colors"
+                className="app-pressable -ml-2 flex h-10 w-10 items-center justify-center rounded-full text-white"
               >
-                <ArrowLeft className="w-6 h-6" />
+                <ArrowLeft className="h-6 w-6" />
               </button>
-              <h1 className="text-xl font-bold text-white">
-                {isStopSelection ? "Adicionar Parada" : "Para onde vamos?"}
-              </h1>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl font-black tracking-tight text-white">
+                  {isStopSelection ? "Adicionar parada" : "Para onde vamos?"}
+                </h1>
+                {pendingFavoriteIcon ? (
+                  <p className="mt-0.5 text-[11px] font-bold text-apois-yellow">
+                    O endereço escolhido será salvo como {pendingFavoriteIcon === "home" ? "Casa" : "Trabalho"}.
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center gap-4 px-4 py-3 bg-[#2a2a2a] rounded-xl border border-gray-700/30 opacity-70">
-                <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">
+              <div className="flex items-center gap-4 rounded-xl border border-white/6 bg-[#282a30] px-4 py-3">
+                <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-apois-success shadow-[0_0_8px_rgba(41,201,111,0.5)]" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
                     Ponto de partida
                   </p>
-                  <p className="text-sm font-medium text-gray-300 truncate">
-                    {pickupLabel || "Buscando sua localização..."}
+                  <p className="truncate text-sm font-medium text-zinc-300">
+                    {pickupLabel || "Identificando sua localização..."}
                   </p>
                 </div>
               </div>
@@ -203,176 +421,231 @@ function BuscarDestinoPage() {
               <div className="relative flex items-center">
                 <div className="absolute left-4 z-10">
                   {isLoading || isSelecting ? (
-                    <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin text-apois-yellow" />
                   ) : (
-                    <div className="w-3 h-3 rounded-full border-2 border-yellow-500" />
+                    <Search className="h-5 w-5 text-apois-yellow" />
                   )}
                 </div>
                 <input
                   ref={inputRef}
-                  type="text"
+                  type="search"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={isStopSelection ? "Onde parar?" : "Para onde vamos?"}
-                  className="w-full h-14 pl-12 pr-12 bg-[#2a2a2a] border-2 border-yellow-500/30 focus:border-yellow-500 outline-none rounded-xl text-lg font-medium text-white placeholder:text-gray-500 transition-all"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={isStopSelection ? "Onde deseja parar?" : "Digite seu destino"}
+                  autoComplete="off"
+                  enterKeyHint="search"
+                  className="h-14 w-full rounded-xl border-2 border-apois-yellow/25 bg-[#282a30] pl-12 pr-12 text-base font-semibold text-white outline-none transition-all placeholder:text-zinc-500 focus:border-apois-yellow"
                 />
-                {query && (
-                  <button onClick={clearQuery} className="absolute right-4 p-1 text-gray-400">
-                    <X className="w-5 h-5" />
+                {query ? (
+                  <button
+                    type="button"
+                    onClick={clearQuery}
+                    className="app-pressable absolute right-3 flex h-9 w-9 items-center justify-center rounded-full text-zinc-400"
+                    aria-label="Limpar busca"
+                  >
+                    <X className="h-5 w-5" />
                   </button>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
 
-          <div className="flex-1 mt-2">
+          <div className="app-scroll mt-2 min-h-0 flex-1 pb-4">
             <AnimatePresence mode="wait">
-              {query.length < 2 ? (
-                <motion.div key="history" className="space-y-6">
-                  <div className="flex gap-4 overflow-x-auto pb-2 px-1">
-                    <button
-                      onClick={() => handleQuickAction("home")}
-                      className="flex flex-col items-center gap-2 min-w-[80px]"
-                    >
-                      <div className="w-14 h-14 rounded-full bg-[#2a2a2a] flex items-center justify-center">
-                        <Home className={homeFav ? "text-blue-400" : "text-gray-600"} />
-                      </div>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                        {homeFav ? "Casa" : "Add Casa"}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => handleQuickAction("briefcase")}
-                      className="flex flex-col items-center gap-2 min-w-[80px]"
-                    >
-                      <div className="w-14 h-14 rounded-full bg-[#2a2a2a] flex items-center justify-center">
-                        <Briefcase className={workFav ? "text-orange-400" : "text-gray-600"} />
-                      </div>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                        {workFav ? "Trampo" : "Add Trampo"}
-                      </span>
-                    </button>
-                  </div>
+              {query.trim().length < 2 ? (
+                <motion.div
+                  key="history"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-6"
+                >
+                  {!isStopSelection ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAction("home")}
+                        className="app-pressable flex items-center gap-3 rounded-2xl border border-white/7 bg-[#282a30] p-3 text-left"
+                      >
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-apois-yellow/10 text-apois-yellow">
+                          <Home size={19} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-xs font-black text-white">Casa</span>
+                          <span className="mt-0.5 block truncate text-[10px] text-zinc-500">
+                            {homeFavorite ? homeFavorite.label : "Adicionar"}
+                          </span>
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAction("briefcase")}
+                        className="app-pressable flex items-center gap-3 rounded-2xl border border-white/7 bg-[#282a30] p-3 text-left"
+                      >
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-apois-yellow/10 text-apois-yellow">
+                          <Briefcase size={19} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-xs font-black text-white">Trabalho</span>
+                          <span className="mt-0.5 block truncate text-[10px] text-zinc-500">
+                            {workFavorite ? workFavorite.label : "Adicionar"}
+                          </span>
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
 
                   <button
-                    onClick={() => {
-                      setIsBottomSheetOpen(false);
-                      setIsPickingOnMap(true);
-                    }}
-                    className="w-full flex items-center gap-4 p-4 bg-[#2a2a2a] rounded-2xl border border-white/5 active:scale-[0.98] transition-all"
+                    type="button"
+                    onClick={openMapPicker}
+                    className="app-pressable flex w-full items-center gap-4 rounded-2xl border border-apois-yellow/15 bg-apois-yellow/8 p-4 text-left"
                   >
-                    <div className="w-10 h-10 rounded-full bg-apois-yellow/10 flex items-center justify-center">
-                      <MapIcon className="w-5 h-5 text-apois-yellow" />
-                    </div>
-                    <span className="font-bold text-white text-sm">Escolher no mapa</span>
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-apois-yellow/12 text-apois-yellow">
+                      <MapIcon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-black text-white">Escolher no mapa</span>
+                      <span className="mt-0.5 block text-xs text-zinc-500">Marque o ponto exato arrastando o mapa.</span>
+                    </span>
                   </button>
 
-                  <section>
-                    <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1 mb-3">
-                      Favoritos
-                    </h2>
-                    {favorites.length === 0 ? (
-                      <p className="text-xs text-gray-500 px-1 py-2 italic">
-                        Você ainda não possui favoritos.
-                      </p>
-                    ) : (
-                      <div className="space-y-1">
-                        {favorites.map((item) => (
-                          <button
-                            key={item.id}
-                            onClick={() => handleSelectHistoryItem(item as DestinationAddress)}
-                            className="w-full flex items-center gap-4 p-3 rounded-xl active:bg-white/5 text-left"
-                          >
-                            <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center">
-                              {getFavoriteIcon(item.icon)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-white text-sm truncate">
-                                {item.nickname || item.label}
-                              </p>
-                              <p className="text-xs text-gray-500 truncate">
-                                {item.formattedAddress}
-                              </p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-
-                  {recent.length > 0 && (
+                  {favorites.length > 0 ? (
                     <section>
-                      <h2 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1 mb-3">
-                        Recentes
+                      <h2 className="mb-2 px-1 text-[10px] font-black uppercase tracking-widest text-zinc-600">
+                        Favoritos
                       </h2>
+                      <div className="space-y-1">
+                        {[homeFavorite, workFavorite, ...otherFavorites]
+                          .filter((item): item is DestinationHistoryItem => Boolean(item))
+                          .map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleSelectHistoryItem(item)}
+                              className="app-pressable flex w-full items-center gap-4 rounded-xl p-3 text-left active:bg-white/5"
+                            >
+                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#282a30]">
+                                {getFavoriteIcon(item.icon)}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-bold text-white">
+                                  {item.nickname || item.label}
+                                </span>
+                                <span className="mt-0.5 block truncate text-xs text-zinc-500">
+                                  {item.formattedAddress}
+                                </span>
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+                    </section>
+                  ) : (
+                    <section className="rounded-2xl border border-dashed border-white/8 px-4 py-5 text-center">
+                      <Heart className="mx-auto h-6 w-6 text-zinc-700" />
+                      <p className="mt-2 text-xs leading-5 text-zinc-500">
+                        Seus endereços favoritos aparecerão aqui.
+                      </p>
+                    </section>
+                  )}
+
+                  {recent.length > 0 ? (
+                    <section>
+                      <div className="mb-2 flex items-center justify-between px-1">
+                        <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
+                          Recentes
+                        </h2>
+                        <button
+                          type="button"
+                          onClick={() => void clearAllRecent()}
+                          className="app-pressable flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold text-zinc-500"
+                        >
+                          <Trash2 size={12} />
+                          Limpar
+                        </button>
+                      </div>
                       <div className="space-y-1">
                         {recent.map((item) => (
                           <button
                             key={item.id || item.placeId}
-                            onClick={() => handleSelectHistoryItem(item as DestinationAddress)}
-                            className="w-full flex items-center gap-4 p-3 rounded-xl active:bg-white/5 text-left"
+                            type="button"
+                            onClick={() => handleSelectHistoryItem(item)}
+                            className="app-pressable flex w-full items-center gap-4 rounded-xl p-3 text-left active:bg-white/5"
                           >
-                            <div className="w-10 h-10 rounded-full bg-[#2a2a2a] flex items-center justify-center">
-                              <Clock className="w-5 h-5 text-gray-500" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-bold text-white text-sm truncate">{item.label}</p>
-                              <p className="text-xs text-gray-500 truncate">
-                                {item.formattedAddress}
-                              </p>
-                            </div>
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#282a30] text-zinc-500">
+                              <Clock className="h-5 w-5" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-bold text-white">{item.label}</span>
+                              <span className="mt-0.5 block truncate text-xs text-zinc-500">{item.formattedAddress}</span>
+                            </span>
                           </button>
                         ))}
                       </div>
                     </section>
-                  )}
+                  ) : null}
                 </motion.div>
               ) : (
-                <motion.div key="results" className="space-y-1">
-                  {status === "loading" && (
-                    <div className="flex flex-col items-center py-10 gap-3">
-                      <Loader2 className="w-8 h-8 text-apois-yellow animate-spin" />
-                      <p className="text-sm text-gray-500">Buscando endereços...</p>
+                <motion.div
+                  key="results"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-1"
+                >
+                  {status === "debouncing" || status === "loading" ? (
+                    <div className="flex flex-col items-center gap-3 py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-apois-yellow" />
+                      <p className="text-sm text-zinc-500">Buscando endereços...</p>
                     </div>
-                  )}
+                  ) : null}
 
-                  {status === "empty" && (
-                    <div className="flex flex-col items-center py-10 gap-2">
-                      <AlertCircle className="w-8 h-8 text-gray-600" />
-                      <p className="text-sm text-gray-500">Nenhum endereço encontrado.</p>
+                  {status === "empty" ? (
+                    <div className="flex flex-col items-center gap-2 py-12 text-center">
+                      <AlertCircle className="h-8 w-8 text-zinc-700" />
+                      <p className="text-sm font-bold text-zinc-400">Nenhum endereço encontrado.</p>
+                      <p className="max-w-xs text-xs leading-5 text-zinc-600">Tente informar rua, número, bairro ou um ponto conhecido.</p>
                     </div>
-                  )}
+                  ) : null}
 
-                  {status === "failed" && (
-                    <div className="flex flex-col items-center py-10 gap-4">
-                      <p className="text-sm text-red-400">Não foi possível pesquisar agora.</p>
-                      <Button
-                        onClick={() => setQuery(query)}
-                        variant="outline"
-                        className="border-red-500/50 text-red-400"
+                  {showSearchFailure ? (
+                    <div className="flex flex-col items-center gap-4 py-12 text-center">
+                      <AlertCircle className="h-8 w-8 text-apois-danger" />
+                      <div>
+                        <p className="text-sm font-bold text-red-300">Não foi possível pesquisar agora.</p>
+                        <p className="mt-1 max-w-xs text-xs leading-5 text-zinc-500">
+                          {error?.message || "Verifique a conexão e tente novamente."}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={retry}
+                        className="app-pressable min-h-11 rounded-xl border border-apois-danger/25 bg-apois-danger/10 px-5 text-xs font-black text-red-300"
                       >
                         Tentar novamente
-                      </Button>
+                      </button>
                     </div>
-                  )}
+                  ) : null}
 
-                  {suggestions.map((suggestion) => (
-                    <button
-                      key={suggestion.placeId}
-                      onClick={() => handleSelectSuggestion(suggestion)}
-                      className="w-full flex items-center gap-4 p-4 rounded-xl active:bg-white/5 text-left border-b border-white/5"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-apois-yellow/10 flex items-center justify-center">
-                        <MapPin className="w-5 h-5 text-apois-yellow" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-white text-sm truncate">
-                          {suggestion.primaryText}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">{suggestion.secondaryText}</p>
-                      </div>
-                    </button>
-                  ))}
+                  {status === "success"
+                    ? suggestions.map((suggestion) => (
+                        <button
+                          key={suggestion.placeId}
+                          type="button"
+                          onClick={() => void handleSelectSuggestion(suggestion)}
+                          disabled={isSelecting}
+                          className="app-pressable flex w-full items-center gap-4 border-b border-white/5 p-4 text-left disabled:opacity-50"
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-apois-yellow/10 text-apois-yellow">
+                            <MapPin className="h-5 w-5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-bold text-white">{suggestion.primaryText}</span>
+                            <span className="mt-0.5 block truncate text-xs text-zinc-500">{suggestion.secondaryText}</span>
+                          </span>
+                        </button>
+                      ))
+                    : null}
                 </motion.div>
               )}
             </AnimatePresence>
