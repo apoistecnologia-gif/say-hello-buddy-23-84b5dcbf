@@ -29,7 +29,11 @@ export const usePushNotifications = (): PushState => {
   }, [navigate]);
 
   useEffect(() => {
-    if (authState !== "authenticated" || !user?.id) return;
+    if (authState !== "authenticated" || !user?.id) {
+      startedForUser.current = null;
+      return;
+    }
+
     if (startedForUser.current === user.id) return;
     startedForUser.current = user.id;
     void initializePush();
