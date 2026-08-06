@@ -128,13 +128,23 @@ Deno.serve(async (req) => {
       const { data: userData, error: authError } = await admin.auth.getUser(token);
       if (authError || !userData.user) return json(req, { error: "unauthorized" }, 401);
       callerId = userData.user.id;
-      const { data: roleData } = await admin
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", callerId)
-        .in("role", ["admin", "super_admin"])
+      // user_roles.user_id referencia public.users.id (UUID interno),
+      // enquanto callerId é o UUID de auth.users -> resolver via users.auth_user_id.
+      const { data: profileRow } = await admin
+        .from("users")
+        .select("id")
+        .eq("auth_user_id", callerId)
         .maybeSingle();
-      isAdmin = Boolean(roleData);
+      if (profileRow?.id) {
+        const { data: roleData } = await admin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", profileRow.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        isAdmin = Boolean(roleData);
+      }
+
     }
 
     const input = (await req.json()) as PushBody;
