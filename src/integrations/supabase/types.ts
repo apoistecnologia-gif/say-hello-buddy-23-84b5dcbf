@@ -118,6 +118,48 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_logs: {
+        Row: {
+          body: string | null
+          channel: string
+          created_at: string
+          data: Json
+          error: string | null
+          event: string
+          id: string
+          ride_id: string | null
+          status: string
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          channel?: string
+          created_at?: string
+          data?: Json
+          error?: string | null
+          event: string
+          id?: string
+          ride_id?: string | null
+          status?: string
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          channel?: string
+          created_at?: string
+          data?: Json
+          error?: string | null
+          event?: string
+          id?: string
+          ride_id?: string | null
+          status?: string
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
@@ -476,6 +518,72 @@ export type Database = {
           },
         ]
       }
+      user_notification_preferences: {
+        Row: {
+          created_at: string
+          promotions: boolean
+          ride_requests: boolean
+          ride_updates: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          promotions?: boolean
+          ride_requests?: boolean
+          ride_updates?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          promotions?: boolean
+          ride_requests?: boolean
+          ride_updates?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_notification_tokens: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          permission_status: string
+          platform: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          permission_status?: string
+          platform?: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          permission_status?: string
+          platform?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -564,7 +672,49 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      deactivate_notification_token: {
+        Args: { _token: string }
+        Returns: boolean
+      }
+      get_my_notification_preferences: {
+        Args: never
+        Returns: {
+          created_at: string
+          promotions: boolean
+          ride_requests: boolean
+          ride_updates: boolean
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "user_notification_preferences"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      log_notification_delivery: {
+        Args: {
+          _body?: string
+          _data?: Json
+          _error?: string
+          _event: string
+          _ride_id?: string
+          _status: string
+          _title?: string
+          _user_id: string
+        }
+        Returns: string
+      }
+      register_notification_token: {
+        Args: {
+          _device_id?: string
+          _permission_status?: string
+          _platform?: string
+          _token: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "passenger" | "driver"
