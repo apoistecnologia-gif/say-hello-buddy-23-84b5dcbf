@@ -22,6 +22,7 @@ interface WalletContextType {
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
+const BLOCKED_WALLET_POLL_INTERVAL_MS = 8_000;
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { profile } = useAuth();
@@ -118,6 +119,27 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       void supabase.removeChannel(channel);
     };
   }, [loadWallet, passengerId]);
+
+  useEffect(() => {
+    if (!passengerId || state !== "blocked") return;
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadWallet();
+    };
+    const refreshWhenOnline = () => void loadWallet();
+    const interval = window.setInterval(refreshWhenVisible, BLOCKED_WALLET_POLL_INTERVAL_MS);
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("pageshow", refreshWhenOnline);
+    window.addEventListener("online", refreshWhenOnline);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("pageshow", refreshWhenOnline);
+      window.removeEventListener("online", refreshWhenOnline);
+    };
+  }, [loadWallet, passengerId, state]);
 
   return (
     <WalletContext.Provider value={{ wallet, state, isLoading, error, refresh: loadWallet }}>
