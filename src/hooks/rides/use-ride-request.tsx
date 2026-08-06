@@ -33,15 +33,6 @@ interface RideRequestContextType {
   resetRequest: () => void;
 }
 
-type RpcError = { message?: string; code?: string; details?: string; hint?: string };
-
-type UntypedRpcClient = {
-  rpc: (
-    functionName: string,
-    args?: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: RpcError | null }>;
-};
-
 const RideRequestContext = createContext<RideRequestContextType | undefined>(undefined);
 const RECOVERY_DELAYS_MS = [0, 500, 1_200] as const;
 
@@ -135,16 +126,25 @@ function friendlyCancellationError(error: unknown): string {
   const raw = readErrorMessage(error, "Não foi possível cancelar a corrida.");
   const normalized = raw.toLowerCase();
 
-  if (normalized.includes("ride_cancellation_blocked_after_arrival")) {
+  if (
+    normalized.includes("cancellation_not_allowed") ||
+    normalized.includes("ride_cancellation_blocked_after_arrival")
+  ) {
     return "O cancelamento não é permitido depois que o motorista chega ao embarque.";
   }
-  if (normalized.includes("ride_cancellation_blocked_in_progress")) {
+  if (
+    normalized.includes("invalid_ride_status") ||
+    normalized.includes("ride_cancellation_blocked_in_progress")
+  ) {
     return "A corrida já começou e não pode ser cancelada pelo aplicativo.";
+  }
+  if (normalized.includes("ride_status_changed")) {
+    return "O status da corrida mudou. Atualize a tela antes de tentar novamente.";
   }
   if (normalized.includes("ride_already_closed")) {
     return "Esta corrida já foi encerrada.";
   }
-  if (normalized.includes("ride_not_found")) {
+  if (normalized.includes("ride_not_found") || normalized.includes("unauthorized")) {
     return "A corrida não foi encontrada ou não pertence à sua conta.";
   }
   return raw;
@@ -153,10 +153,12 @@ function friendlyCancellationError(error: unknown): string {
 function parseRideResponse(value: unknown): RideRequestResponse {
   if (!isRecord(value) || value["ok"] !== true) {
     const code = isRecord(value) && typeof value["error"] === "string" ? value["error"] : null;
+    const errorCode =
+      isRecord(value) && typeof value["error_code"] === "string" ? value["error_code"] : null;
     const message =
       isRecord(value) && typeof value["message"] === "string"
         ? value["message"]
-        : code || "Não foi possível solicitar a corrida agora.";
+        : errorCode || code || "Não foi possível solicitar a corrida agora.";
     throw new Error(message);
   }
 
@@ -175,6 +177,12 @@ function parseRideResponse(value: unknown): RideRequestResponse {
   }
   if (typeof value["fee_applied"] === "number" && Number.isFinite(value["fee_applied"])) {
     response.fee_applied = value["fee_applied"];
+  }
+  if (
+    typeof value["cancellation_fee"] === "number" &&
+    Number.isFinite(value["cancellation_fee"])
+  ) {
+    response.fee_applied = value["cancellation_fee"];
   }
   if (typeof value["free_seconds"] === "number" && Number.isFinite(value["free_seconds"])) {
     response.free_seconds = value["free_seconds"];
@@ -400,14 +408,20 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     async (rideId: string, reason?: string): Promise<RideRequestResponse> => {
       if (!rideId.trim()) throw new Error("Corrida inválida para cancelamento.");
 
-      const rpcClient = supabase as unknown as UntypedRpcClient;
-      const { data, error } = await rpcClient.rpc("cancel_passenger_ride", {
-        _ride_id: rideId,
-        _reason: reason?.trim() || null,
+      const { data, error } = await supabase.functions.invoke("cancel-ride", {
+        body: {
+          ride_id: rideId,
+          reason: reason?.trim() || null,
+        },
       });
 
       if (error) throw new Error(friendlyCancellationError(error));
-      return parseRideResponse(data);
+
+      try {
+        return parseRideResponse(data);
+      } catch (parseError: unknown) {
+        throw new Error(friendlyCancellationError(parseError));
+      }
     },
     [],
   );
