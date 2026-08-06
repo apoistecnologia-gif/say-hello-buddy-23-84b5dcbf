@@ -30,12 +30,12 @@ export interface WalletSummary extends PassengerWallet {
 
 export interface CancellationFee {
   id: string;
-  rideId: string | null;
+  rideId?: string | null;
   amount: number;
   reason: string;
   status: string;
   createdAt: string;
-  updatedAt: string | null;
+  updatedAt?: string | null;
 }
 
 export interface CancellationFeePixCharge {
