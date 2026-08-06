@@ -85,13 +85,23 @@ jobs:
               exit 1
             fi
 
-            if ! grep -Eqi '(^|[[:space:]])(SELECT|WITH|BEGIN;|COMMIT;|CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|MERGE|GRANT|REVOKE|COMMENT|DO[[:space:]]+\$\$|CALL|EXECUTE|SET|RESET|ANALYZE)' "$migrations_dir/$file"; then
+            if ! grep -Eqi '(^|[[:space:]])(BEGIN;|COMMIT;|SELECT|WITH|CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|MERGE|GRANT|REVOKE|COMMENT|DO[[:space:]]+\$\$|CALL|EXECUTE|SET|RESET|ANALYZE)' "$migrations_dir/$file"; then
               echo "Migration sem comando SQL reconhecível: $file"
               exit 1
             fi
 
             if grep -Eqi '^[[:space:]]*(TRUNCATE[[:space:]]+|DROP[[:space:]]+DATABASE|DROP[[:space:]]+SCHEMA[[:space:]]+(public|auth)([[:space:]]|;))' "$migrations_dir/$file"; then
               echo "Comando destrutivo proibido em migration: $file"
+              exit 1
+            fi
+
+            if grep -Eqi 'DROP[[:space:]]+TABLE[[:space:]]+(IF[[:space:]]+EXISTS[[:space:]]+)?public\.(users|user_roles|passenger_wallets)([[:space:]]|;)' "$migrations_dir/$file"; then
+              echo "Migration tenta remover tabela crítica: $file"
+              exit 1
+            fi
+
+            if [[ "$file" =~ (kill_everything|kill_all_constraints|kill_all_triggers) ]]; then
+              echo "Nome de migration operacionalmente proibido: $file"
               exit 1
             fi
 
