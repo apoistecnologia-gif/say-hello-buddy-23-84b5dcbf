@@ -15,7 +15,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -25,6 +25,13 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -40,19 +47,34 @@ jobs:
           src/components/app/PublicAuthShell.tsx
           src/components/auth/AuthGuard.tsx
           src/components/BottomNavigation.tsx
+          src/components/notifications/PushStatusCard.tsx
           src/hooks/use-auth.tsx
           src/hooks/use-location.tsx
+          src/hooks/use-push-notifications.tsx
+          src/lib/auth/password-recovery.ts
           src/routes/_public.login.tsx
           src/routes/_public.cadastro.tsx
           src/routes/_public.recuperar-senha.tsx
           src/routes/_authenticated.perfil.tsx
 
-      - name: Build
+      - name: Build web
         run: bun run build
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_validation_placeholder
           VITE_GOOGLE_MAPS_API_KEY: ci_validation_placeholder
+          VITE_PUBLIC_APP_URL: https://passageiro.apois.example
+
+      - name: Sync Capacitor Android
+        run: |
+          printf 'GOOGLE_MAPS_API_KEY=ci_validation_placeholder\n' > android/local.properties
+          bunx cap sync android
+
+      - name: Build Android debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Full lint debt inventory
         continue-on-error: true
