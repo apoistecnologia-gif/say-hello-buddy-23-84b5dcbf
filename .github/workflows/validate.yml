@@ -9,6 +9,10 @@ on:
       - fix/apois-auditoria-completa
       - feat/apois-passageiro-completo
 
+concurrency:
+  group: validate-apois-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -29,6 +33,11 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -41,6 +50,34 @@ jobs:
 
       - name: TypeScript
         run: bun run typecheck
+
+      - name: Check Supabase push function
+        run: deno check supabase/functions/send-ride-push/index.ts
+
+      - name: Validate Firebase passenger client
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          config_path = Path("android/app/google-services.json")
+          if not config_path.is_file():
+              raise SystemExit("android/app/google-services.json não encontrado")
+
+          config = json.loads(config_path.read_text(encoding="utf-8"))
+          project_id = str(config.get("project_info", {}).get("project_id", "")).strip()
+          packages = {
+              str(client.get("client_info", {}).get("android_client_info", {}).get("package_name", "")).strip()
+              for client in config.get("client", [])
+          }
+
+          if not project_id:
+              raise SystemExit("Firebase project_id ausente")
+          if "com.apois.passageiro" not in packages:
+              raise SystemExit("Cliente Firebase com.apois.passageiro ausente")
+
+          print(f"Firebase Android validado para com.apois.passageiro no projeto {project_id}")
+          PY
 
       - name: Lint critical passenger files
         run: >-
@@ -84,13 +121,19 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Explain missing homologation key
-        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY == '' }}
+      - name: Explain missing homologation keys
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY == '' || env.GOOGLE_MAPS_ANDROID_API_KEY == '' }}
         run: |
-          echo "::warning::O APK compilou apenas para validação. O artefato não será publicado enquanto GOOGLE_MAPS_WEB_API_KEY não estiver cadastrado nos segredos do repositório."
+          if [ -z "$GOOGLE_MAPS_WEB_API_KEY" ]; then
+            echo "::warning::GOOGLE_MAPS_WEB_API_KEY não está cadastrada nos segredos do repositório."
+          fi
+          if [ -z "$GOOGLE_MAPS_ANDROID_API_KEY" ]; then
+            echo "::warning::GOOGLE_MAPS_ANDROID_API_KEY não está cadastrada nos segredos do repositório."
+          fi
+          echo "::warning::O APK compilou apenas para validação e não será publicado como artefato de homologação."
 
       - name: Publish homologation APK
-        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' }}
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: APOIS-Passageiro-Homologacao
