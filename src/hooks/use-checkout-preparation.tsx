@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useMemo } from "react";
-import { useRoute } from "@/hooks/use-route";
-import { useRideCategories } from "@/hooks/use-ride-categories";
-import { usePricing } from "@/hooks/use-pricing";
-import { usePaymentMethods } from "@/hooks/use-payment-methods";
-import { useWallet } from "@/hooks/use-wallet";
 import { useAuth } from "@/hooks/use-auth";
-import { CheckoutEstimate } from "@/types/payments";
+import { usePaymentMethods } from "@/hooks/use-payment-methods";
+import { usePricing } from "@/hooks/use-pricing";
+import { useRideCategories } from "@/hooks/use-ride-categories";
+import { useRoute } from "@/hooks/use-route";
+import { useWallet } from "@/hooks/use-wallet";
+import type { CheckoutEstimate } from "@/types/payments";
 
 interface CheckoutPreparationContextType {
   checkout: CheckoutEstimate;
@@ -16,54 +16,73 @@ const CheckoutPreparationContext = createContext<CheckoutPreparationContextType 
   undefined,
 );
 
+const requirementLabels: Record<string, string> = {
+  user_not_authenticated: "Entre novamente na sua conta.",
+  route_missing: "Calcule a rota até o destino.",
+  category_missing: "Escolha uma categoria de serviço.",
+  pricing_invalid: "Aguarde a validação do valor ou escolha outra categoria.",
+  payment_method_missing: "Escolha uma forma de pagamento.",
+  passenger_debt_block: "Regularize a pendência da carteira.",
+  insufficient_balance: "O saldo da carteira é insuficiente para esta corrida.",
+};
+
 export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { route } = useRoute();
   const { selectedCategory } = useRideCategories();
   const { estimate, status: pricingStatus } = usePricing();
   const { selectedMethod } = usePaymentMethods();
   const { state: walletState, wallet } = useWallet();
 
-  const checkout = useMemo(() => {
+  const checkout = useMemo<CheckoutEstimate>(() => {
     const blockingReasons: string[] = [];
 
-    if (!user) blockingReasons.push("user_not_authenticated");
+    if (!user || !profile) blockingReasons.push("user_not_authenticated");
     if (!route) blockingReasons.push("route_missing");
     if (!selectedCategory) blockingReasons.push("category_missing");
-    if (pricingStatus !== "success" || !estimate || !estimate.available)
+    if (pricingStatus !== "success" || !estimate || !estimate.available) {
       blockingReasons.push("pricing_invalid");
+    }
     if (!selectedMethod) blockingReasons.push("payment_method_missing");
 
-    // Wallet block rule
     if (walletState === "blocked") {
       blockingReasons.push("passenger_debt_block");
     }
 
-    // Wallet selection rule: Check balance
     if (selectedMethod === "wallet" && estimate) {
-      const balance = wallet?.balance || 0;
+      const balance = wallet?.balance ?? 0;
       if (balance < estimate.estimatedPrice) {
         blockingReasons.push("insufficient_balance");
       }
     }
 
-    const baseFare = estimate?.estimatedPrice || 0;
-    const extrasTotal = 0;
-
-    // AUTHORITY: No coupon discount applied here
-    const finalTotal = baseFare;
+    const baseFare = estimate?.estimatedPrice ?? 0;
+    const extrasTotal = estimate?.extrasTotal ?? 0;
 
     return {
       baseFare,
       extrasTotal,
       discountTotal: 0,
-      finalTotal,
+      finalTotal: baseFare,
       readiness: blockingReasons.length === 0,
       blockingReasons,
+      missingRequirements: blockingReasons.map(
+        (reason) => requirementLabels[reason] ?? "Revise os dados da solicitação.",
+      ),
     };
-  }, [user, route, selectedCategory, estimate, pricingStatus, selectedMethod, walletState, wallet]);
+  }, [
+    estimate,
+    paymentMethodDependency(selectedMethod),
+    pricingStatus,
+    profile,
+    route,
+    selectedCategory,
+    user,
+    wallet?.balance,
+    walletState,
+  ]);
 
   return (
     <CheckoutPreparationContext.Provider
@@ -77,9 +96,14 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
   );
 };
 
+function paymentMethodDependency(value: string | null): string | null {
+  return value;
+}
+
 export const useCheckoutPreparation = () => {
   const context = useContext(CheckoutPreparationContext);
-  if (!context)
+  if (!context) {
     throw new Error("useCheckoutPreparation must be used within CheckoutPreparationProvider");
+  }
   return context;
 };
