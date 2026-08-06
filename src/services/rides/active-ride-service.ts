@@ -1,10 +1,11 @@
 import { supabase } from "@/integrations/supabase/client";
-import {
+import type { RealtimeChannel, RealtimeChannelSendResponse } from "@supabase/supabase-js";
+import type {
   ActiveRide,
+  ActiveRideIntermediate,
   RideActionAvailability,
   RideStatus,
 } from "@/types/rides/active-ride";
-import type { RealtimeChannel, RealtimeChannelSendResponse } from "@supabase/supabase-js";
 
 const ACTIVE_STATUSES: RideStatus[] = [
   "procurar_motorista",
@@ -50,6 +51,8 @@ type OptionalStringRideKey =
 
 type OptionalNumberRideKey =
   | "final_price"
+  | "distance_km"
+  | "duration_min"
   | "driver_rating"
   | "driver_latitude"
   | "driver_longitude"
@@ -58,7 +61,16 @@ type OptionalNumberRideKey =
   | "passenger_rating";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
 }
 
 function readRequiredString(record: Record<string, unknown>, key: string): string {
@@ -73,16 +85,13 @@ function readOptionalString(record: Record<string, unknown>, key: string): strin
 }
 
 function readRequiredNumber(record: Record<string, unknown>, key: string): number {
-  const value = record[key];
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error("invalid_ride_response");
-  }
+  const value = toFiniteNumber(record[key]);
+  if (value === null) throw new Error("invalid_ride_response");
   return value;
 }
 
 function readOptionalNumber(record: Record<string, unknown>, key: string): number | undefined {
-  const value = record[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return toFiniteNumber(record[key]) ?? undefined;
 }
 
 function parseJsonValue(value: unknown): unknown {
@@ -98,17 +107,9 @@ function readCoordinatesValue(value: unknown): { lat: number; lng: number } | nu
   const parsed = parseJsonValue(value);
   if (!isRecord(parsed)) return null;
 
-  const lat = parsed["lat"];
-  const lng = parsed["lng"];
-  if (
-    typeof lat !== "number" ||
-    !Number.isFinite(lat) ||
-    typeof lng !== "number" ||
-    !Number.isFinite(lng)
-  ) {
-    return null;
-  }
-
+  const lat = toFiniteNumber(parsed["lat"]);
+  const lng = toFiniteNumber(parsed["lng"]);
+  if (lat === null || lng === null) return null;
   return { lat, lng };
 }
 
@@ -119,23 +120,33 @@ function readRideCoordinates(
   const fromJson = readCoordinatesValue(record[jsonKey]);
   if (fromJson) return fromJson;
 
-  const lat = record[`${jsonKey}_lat`];
-  const lng = record[`${jsonKey}_lng`];
-  if (
-    typeof lat === "number" &&
-    Number.isFinite(lat) &&
-    typeof lng === "number" &&
-    Number.isFinite(lng)
-  ) {
-    return { lat, lng };
-  }
+  const lat = toFiniteNumber(record[`${jsonKey}_lat`]);
+  const lng = toFiniteNumber(record[`${jsonKey}_lng`]);
+  if (lat !== null && lng !== null) return { lat, lng };
 
   throw new Error("invalid_ride_response");
 }
 
-function readIntermediates(value: unknown): unknown[] {
+function readIntermediates(value: unknown): ActiveRideIntermediate[] {
   const parsed = parseJsonValue(value);
-  return Array.isArray(parsed) ? parsed : [];
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed.flatMap((item, index) => {
+    if (!isRecord(item)) return [];
+    const lat = toFiniteNumber(item["lat"]);
+    const lng = toFiniteNumber(item["lng"]);
+    if (lat === null || lng === null) return [];
+
+    const intermediate: ActiveRideIntermediate = { lat, lng, order: index };
+    const optionalStrings = ["label", "address", "place_id", "source"] as const;
+    for (const key of optionalStrings) {
+      const field = item[key];
+      if (typeof field === "string" && field.trim()) intermediate[key] = field;
+    }
+    const order = toFiniteNumber(item["order"]);
+    if (order !== null) intermediate.order = Math.max(0, Math.floor(order));
+    return [intermediate];
+  });
 }
 
 function readStatus(value: unknown): RideStatus {
@@ -159,21 +170,24 @@ class ActiveRideService {
     return ActiveRideService.instance;
   }
 
-  public async getRideById(rideId: string, userId: string): Promise<ActiveRide> {
-    const { data, error } = await supabase.from("rides").select("*").eq("id", rideId).single();
-
-    if (error) throw error;
-    if (!data) throw new Error("not_found");
-    if (data.passenger_id !== userId) throw new Error("unauthorized");
-
-    return this.normalizeRide(data);
-  }
-
-  public async getActiveRide(userId: string): Promise<ActiveRide | null> {
+  public async getRideById(rideId: string, passengerId: string): Promise<ActiveRide> {
     const { data, error } = await supabase
       .from("rides")
       .select("*")
-      .eq("passenger_id", userId)
+      .eq("id", rideId)
+      .eq("passenger_id", passengerId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error("not_found");
+    return this.normalizeRide(data);
+  }
+
+  public async getActiveRide(passengerId: string): Promise<ActiveRide | null> {
+    const { data, error } = await supabase
+      .from("rides")
+      .select("*")
+      .eq("passenger_id", passengerId)
       .in("status", ACTIVE_STATUSES)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -292,6 +306,8 @@ class ActiveRideService {
 
     const optionalNumbers: Array<[OptionalNumberRideKey, string]> = [
       ["final_price", "final_price"],
+      ["distance_km", "distance_km"],
+      ["duration_min", "duration_min"],
       ["driver_rating", "driver_rating"],
       ["driver_latitude", "driver_latitude"],
       ["driver_longitude", "driver_longitude"],
