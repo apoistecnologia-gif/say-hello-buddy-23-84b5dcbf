@@ -211,15 +211,18 @@ Deno.serve(async (req) => {
       return json(req, { ok: true, sent: 0, suppressed: finalUserIds.length }, 200);
     }
 
+    // user_notification_tokens.user_id = auth.users.id (mesma identidade de rides.*_id)
     const { data: tokenRows, error: tokenError } = await admin
       .from("user_notification_tokens")
       .select("user_id,token")
       .in("user_id", allowedUsers)
-      .eq("platform", "android");
+      .eq("is_active", true)
+      .eq("permission_status", "granted");
     if (tokenError) throw new Error(`notification_token_lookup_failed:${tokenError.message}`);
     if (!tokenRows?.length) {
       return json(req, { ok: true, sent: 0, no_tokens: allowedUsers.length }, 200);
     }
+
 
     const account = readServiceAccount();
     const bearer = await accessToken(account);
