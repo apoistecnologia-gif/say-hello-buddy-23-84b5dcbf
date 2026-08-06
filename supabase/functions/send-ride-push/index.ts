@@ -16,7 +16,7 @@ const ALLOWED_STATIC_PATHS = new Set([
   "/notificacoes",
 ]);
 
-type AdminClient = ReturnType<typeof createClient>;
+type AdminClient = ReturnType<typeof createClient<any, "public">>;
 
 type ServiceAccount = {
   project_id: string;
