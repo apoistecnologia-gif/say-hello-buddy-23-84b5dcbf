@@ -17,7 +17,7 @@ export function useDestinationSearch() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<PlacesError | null>(null);
   const [selectedSuggestion, setSelectedSuggestion] = useState<PlaceSuggestion | null>(null);
-  const debounceTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const debounceTimer = useRef<number | null>(null);
   const requestSequence = useRef(0);
 
   const cancelDebounce = useCallback(() => {
