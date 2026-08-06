@@ -35,8 +35,8 @@ function readErrorMessage(error: unknown): string {
 const ActiveRideContext = createContext<ActiveRideContextType | undefined>(undefined);
 
 export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const { profile } = useAuth();
+  const passengerId = profile?.id ?? null;
   const [ride, setRide] = useState<ActiveRide | null>(null);
   const [screenState, setScreenState] = useState<RideScreenState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -87,23 +87,20 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const loadRide = useCallback(
     async (rideId: string) => {
-      if (!userId || !rideId.trim()) return;
+      if (!passengerId || !rideId.trim()) return;
 
       const requestId = ++requestSequenceRef.current;
       setIsRefreshing(true);
       setScreenState((current) => (current === "idle" ? "loading" : current));
 
       try {
-        const data = await activeRideService.getRideById(rideId, userId);
+        const data = await activeRideService.getRideById(rideId, passengerId);
         if (requestId !== requestSequenceRef.current) return;
 
         currentRideIdRef.current = rideId;
         handleUpdate(data);
 
-        if (
-          data.status !== "finalizada" &&
-          !data.status.startsWith("cancelada")
-        ) {
+        if (data.status !== "finalizada" && !data.status.startsWith("cancelada")) {
           activeRideService.subscribeToRide(rideId, handleUpdate, setIsRealtimeConnected);
         }
       } catch (caughtError: unknown) {
@@ -123,7 +120,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (requestId === requestSequenceRef.current) setIsRefreshing(false);
       }
     },
-    [handleUpdate, userId],
+    [handleUpdate, passengerId],
   );
 
   const refreshRide = useCallback(async () => {
@@ -131,12 +128,12 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [loadRide]);
 
   const pollCurrentRide = useCallback(async (): Promise<void> => {
-    if (!userId || !currentRideIdRef.current || pollingPromiseRef.current) return;
+    if (!passengerId || !currentRideIdRef.current || pollingPromiseRef.current) return;
 
     const rideId = currentRideIdRef.current;
     const polling = (async () => {
       try {
-        const latestRide = await activeRideService.getRideById(rideId, userId);
+        const latestRide = await activeRideService.getRideById(rideId, passengerId);
         if (currentRideIdRef.current !== rideId) return;
         handleUpdate(latestRide);
       } catch (caughtError: unknown) {
@@ -161,16 +158,16 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     pollingPromiseRef.current = polling;
     await polling;
-  }, [clearRide, handleUpdate, userId]);
+  }, [clearRide, handleUpdate, passengerId]);
 
   const recoverActiveRide = useCallback(async (): Promise<string | null> => {
-    if (!userId) return null;
+    if (!passengerId) return null;
     if (recoveryPromiseRef.current) return recoveryPromiseRef.current;
 
     const recovery = (async () => {
       setIsRecovering(true);
       try {
-        const activeRide = await activeRideService.getActiveRide(userId);
+        const activeRide = await activeRideService.getActiveRide(passengerId);
         if (!activeRide) {
           if (!currentRideIdRef.current) {
             setRide(null);
@@ -205,7 +202,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     recoveryPromiseRef.current = recovery;
     return recovery;
-  }, [handleUpdate, isRealtimeConnected, loadRide, ride?.id, userId]);
+  }, [handleUpdate, isRealtimeConnected, loadRide, passengerId, ride?.id]);
 
   const retry = useCallback(() => {
     if (currentRideIdRef.current) void loadRide(currentRideIdRef.current);
@@ -213,16 +210,16 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [loadRide, recoverActiveRide]);
 
   useEffect(() => {
-    if (!userId) {
+    if (!passengerId) {
       clearRide();
       return;
     }
 
     void recoverActiveRide();
-  }, [clearRide, recoverActiveRide, userId]);
+  }, [clearRide, passengerId, recoverActiveRide]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!passengerId) return;
 
     const handleOnline = () => {
       void recoverActiveRide();
@@ -239,11 +236,11 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       window.removeEventListener("online", handleOnline);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [recoverActiveRide, userId]);
+  }, [passengerId, recoverActiveRide]);
 
   useEffect(() => {
     if (
-      !userId ||
+      !passengerId ||
       screenState !== "active" ||
       isRealtimeConnected ||
       !currentRideIdRef.current
@@ -259,7 +256,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, POLLING_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [isRealtimeConnected, pollCurrentRide, screenState, userId]);
+  }, [isRealtimeConnected, passengerId, pollCurrentRide, screenState]);
 
   useEffect(() => {
     return () => {
