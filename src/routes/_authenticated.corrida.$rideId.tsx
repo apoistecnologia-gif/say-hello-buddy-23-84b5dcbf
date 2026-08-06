@@ -35,7 +35,9 @@ function publicShareUrl(token: string): string | null {
   const currentOriginIsPublic =
     window.location.protocol.startsWith("http") &&
     !["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
-  const base = configuredBase || (currentOriginIsPublic ? `${window.location.origin}${window.location.pathname}` : "");
+  const base =
+    configuredBase ||
+    (currentOriginIsPublic ? `${window.location.origin}${window.location.pathname}` : "");
   if (!base) return null;
 
   const normalizedBase = base.replace(/\/#\/?$/, "").replace(/\/+$/, "");
@@ -266,7 +268,7 @@ function ActiveRidePage() {
               <>
                 <DriverCard ride={ride} />
                 <VehicleCard ride={ride} />
-                {status === "motorista_a_caminho" ? (
+                {["motorista_a_caminho", "motorista_chegou"].includes(status) ? (
                   <SecurityCodeCard code={ride.security_code} />
                 ) : null}
               </>
@@ -284,16 +286,16 @@ function ActiveRidePage() {
                 <div>
                   <h4 className="font-black text-white">Buscando motoristas</h4>
                   <p className="mt-1 text-[10px] font-medium text-zinc-500">
-                    Isso geralmente leva menos de 2 minutos.
+                    A busca continuará enquanto houver motoristas elegíveis na região.
                   </p>
                 </div>
               </div>
             ) : null}
 
-            {(screenState === "completed" || screenState === "cancelled") ? (
+            {screenState === "completed" || screenState === "cancelled" ? (
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-4">
-                  <span className="text-xs font-black uppercase text-zinc-500">Valor Total</span>
+                  <span className="text-xs font-black uppercase text-zinc-500">Valor total</span>
                   <span className="text-xl font-black text-white">
                     R$ {(ride.final_price ?? ride.estimated_price).toFixed(2).replace(".", ",")}
                   </span>
@@ -329,7 +331,7 @@ function ActiveRidePage() {
                   className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white font-black text-black"
                 >
                   <Home size={18} />
-                  Voltar ao Início
+                  Voltar ao início
                 </Button>
               </div>
             ) : null}
@@ -374,6 +376,7 @@ function ActiveRidePage() {
         isOpen={isCancelDialogOpen}
         onClose={() => setIsCancelDialogOpen(false)}
         rideId={ride.id}
+        rideCreatedAt={ride.created_at}
         onSuccess={() => {
           setIsCancelDialogOpen(false);
           void loadRide(ride.id);
