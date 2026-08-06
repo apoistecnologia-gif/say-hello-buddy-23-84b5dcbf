@@ -1,3 +1,6 @@
+import { Capacitor } from "@capacitor/core";
+import { NATIVE_PASSWORD_RECOVERY_REDIRECT } from "./native-password-recovery";
+
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "0.0.0.0"]);
 
 function normalizeBaseUrl(value: string): string {
@@ -20,11 +23,12 @@ function resolvePublicAppBaseUrl(): string | null {
 }
 
 /**
- * Retorna um endereço público para o fluxo de redefinição de senha.
- * No APK/localhost, omite o redirect para impedir links de e-mail apontando
- * para endereços locais que não podem ser abertos fora do dispositivo.
+ * No APK, retorna o esquema nativo registrado no Android. Na web pública,
+ * retorna a rota hash da aplicação. Nunca envia e-mails para localhost.
  */
 export function getPasswordRecoveryRedirectTo(): string | undefined {
+  if (Capacitor.isNativePlatform()) return NATIVE_PASSWORD_RECOVERY_REDIRECT;
+
   const baseUrl = resolvePublicAppBaseUrl();
   return baseUrl ? `${baseUrl}/#/redefinir-senha` : undefined;
 }
