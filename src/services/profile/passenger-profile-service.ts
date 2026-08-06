@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getPasswordRecoveryRedirectTo } from "@/lib/auth/password-recovery";
 
 export interface PassengerProfileDetails {
   id: string;
@@ -187,8 +188,11 @@ class PassengerProfileService {
   }
 
   async sendPasswordReset(email: string): Promise<void> {
-    const redirectTo = `${window.location.origin}${window.location.pathname}#/redefinir-senha`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+    const redirectTo = getPasswordRecoveryRedirectTo();
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email,
+      redirectTo ? { redirectTo } : undefined,
+    );
     if (error) throw error;
   }
 
