@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Bell, BellOff, Loader2, RefreshCw, Smartphone } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { initializePush } from "@/services/push/push-service";
 
 export function PushStatusCard() {
+  const { user } = useAuth();
   const { status, lastError } = usePushNotifications();
   const [isRetrying, setIsRetrying] = useState(false);
 
@@ -32,10 +34,10 @@ export function PushStatusCard() {
             };
 
   const retry = async (): Promise<void> => {
-    if (isRetrying) return;
+    if (isRetrying || !user?.id) return;
     setIsRetrying(true);
     try {
-      await initializePush();
+      await initializePush(user.id);
     } finally {
       setIsRetrying(false);
     }
@@ -52,7 +54,7 @@ export function PushStatusCard() {
         <button
           type="button"
           onClick={() => void retry()}
-          disabled={isRetrying}
+          disabled={isRetrying || !user?.id}
           className="app-pressable mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/30 px-4 text-xs font-black text-white disabled:opacity-50"
         >
           {isRetrying ? (
