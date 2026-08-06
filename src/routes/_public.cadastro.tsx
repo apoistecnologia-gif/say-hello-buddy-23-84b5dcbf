@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { PRIVACY_VERSION, TERMS_VERSION } from "@/lib/legal/legal-documents";
 
 export const Route = createFileRoute("/_public/cadastro")({ component: CadastroPage });
 
@@ -117,6 +118,11 @@ function CadastroPage() {
             full_name: normalizedName,
             phone: normalizedPhone,
             role: "passenger",
+            terms_accepted: true,
+            terms_version: TERMS_VERSION,
+            privacy_accepted: true,
+            privacy_version: PRIVACY_VERSION,
+            legal_acceptance_source: "passenger_signup",
           },
         },
       });
@@ -293,7 +299,23 @@ function CadastroPage() {
             <div className="flex items-start gap-3 rounded-2xl border border-white/8 bg-black/35 p-4">
               <Checkbox id="terms" checked={acceptTerms} onCheckedChange={(checked) => setAcceptTerms(checked === true)} disabled={loading} className="mt-0.5 border-zinc-600 data-[state=checked]:border-apois-yellow data-[state=checked]:bg-apois-yellow data-[state=checked]:text-black" />
               <label htmlFor="terms" className="text-xs leading-5 text-zinc-400">
-                Li e aceito os <strong className="font-bold text-zinc-200">Termos de Uso</strong> e a <strong className="font-bold text-zinc-200">Política de Privacidade</strong> da APOIS.
+                Li e aceito os{" "}
+                <Link
+                  to="/termos"
+                  className="font-black text-apois-yellow underline underline-offset-4"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  Termos de Uso
+                </Link>{" "}
+                e a{" "}
+                <Link
+                  to="/privacidade"
+                  className="font-black text-apois-yellow underline underline-offset-4"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  Política de Privacidade
+                </Link>{" "}
+                da APOIS.
               </label>
             </div>
 
