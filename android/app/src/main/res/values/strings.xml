@@ -4,4 +4,5 @@
     <string name="title_activity_main">APOIS Passageiro</string>
     <string name="package_name">com.apois.passageiro</string>
     <string name="custom_url_scheme">com.apois.passageiro</string>
+    <string name="default_notification_channel_id">apois_rides</string>
 </resources>
