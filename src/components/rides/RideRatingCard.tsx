@@ -5,10 +5,10 @@ import { rideRatingService } from "@/services/rides/ride-rating-service";
 
 interface RideRatingCardProps {
   rideId: string;
-  driverName?: string | null;
-  currentRating?: number | null;
-  onRated?: (rating: number) => void | Promise<void>;
-  compact?: boolean;
+  driverName?: string | null | undefined;
+  currentRating?: number | null | undefined;
+  onRated?: ((rating: number) => void | Promise<void>) | undefined;
+  compact?: boolean | undefined;
 }
 
 const RATING_LABELS: Record<number, string> = {
@@ -71,7 +71,10 @@ export function RideRatingCard({
             <p className="mt-1 text-xs leading-5 text-zinc-400">
               Você avaliou {driverName?.trim() || "o motorista"} com {selectedRating} de 5.
             </p>
-            <div className="mt-3 flex items-center gap-1 text-apois-yellow" aria-label={`${selectedRating} de 5 estrelas`}>
+            <div
+              className="mt-3 flex items-center gap-1 text-apois-yellow"
+              aria-label={`${selectedRating} de 5 estrelas`}
+            >
               {[1, 2, 3, 4, 5].map((value) => (
                 <Star
                   key={value}
@@ -103,7 +106,10 @@ export function RideRatingCard({
         </div>
       </div>
 
-      <div className="mt-5 flex items-center justify-center gap-2" onMouseLeave={() => setHoveredRating(null)}>
+      <div
+        className="mt-5 flex items-center justify-center gap-2"
+        onMouseLeave={() => setHoveredRating(null)}
+      >
         {[1, 2, 3, 4, 5].map((value) => (
           <button
             key={value}
