@@ -128,13 +128,23 @@ Deno.serve(async (req) => {
       const { data: userData, error: authError } = await admin.auth.getUser(token);
       if (authError || !userData.user) return json(req, { error: "unauthorized" }, 401);
       callerId = userData.user.id;
-      const { data: roleData } = await admin
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", callerId)
-        .in("role", ["admin", "super_admin"])
+      // user_roles.user_id referencia public.users.id (UUID interno),
+      // enquanto callerId é o UUID de auth.users -> resolver via users.auth_user_id.
+      const { data: profileRow } = await admin
+        .from("users")
+        .select("id")
+        .eq("auth_user_id", callerId)
         .maybeSingle();
-      isAdmin = Boolean(roleData);
+      if (profileRow?.id) {
+        const { data: roleData } = await admin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", profileRow.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        isAdmin = Boolean(roleData);
+      }
+
     }
 
     const input = (await req.json()) as PushBody;
@@ -201,15 +211,18 @@ Deno.serve(async (req) => {
       return json(req, { ok: true, sent: 0, suppressed: finalUserIds.length }, 200);
     }
 
+    // user_notification_tokens.user_id = auth.users.id (mesma identidade de rides.*_id)
     const { data: tokenRows, error: tokenError } = await admin
       .from("user_notification_tokens")
       .select("user_id,token")
       .in("user_id", allowedUsers)
-      .eq("platform", "android");
+      .eq("is_active", true)
+      .eq("permission_status", "granted");
     if (tokenError) throw new Error(`notification_token_lookup_failed:${tokenError.message}`);
     if (!tokenRows?.length) {
       return json(req, { ok: true, sent: 0, no_tokens: allowedUsers.length }, 200);
     }
+
 
     const account = readServiceAccount();
     const bearer = await accessToken(account);
@@ -244,7 +257,16 @@ Deno.serve(async (req) => {
         },
       );
       if (response.ok) sent += 1;
-      else failures.add(row.user_id);
+      else {
+        failures.add(row.user_id);
+        // Token rejeitado pelo FCM (404/UNREGISTERED) -> desativar para não reenviar.
+        if (response.status === 404 || response.status === 400) {
+          await admin
+            .from("user_notification_tokens")
+            .update({ is_active: false })
+            .eq("token", row.token);
+        }
+      }
     }
 
     const { error: logError } = await admin.from("notification_logs").insert(
@@ -254,10 +276,12 @@ Deno.serve(async (req) => {
         channel: "fcm",
         title: finalTitle,
         body: finalBody || null,
-        data: { ride_id: input.ride_id ?? null, url: finalUrl || null },
+        data: { url: finalUrl || null },
+        ride_id: input.ride_id ?? null,
         status: failures.has(userId) ? "failed" : "sent",
       })),
     );
+
     if (logError) console.error("[APOIS FCM] notification_log_failed", logError.message);
 
     return json(req, { ok: failures.size === 0, sent, failed: failures.size }, 200);
