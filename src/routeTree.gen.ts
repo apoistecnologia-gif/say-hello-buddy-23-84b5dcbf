@@ -23,6 +23,7 @@ import { Route as PublicCadastroRouteImport } from './routes/_public.cadastro'
 import { Route as PublicLoginRouteImport } from './routes/_public.login'
 import { Route as PublicRecuperarSenhaRouteImport } from './routes/_public.recuperar-senha'
 import { Route as PublicRedefinirSenhaRouteImport } from './routes/_public.redefinir-senha'
+import { Route as PublicAcompanharShareTokenRouteImport } from './routes/_public.acompanhar.$shareToken'
 import { Route as AuthenticatedCorridaRideIdRouteImport } from './routes/_authenticated.corrida.$rideId'
 import { Route as AuthenticatedCorridasRideIdRouteImport } from './routes/_authenticated.corridas.$rideId'
 
@@ -97,6 +98,12 @@ const PublicRedefinirSenhaRoute = PublicRedefinirSenhaRouteImport.update({
   path: '/redefinir-senha',
   getParentRoute: () => PublicRoute,
 } as any)
+const PublicAcompanharShareTokenRoute =
+  PublicAcompanharShareTokenRouteImport.update({
+    id: '/acompanhar/$shareToken',
+    path: '/acompanhar/$shareToken',
+    getParentRoute: () => PublicRoute,
+  } as any)
 const AuthenticatedCorridaRideIdRoute =
   AuthenticatedCorridaRideIdRouteImport.update({
     id: '/corrida/$rideId',
@@ -123,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof PublicLoginRoute
   '/recuperar-senha': typeof PublicRecuperarSenhaRoute
   '/redefinir-senha': typeof PublicRedefinirSenhaRoute
+  '/acompanhar/$shareToken': typeof PublicAcompanharShareTokenRoute
   '/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
   '/corridas/$rideId': typeof AuthenticatedCorridasRideIdRoute
 }
@@ -139,6 +147,7 @@ export interface FileRoutesByTo {
   '/login': typeof PublicLoginRoute
   '/recuperar-senha': typeof PublicRecuperarSenhaRoute
   '/redefinir-senha': typeof PublicRedefinirSenhaRoute
+  '/acompanhar/$shareToken': typeof PublicAcompanharShareTokenRoute
   '/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
   '/corridas/$rideId': typeof AuthenticatedCorridasRideIdRoute
 }
@@ -157,6 +166,7 @@ export interface FileRoutesById {
   '/_public/login': typeof PublicLoginRoute
   '/_public/recuperar-senha': typeof PublicRecuperarSenhaRoute
   '/_public/redefinir-senha': typeof PublicRedefinirSenhaRoute
+  '/_public/acompanhar/$shareToken': typeof PublicAcompanharShareTokenRoute
   '/_public/': typeof PublicIndexRoute
   '/_authenticated/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
   '/_authenticated/corridas/$rideId': typeof AuthenticatedCorridasRideIdRoute
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/acompanhar/$shareToken'
     | '/corrida/$rideId'
     | '/corridas/$rideId'
   fileRoutesByTo: FileRoutesByTo
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/acompanhar/$shareToken'
     | '/corrida/$rideId'
     | '/corridas/$rideId'
   id:
@@ -209,6 +221,7 @@ export interface FileRouteTypes {
     | '/_public/login'
     | '/_public/recuperar-senha'
     | '/_public/redefinir-senha'
+    | '/_public/acompanhar/$shareToken'
     | '/_public/'
     | '/_authenticated/corrida/$rideId'
     | '/_authenticated/corridas/$rideId'
@@ -319,6 +332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRedefinirSenhaRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_public/acompanhar/$shareToken': {
+      id: '/_public/acompanhar/$shareToken'
+      path: '/acompanhar/$shareToken'
+      fullPath: '/acompanhar/$shareToken'
+      preLoaderRoute: typeof PublicAcompanharShareTokenRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_authenticated/corrida/$rideId': {
       id: '/_authenticated/corrida/$rideId'
       path: '/corrida/$rideId'
@@ -369,6 +389,7 @@ interface PublicRouteChildren {
   PublicLoginRoute: typeof PublicLoginRoute
   PublicRecuperarSenhaRoute: typeof PublicRecuperarSenhaRoute
   PublicRedefinirSenhaRoute: typeof PublicRedefinirSenhaRoute
+  PublicAcompanharShareTokenRoute: typeof PublicAcompanharShareTokenRoute
   PublicIndexRoute: typeof PublicIndexRoute
 }
 
@@ -377,6 +398,7 @@ const PublicRouteChildren: PublicRouteChildren = {
   PublicLoginRoute: PublicLoginRoute,
   PublicRecuperarSenhaRoute: PublicRecuperarSenhaRoute,
   PublicRedefinirSenhaRoute: PublicRedefinirSenhaRoute,
+  PublicAcompanharShareTokenRoute: PublicAcompanharShareTokenRoute,
   PublicIndexRoute: PublicIndexRoute,
 }
 
