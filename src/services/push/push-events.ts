@@ -16,8 +16,30 @@ export const PUSH_RIDE_EVENTS = [
 
 export type PushRideEvent = (typeof PUSH_RIDE_EVENTS)[number];
 
+/**
+ * A Edge Function `send-ride-push` emite eventos no formato pontuado
+ * (`ride.accepted`). O cliente trabalha com o formato canônico abaixo.
+ */
+const BACKEND_EVENT_ALIASES: Record<string, PushRideEvent> = {
+  "ride.requested": "ride_requested",
+  "ride.accepted": "driver_assigned",
+  "ride.driver_arriving": "driver_arriving",
+  "ride.driver_arrived": "driver_arrived",
+  "ride.started": "ride_started",
+  "ride.completed": "ride_completed",
+  "ride.cancelled": "ride_cancelled",
+  "ride.cancellation_fee_created": "cancellation_fee_created",
+  "driver.new_ride_request": "ride_requested",
+};
+
+export const normalizePushEvent = (value: unknown): PushRideEvent | null => {
+  if (typeof value !== "string") return null;
+  if ((PUSH_RIDE_EVENTS as readonly string[]).includes(value)) return value as PushRideEvent;
+  return BACKEND_EVENT_ALIASES[value] ?? null;
+};
+
 export const isPushRideEvent = (value: unknown): value is PushRideEvent =>
-  typeof value === "string" && (PUSH_RIDE_EVENTS as readonly string[]).includes(value);
+  normalizePushEvent(value) !== null;
 
 /** Rotas internas que uma notificação pode abrir. */
 const ALLOWED_STATIC_ROUTES = new Set<string>([
@@ -49,20 +71,18 @@ const rideTarget = (rideId: unknown): PushTarget => {
 export const resolvePushTarget = (data: Record<string, unknown> | undefined | null): PushTarget => {
   const payload = data ?? {};
 
-  const rawPath =
-    typeof payload["path"] === "string"
-      ? payload["path"]
-      : typeof payload["deeplink"] === "string"
-        ? payload["deeplink"]
-        : null;
+  // `url` é o campo enviado hoje pela Edge Function send-ride-push.
+  const rawPath: string | undefined = ["path", "deeplink", "url"]
+    .map((key) => payload[key])
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
 
   if (rawPath) {
     const candidate = sanitizeInternalPath(rawPath);
     if (candidate) return { path: candidate };
   }
 
-  const event = payload["event"];
-  if (isPushRideEvent(event)) {
+  const event = normalizePushEvent(payload["event"]);
+  if (event) {
     switch (event) {
       case "cancellation_fee_created":
         return { path: "/carteira" };
