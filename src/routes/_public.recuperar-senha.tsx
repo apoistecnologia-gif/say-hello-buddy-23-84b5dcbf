@@ -7,6 +7,7 @@ import { PrimaryButton } from "@/components/app/PrimaryButton";
 import { PublicAuthShell } from "@/components/app/PublicAuthShell";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { getPasswordRecoveryRedirectTo } from "@/lib/auth/password-recovery";
 
 export const Route = createFileRoute("/_public/recuperar-senha")({
   component: RecuperarSenhaPage,
@@ -29,9 +30,11 @@ function RecuperarSenhaPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: `${window.location.origin}/#/redefinir-senha`,
-      });
+      const redirectTo = getPasswordRecoveryRedirectTo();
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        normalizedEmail,
+        redirectTo ? { redirectTo } : undefined,
+      );
 
       if (error) {
         const normalizedMessage = error.message.toLowerCase();
