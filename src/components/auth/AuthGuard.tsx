@@ -6,7 +6,9 @@ import { PrimaryButton } from "@/components/app/PrimaryButton";
 import { useAuth } from "@/hooks/use-auth";
 
 const PUBLIC_PATHS = ["/", "/login", "/cadastro", "/recuperar-senha", "/redefinir-senha"];
+const PUBLIC_PREFIXES = ["/acompanhar/"];
 const AUTHENTICATED_PUBLIC_PATHS = ["/redefinir-senha"];
+const AUTHENTICATED_PUBLIC_PREFIXES = ["/acompanhar/"];
 
 const matchesPath = (pathname: string, allowedPath: string) => {
   if (allowedPath === "/") {
@@ -15,6 +17,9 @@ const matchesPath = (pathname: string, allowedPath: string) => {
 
   return pathname === allowedPath || pathname === `/_public${allowedPath}`;
 };
+
+const matchesPrefix = (pathname: string, allowedPrefix: string) =>
+  pathname.startsWith(allowedPrefix) || pathname.startsWith(`/_public${allowedPrefix}`);
 
 function LoadingAccount() {
   return (
@@ -34,10 +39,12 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isPublicPath = PUBLIC_PATHS.some((path) => matchesPath(location.pathname, path));
-  const canRenderWhileAuthenticated = AUTHENTICATED_PUBLIC_PATHS.some((path) =>
-    matchesPath(location.pathname, path),
-  );
+  const isPublicPath =
+    PUBLIC_PATHS.some((path) => matchesPath(location.pathname, path)) ||
+    PUBLIC_PREFIXES.some((prefix) => matchesPrefix(location.pathname, prefix));
+  const canRenderWhileAuthenticated =
+    AUTHENTICATED_PUBLIC_PATHS.some((path) => matchesPath(location.pathname, path)) ||
+    AUTHENTICATED_PUBLIC_PREFIXES.some((prefix) => matchesPrefix(location.pathname, prefix));
 
   useEffect(() => {
     if (authState === "initializing") return;
