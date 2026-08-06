@@ -15,6 +15,9 @@ verify_jwt = true
 [functions.cancel-ride]
 verify_jwt = true
 
+[functions.cancellation-fee-webhook]
+verify_jwt = false
+
 [functions.create-cancellation-fee-charge]
 verify_jwt = true
 
