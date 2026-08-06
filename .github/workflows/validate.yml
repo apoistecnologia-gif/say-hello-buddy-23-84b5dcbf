@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - fix/apois-auditoria-completa
+      - feat/apois-passageiro-completo
 
 permissions:
   contents: read
@@ -31,11 +32,19 @@ jobs:
       - name: TypeScript
         run: bun run typecheck
 
-      - name: Lint corrected authentication and location files
+      - name: Lint critical passenger files
         run: >-
           bunx eslint
+          src/components/app/AppBrand.tsx
+          src/components/app/PrimaryButton.tsx
+          src/components/app/PublicAuthShell.tsx
+          src/components/auth/AuthGuard.tsx
+          src/components/BottomNavigation.tsx
           src/hooks/use-auth.tsx
           src/hooks/use-location.tsx
+          src/routes/_public.login.tsx
+          src/routes/_public.cadastro.tsx
+          src/routes/_public.recuperar-senha.tsx
           src/routes/_authenticated.perfil.tsx
 
       - name: Build
