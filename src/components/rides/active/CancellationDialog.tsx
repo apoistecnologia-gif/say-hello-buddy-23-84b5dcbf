@@ -18,7 +18,7 @@ interface CancellationDialogProps {
   isOpen: boolean;
   onClose: () => void;
   rideId: string;
-  rideCreatedAt: string;
+  rideCreatedAt?: string;
   onSuccess: (response: RideRequestResponse) => void;
 }
 
@@ -69,14 +69,13 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
   }, [isOpen]);
 
   const elapsedSeconds = useMemo(() => {
-    const createdAt = Date.parse(rideCreatedAt);
+    const createdAt = Date.parse(rideCreatedAt ?? "");
     if (!Number.isFinite(createdAt)) return 0;
     return Math.max(0, Math.floor((now - createdAt) / 1_000));
   }, [now, rideCreatedAt]);
 
   const freeSecondsRemaining = Math.max(0, policy.freeSeconds - elapsedSeconds);
-  const feeWouldApply =
-    policy.enabled && policy.amount > 0 && freeSecondsRemaining === 0;
+  const feeWouldApply = policy.enabled && policy.amount > 0 && freeSecondsRemaining === 0;
 
   const reason =
     selectedReason === "Outro motivo" ? customReason.trim() : selectedReason.trim();
@@ -157,7 +156,9 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
               <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-0.5 shrink-0 text-apois-yellow" size={18} />
                 <div>
-                  <p className="text-sm font-black text-white">Multa atual: {formatCurrency(policy.amount)}</p>
+                  <p className="text-sm font-black text-white">
+                    Multa atual: {formatCurrency(policy.amount)}
+                  </p>
                   <p className="mt-1 text-xs leading-5 text-zinc-400">
                     O período gratuito de cancelamento já terminou. O valor será registrado na sua carteira ao confirmar.
                   </p>
@@ -231,7 +232,10 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
           ) : null}
 
           {error ? (
-            <p role="alert" className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs font-bold leading-5 text-red-300">
+            <p
+              role="alert"
+              className="rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs font-bold leading-5 text-red-300"
+            >
               {error}
             </p>
           ) : null}
