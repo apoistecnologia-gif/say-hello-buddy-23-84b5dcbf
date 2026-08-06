@@ -4,11 +4,16 @@ import { Loader2 } from "lucide-react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 
-const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/redefinir-senha"];
+const PUBLIC_PATHS = ["/", "/login", "/cadastro", "/recuperar-senha", "/redefinir-senha"];
 const AUTHENTICATED_PUBLIC_PATHS = ["/redefinir-senha"];
 
-const matchesPath = (pathname: string, allowedPath: string) =>
-  pathname === allowedPath || pathname === `/_public${allowedPath}`;
+const matchesPath = (pathname: string, allowedPath: string) => {
+  if (allowedPath === "/") {
+    return pathname === "/" || pathname === "/_public" || pathname === "/_public/";
+  }
+
+  return pathname === allowedPath || pathname === `/_public${allowedPath}`;
+};
 
 export function AuthGuard({ children }: { children: ReactNode }) {
   const { authState } = useAuth();
@@ -25,7 +30,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
     if (authState === "unauthenticated" && !isPublicPath) {
       console.info("[AuthGuard] Private route access without session");
-      void navigate({ to: "/login", replace: true });
+      void navigate({ to: "/", replace: true });
       return;
     }
 
@@ -43,7 +48,9 @@ export function AuthGuard({ children }: { children: ReactNode }) {
         <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-apois-yellow/20 bg-apois-yellow/10">
           <Loader2 className="animate-spin text-apois-yellow" size={28} />
         </div>
-        <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-zinc-500">Verificando sua conta</p>
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
+          Verificando sua conta
+        </p>
       </div>
     );
   }
