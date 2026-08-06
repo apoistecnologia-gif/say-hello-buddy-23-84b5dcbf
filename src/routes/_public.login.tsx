@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { AppBrand } from "@/components/app/AppBrand";
 import { PrimaryButton } from "@/components/app/PrimaryButton";
@@ -30,7 +30,7 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { authState } = useAuth();
+  const { authState, refreshSession } = useAuth();
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
   useEffect(() => {
@@ -69,6 +69,7 @@ function LoginPage() {
         return;
       }
 
+      await refreshSession();
       toast.success("Login realizado com sucesso!");
       await navigate({ to: "/inicio", replace: true });
     } catch (error) {
@@ -84,6 +85,16 @@ function LoginPage() {
   return (
     <PublicAuthShell contentClassName="justify-center">
       <div className="flex w-full flex-col">
+        <div className="mb-5 flex items-center">
+          <Link
+            to="/"
+            aria-label="Voltar para as boas-vindas"
+            className="app-pressable flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-white/5 text-zinc-300"
+          >
+            <ArrowLeft size={20} />
+          </Link>
+        </div>
+
         <AppBrand subtitle="Sua corrida, do seu jeito." />
 
         <section className="app-surface mt-8 rounded-3xl p-5 sm:p-6" aria-labelledby="login-title">
