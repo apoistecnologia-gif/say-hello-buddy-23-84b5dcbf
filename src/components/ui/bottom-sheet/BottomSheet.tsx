@@ -8,6 +8,7 @@ interface BottomSheetProps {
   children: React.ReactNode;
   title?: string;
   preventClose?: boolean;
+  showBackdrop?: boolean;
 }
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({
@@ -15,6 +16,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   onClose,
   children,
   preventClose = false,
+  showBackdrop = true,
 }) => {
   const controls = useAnimation();
   const dragControls = useDragControls();
@@ -44,13 +46,15 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       {isOpen && (
         <>
           {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={!preventClose ? onClose : undefined}
-            className="fixed inset-0 bg-black/60 z-40"
-          />
+          {showBackdrop && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={!preventClose ? onClose : undefined}
+              className="fixed inset-0 bg-black/60 z-40"
+            />
+          )}
 
           {/* Sheet */}
           <motion.div
