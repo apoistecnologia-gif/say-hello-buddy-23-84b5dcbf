@@ -16,10 +16,14 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
       GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
       GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      EXPECTED_ANDROID_SIGNING_SHA1: "A8:0E:64:1B:F6:7A:F1:00:21:84:27:A8:3B:0A:B3:A4:31:B7:6F:3B"
+      ANDROID_KEY_ALIAS: "apois-passageiro-homologacao"
 
     steps:
       - name: Resolve pull request HEAD
@@ -182,23 +186,77 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
-      - name: Explain missing homologation keys
-        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY == '' || env.GOOGLE_MAPS_ANDROID_API_KEY == '' }}
+      - name: Explain missing homologation credentials
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY == '' || env.GOOGLE_MAPS_ANDROID_API_KEY == '' || env.ANDROID_KEYSTORE_BASE64 == '' || env.ANDROID_KEYSTORE_PASSWORD == '' }}
         run: |
-          if [ -z "$GOOGLE_MAPS_WEB_API_KEY" ]; then
-            echo "::warning::GOOGLE_MAPS_WEB_API_KEY não está cadastrada nos segredos do repositório."
+          [ -n "$GOOGLE_MAPS_WEB_API_KEY" ] || echo "::warning::GOOGLE_MAPS_WEB_API_KEY não está cadastrada."
+          [ -n "$GOOGLE_MAPS_ANDROID_API_KEY" ] || echo "::warning::GOOGLE_MAPS_ANDROID_API_KEY não está cadastrada."
+          [ -n "$ANDROID_KEYSTORE_BASE64" ] || echo "::warning::ANDROID_KEYSTORE_BASE64 não está cadastrado."
+          [ -n "$ANDROID_KEYSTORE_PASSWORD" ] || echo "::warning::ANDROID_KEYSTORE_PASSWORD não está cadastrado."
+          echo "::warning::Sem todos os segredos, o APK de homologação assinado não será publicado."
+
+      - name: Prepare fixed homologation certificate
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' && env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' }}
+        run: |
+          KEYSTORE_PATH="$RUNNER_TEMP/apois-passageiro-homologacao.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+
+          ACTUAL_SHA1="$(keytool -list -v \
+            -keystore "$KEYSTORE_PATH" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
+            -alias "$ANDROID_KEY_ALIAS" \
+            | sed -n 's/^[[:space:]]*SHA1:[[:space:]]*//p' \
+            | head -n 1 \
+            | tr '[:lower:]' '[:upper:]')"
+
+          if [ -z "$ACTUAL_SHA1" ]; then
+            echo "::error::Não foi possível ler a SHA-1 do certificado de homologação."
+            exit 1
           fi
-          if [ -z "$GOOGLE_MAPS_ANDROID_API_KEY" ]; then
-            echo "::warning::GOOGLE_MAPS_ANDROID_API_KEY não está cadastrada nos segredos do repositório."
+
+          if [ "$ACTUAL_SHA1" != "$EXPECTED_ANDROID_SIGNING_SHA1" ]; then
+            echo "::error::A SHA-1 do keystore não corresponde ao certificado cadastrado no Google Cloud."
+            exit 1
           fi
-          echo "::warning::O APK compilou apenas para validação e não será publicado como artefato de homologação."
+
+          echo "Certificado de homologação validado: $ACTUAL_SHA1"
+
+      - name: Build and sign homologation APK
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' && env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' }}
+        working-directory: android
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+          KEYSTORE_PATH="$RUNNER_TEMP/apois-passageiro-homologacao.jks"
+          UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+          SIGNED_APK="app/build/outputs/apk/release/APOIS-Passageiro-Homologacao.apk"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+
+          if [ ! -f "$UNSIGNED_APK" ]; then
+            echo "::error::APK release não assinado não foi encontrado."
+            exit 1
+          fi
+          if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
+            echo "::error::apksigner não encontrado no Android SDK."
+            exit 1
+          fi
+
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE_PATH" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --out "$SIGNED_APK" \
+            "$UNSIGNED_APK"
+
+          "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK"
 
       - name: Publish homologation APK
-        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' && env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_KEYSTORE_PASSWORD != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: APOIS-Passageiro-Homologacao
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/APOIS-Passageiro-Homologacao.apk
           if-no-files-found: error
           retention-days: 14
 
