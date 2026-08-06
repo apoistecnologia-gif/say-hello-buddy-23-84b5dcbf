@@ -5,9 +5,17 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { PrimaryButton } from "@/components/app/PrimaryButton";
 import { useAuth } from "@/hooks/use-auth";
 
-const PUBLIC_PATHS = ["/", "/login", "/cadastro", "/recuperar-senha", "/redefinir-senha"];
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/cadastro",
+  "/recuperar-senha",
+  "/redefinir-senha",
+  "/termos",
+  "/privacidade",
+];
 const PUBLIC_PREFIXES = ["/acompanhar/"];
-const AUTHENTICATED_PUBLIC_PATHS = ["/redefinir-senha"];
+const AUTHENTICATED_PUBLIC_PATHS = ["/redefinir-senha", "/termos", "/privacidade"];
 const AUTHENTICATED_PUBLIC_PREFIXES = ["/acompanhar/"];
 
 const matchesPath = (pathname: string, allowedPath: string) => {
