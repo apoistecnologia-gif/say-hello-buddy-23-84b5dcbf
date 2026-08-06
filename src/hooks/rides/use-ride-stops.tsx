@@ -9,6 +9,8 @@ interface RestorableRideStop {
   label: string;
   formattedAddress: string;
   placeId: string;
+  subLabel?: string;
+  source?: RideStop["source"];
 }
 
 interface RideStopsContextType {
@@ -143,8 +145,10 @@ export const RideStopsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       latitude: item.latitude,
       longitude: item.longitude,
       label: item.label,
+      subLabel: item.subLabel ?? item.formattedAddress,
       formattedAddress: item.formattedAddress,
       placeId: item.placeId,
+      source: item.source ?? "recent",
       createdAt: timestamp,
       updatedAt: timestamp,
     }));
