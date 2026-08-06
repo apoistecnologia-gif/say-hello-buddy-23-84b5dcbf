@@ -16,6 +16,9 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
+      GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
 
     steps:
       - name: Checkout
@@ -46,28 +49,33 @@ jobs:
           src/components/app/PrimaryButton.tsx
           src/components/app/PublicAuthShell.tsx
           src/components/auth/AuthGuard.tsx
+          src/components/legal/PublicLegalDocument.tsx
           src/components/BottomNavigation.tsx
           src/components/notifications/PushStatusCard.tsx
           src/hooks/use-auth.tsx
           src/hooks/use-location.tsx
           src/hooks/use-push-notifications.tsx
+          src/lib/auth/native-password-recovery.ts
           src/lib/auth/password-recovery.ts
+          src/lib/legal/legal-documents.ts
           src/routes/_public.login.tsx
           src/routes/_public.cadastro.tsx
+          src/routes/_public.privacidade.tsx
           src/routes/_public.recuperar-senha.tsx
+          src/routes/_public.redefinir-senha.tsx
+          src/routes/_public.termos.tsx
           src/routes/_authenticated.perfil.tsx
 
       - name: Build web
-        run: bun run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_validation_placeholder
-          VITE_GOOGLE_MAPS_API_KEY: ci_validation_placeholder
-          VITE_PUBLIC_APP_URL: https://passageiro.apois.example
+        run: |
+          export VITE_GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_WEB_API_KEY:-ci_validation_placeholder}"
+          export VITE_PUBLIC_APP_URL="https://passageiro.apois.example"
+          bun run build
 
       - name: Sync Capacitor Android
         run: |
-          printf 'GOOGLE_MAPS_API_KEY=ci_validation_placeholder\n' > android/local.properties
+          ANDROID_MAPS_KEY="${GOOGLE_MAPS_ANDROID_API_KEY:-ci_validation_placeholder}"
+          printf 'GOOGLE_MAPS_API_KEY=%s\n' "$ANDROID_MAPS_KEY" > android/local.properties
           bunx cap sync android
 
       - name: Build Android debug APK
@@ -76,7 +84,13 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
+      - name: Explain missing homologation key
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY == '' }}
+        run: |
+          echo "::warning::O APK compilou apenas para validação. O artefato não será publicado enquanto GOOGLE_MAPS_WEB_API_KEY não estiver cadastrado nos segredos do repositório."
+
       - name: Publish homologation APK
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: APOIS-Passageiro-Homologacao
