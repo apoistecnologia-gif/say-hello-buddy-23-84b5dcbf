@@ -83,6 +83,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   }, [driverLocation]);
 
   const initializeMap = useCallback(async (): Promise<void> => {
+    console.log("[PassengerMap] Initializing map...", { reloadKey, hasElement: !!mapElementRef.current });
     if (!mapElementRef.current) return;
     setStatus("loading");
 
@@ -98,6 +99,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       };
 
       const mapsLibrary = (await googleMapsLoader.importLibrary("maps")) as any;
+      console.log("[PassengerMap] Google Maps library loaded");
       if (!mapElementRef.current) return;
 
       mapRef.current = new mapsLibrary.Map(mapElementRef.current, {
@@ -123,6 +125,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       });
       if (containerRef.current) resizeObserverRef.current.observe(containerRef.current);
 
+      console.log("[PassengerMap] Map instance created successfully");
       setStatus("ready");
     } catch (error) {
       console.error("[PassengerMap] Google Maps initialization failed", {
@@ -130,7 +133,8 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
         code: error instanceof Error ? error.message : "maps_unknown_error",
       });
       const code = error instanceof Error ? error.message : "";
-      setStatus(code.includes("configuration_missing") ? "configuration-error" : "api-error");
+      const isConfigError = code.includes("configuration_missing") || code.includes("api_key_empty");
+      setStatus(isConfigError ? "configuration-error" : "api-error");
     }
   }, [isStatic, origin, reloadKey]);
 

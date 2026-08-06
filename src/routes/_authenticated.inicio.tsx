@@ -198,6 +198,7 @@ function InicioPage() {
         isOpen={true} 
         onClose={() => {}} 
         preventClose={true}
+        showBackdrop={false}
       >
         <div className="w-full">
           {hasDestination || route ? (

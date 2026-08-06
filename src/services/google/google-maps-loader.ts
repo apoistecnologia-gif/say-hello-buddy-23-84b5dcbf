@@ -26,7 +26,8 @@ class GoogleMapsLoader {
 
     const rawApiKey = import.meta.env["VITE_GOOGLE_MAPS_API_KEY"];
     if (typeof rawApiKey !== "string" || rawApiKey.trim().length === 0) {
-      throw new Error("maps_configuration_missing");
+      console.error("[GoogleMapsLoader] VITE_GOOGLE_MAPS_API_KEY is missing or empty");
+      throw new Error("api_key_empty");
     }
     const apiKey = rawApiKey.trim();
 
