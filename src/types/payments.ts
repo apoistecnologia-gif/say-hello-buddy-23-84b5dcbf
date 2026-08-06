@@ -30,10 +30,23 @@ export interface WalletSummary extends PassengerWallet {
 
 export interface CancellationFee {
   id: string;
+  rideId: string | null;
   amount: number;
   reason: string;
-  status: "pending" | "paid";
+  status: string;
   createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CancellationFeePixCharge {
+  ok: true;
+  reused: boolean;
+  feeId: string;
+  amount: number;
+  qrCode: string;
+  qrCodeBase64: string | null;
+  ticketUrl: string | null;
+  expiresAt: string | null;
 }
 
 export interface CheckoutEstimate {
