@@ -8,13 +8,6 @@ on:
         required: true
         default: "7"
         type: string
-  issue_comment:
-    types:
-      - created
-
-concurrency:
-  group: validate-apois-passageiro
-  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -22,13 +15,6 @@ permissions:
 
 jobs:
   validate:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event.issue.pull_request &&
-        github.actor == github.repository_owner &&
-        startsWith(github.event.comment.body, '/validate-apois')
-      )
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -41,9 +27,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const pullNumber = context.eventName === 'workflow_dispatch'
-              ? Number('${{ inputs.pr_number }}')
-              : context.issue.number;
+            const pullNumber = Number('${{ inputs.pr_number }}');
 
             if (!Number.isInteger(pullNumber) || pullNumber <= 0) {
               core.setFailed('Número do pull request inválido.');
@@ -98,7 +82,7 @@ jobs:
         run: bun run typecheck
 
       - name: Check Supabase push function
-        run: deno check supabase/functions/send-ride-push/index.ts
+        run: deno check --node-modules-dir=auto supabase/functions/send-ride-push/index.ts
 
       - name: Validate Firebase passenger client
         run: |
