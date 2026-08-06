@@ -19,6 +19,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { RideRatingCard } from "@/components/rides/RideRatingCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useRepeatRide } from "@/hooks/rides/use-repeat-ride";
 import { rideHistoryService } from "@/services/rides/ride-history-service";
@@ -419,6 +420,17 @@ function RideDetailsPage() {
             </div>
           ) : null}
         </section>
+
+        {ride.status === "finalizada" && ride.passengerRating === null ? (
+          <div className="mx-auto mt-5 max-w-xl print:hidden">
+            <RideRatingCard
+              rideId={ride.id}
+              driverName={ride.driverName}
+              currentRating={ride.passengerRating}
+              onRated={() => loadRide()}
+            />
+          </div>
+        ) : null}
 
         <div className="mx-auto mt-5 grid max-w-xl gap-3 print:hidden">
           {isActive ? (
