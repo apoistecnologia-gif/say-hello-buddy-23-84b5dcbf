@@ -4,8 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 interface RideSafetyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  driverName?: string;
-  driverPhone?: string;
+  driverName?: string | undefined;
+  driverPhone?: string | undefined;
   onShareRide: () => void | Promise<void>;
 }
 
