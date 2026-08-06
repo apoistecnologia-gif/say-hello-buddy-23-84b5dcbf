@@ -1,62 +1,54 @@
+import type { ReactNode } from "react";
 import { useEffect } from "react";
-import { useNavigate, useLocation } from "@tanstack/react-router";
-import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useAuth } from "@/hooks/use-auth";
 
-const PUBLIC_PATHS = [
-  "/login",
-  "/cadastro",
-  "/recuperar-senha",
-  "/redefinir-senha",
-  "/_public/login",
-  "/_public/cadastro",
-  "/_public/recuperar-senha",
-  "/_public/redefinir-senha",
-];
+const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/redefinir-senha"];
+const AUTHENTICATED_PUBLIC_PATHS = ["/redefinir-senha"];
 
-export function AuthGuard({ children }: { children: React.ReactNode }) {
+const matchesPath = (pathname: string, allowedPath: string) =>
+  pathname === allowedPath || pathname === `/_public${allowedPath}`;
+
+export function AuthGuard({ children }: { children: ReactNode }) {
   const { authState } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isPublicPath = PUBLIC_PATHS.some(
-    (path) => location.pathname === path || location.pathname === `/_public${path}`,
+  const isPublicPath = PUBLIC_PATHS.some((path) => matchesPath(location.pathname, path));
+  const canRenderWhileAuthenticated = AUTHENTICATED_PUBLIC_PATHS.some((path) =>
+    matchesPath(location.pathname, path),
   );
 
   useEffect(() => {
-    // Only redirect if we are certain about the state
     if (authState === "initializing") return;
 
     if (authState === "unauthenticated" && !isPublicPath) {
-      console.log("[AuthGuard] Private route access without auth, redirecting to /login");
-      navigate({ to: "/login" });
-    } else if (authState === "authenticated" && isPublicPath) {
-      console.log("[AuthGuard] Public route access with auth, redirecting to /inicio");
-      navigate({ to: "/inicio" });
+      console.info("[AuthGuard] Private route access without session");
+      void navigate({ to: "/login", replace: true });
+      return;
     }
-  }, [authState, isPublicPath, navigate, location.pathname]);
 
-  // Public routes always render immediately
-  if (isPublicPath) {
-    return <>{children}</>;
-  }
+    if (authState === "authenticated" && isPublicPath && !canRenderWhileAuthenticated) {
+      console.info("[AuthGuard] Authenticated user leaving public auth route");
+      void navigate({ to: "/inicio", replace: true });
+    }
+  }, [authState, canRenderWhileAuthenticated, isPublicPath, navigate]);
 
-  // Private routes: wait for initialization
+  if (isPublicPath) return <>{children}</>;
+
   if (authState === "initializing") {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-6 text-center">
-        <Loader2 className="animate-spin text-apois-yellow mb-4" size={32} />
-        <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">
-          Verificando autenticação...
-        </p>
+      <div className="app-viewport flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-white">
+        <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-apois-yellow/20 bg-apois-yellow/10">
+          <Loader2 className="animate-spin text-apois-yellow" size={28} />
+        </div>
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-zinc-500">Verificando sua conta</p>
       </div>
     );
   }
 
-  // If not authenticated, we show nothing (useEffect will redirect)
-  if (authState !== "authenticated") {
-    return null;
-  }
+  if (authState !== "authenticated") return null;
 
   return <>{children}</>;
 }
