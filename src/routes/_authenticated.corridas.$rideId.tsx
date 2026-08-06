@@ -20,8 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { useDestination } from "@/hooks/use-destination";
-import { useRideStops } from "@/hooks/rides/use-ride-stops";
+import { useRepeatRide } from "@/hooks/rides/use-repeat-ride";
 import { rideHistoryService } from "@/services/rides/ride-history-service";
 import type { RideHistoryItem } from "@/types/rides/ride-history";
 import { cn, formatCurrency } from "@/lib/utils";
@@ -100,14 +99,19 @@ function paymentLabel(paymentMethod: string): string {
   return labels[paymentMethod] ?? paymentMethod;
 }
 
+async function copyText(text: string): Promise<void> {
+  if (!navigator.clipboard?.writeText) throw new Error("clipboard_unavailable");
+  await navigator.clipboard.writeText(text);
+}
+
 function RideDetailsPage() {
   const { rideId } = Route.useParams();
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { setDestination } = useDestination();
-  const { clearStops } = useRideStops();
+  const repeatRide = useRepeatRide();
   const [ride, setRide] = useState<RideHistoryItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRepeating, setIsRepeating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadRide = useCallback(async () => {
@@ -144,17 +148,17 @@ function RideDetailsPage() {
     ].join("\n");
   }, [ride]);
 
-  const repeatRide = async (): Promise<void> => {
-    if (!ride) return;
-    clearStops();
-    setDestination({
-      label: ride.destinationName,
-      formattedAddress: ride.destinationName,
-      latitude: ride.destination.lat,
-      longitude: ride.destination.lng,
-      placeId: `ride-history:${ride.id}:destination`,
-    });
-    await navigate({ to: "/inicio" });
+  const handleRepeatRide = async (): Promise<void> => {
+    if (!ride || isRepeating) return;
+    setIsRepeating(true);
+    try {
+      await repeatRide(ride);
+    } catch (caughtError: unknown) {
+      console.error("[RideDetailsPage] Repeat ride failed", caughtError);
+      toast.error("Não foi possível preparar esta corrida novamente.");
+    } finally {
+      setIsRepeating(false);
+    }
   };
 
   const shareReceipt = async (): Promise<void> => {
@@ -167,7 +171,7 @@ function RideDetailsPage() {
         });
         return;
       }
-      await navigator.clipboard.writeText(receiptText);
+      await copyText(receiptText);
       toast.success("Comprovante copiado.");
     } catch (caughtError: unknown) {
       if (caughtError instanceof DOMException && caughtError.name === "AbortError") return;
@@ -209,6 +213,12 @@ function RideDetailsPage() {
   const StatusIcon = status.icon;
   const totalValue = ride.finalPrice ?? ride.estimatedPrice;
   const finishedAt = ride.completedAt ?? ride.cancelledAt ?? ride.updatedAt;
+  const isActive = [
+    "procurar_motorista",
+    "motorista_a_caminho",
+    "motorista_chegou",
+    "em_viagem",
+  ].includes(ride.status);
 
   return (
     <div className="app-screen min-h-[100dvh] bg-black text-white print:bg-white print:text-black">
@@ -238,7 +248,12 @@ function RideDetailsPage() {
                 Comprovante de corrida
               </p>
             </div>
-            <div className={cn("flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-black", status.className)}>
+            <div
+              className={cn(
+                "flex items-center gap-2 rounded-full border px-3 py-2 text-[10px] font-black",
+                status.className,
+              )}
+            >
               <StatusIcon size={15} />
               {status.label}
             </div>
@@ -249,13 +264,16 @@ function RideDetailsPage() {
               Identificação
             </p>
             <div className="mt-2 flex items-center justify-between gap-3">
-              <code className="truncate text-xs font-bold text-zinc-300 print:text-zinc-700">{ride.id}</code>
+              <code className="truncate text-xs font-bold text-zinc-300 print:text-zinc-700">
+                {ride.id}
+              </code>
               <button
                 type="button"
                 aria-label="Copiar identificação da corrida"
                 onClick={() => {
-                  void navigator.clipboard.writeText(ride.id);
-                  toast.success("Identificação copiada.");
+                  void copyText(ride.id)
+                    .then(() => toast.success("Identificação copiada."))
+                    .catch(() => toast.error("Não foi possível copiar a identificação."));
                 }}
                 className="app-pressable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400 print:hidden"
               >
@@ -267,8 +285,12 @@ function RideDetailsPage() {
           <div className="mt-6 grid grid-cols-[18px_1fr] gap-x-3 gap-y-5">
             <span className="mt-1 h-3 w-3 rounded-full bg-apois-success" />
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Origem</p>
-              <p className="mt-1 text-sm font-bold text-zinc-200 print:text-zinc-900">{ride.originName}</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                Origem
+              </p>
+              <p className="mt-1 text-sm font-bold text-zinc-200 print:text-zinc-900">
+                {ride.originName}
+              </p>
             </div>
 
             {ride.intermediates.map((stop, index) => (
@@ -289,16 +311,32 @@ function RideDetailsPage() {
 
             <MapPin className="-ml-1 text-apois-yellow" size={20} />
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Destino</p>
-              <p className="mt-1 text-sm font-black text-white print:text-black">{ride.destinationName}</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                Destino
+              </p>
+              <p className="mt-1 text-sm font-black text-white print:text-black">
+                {ride.destinationName}
+              </p>
             </div>
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-3">
             <InfoCard icon={CalendarClock} label="Solicitada em" value={formatDate(ride.createdAt)} />
             <InfoCard icon={Clock3} label="Encerrada em" value={formatDate(finishedAt)} />
-            <InfoCard icon={RouteIcon} label="Distância" value={ride.distanceKm !== null ? `${ride.distanceKm.toFixed(1).replace(".", ",")} km` : "Não informada"} />
-            <InfoCard icon={Clock3} label="Duração" value={ride.durationMin !== null ? `${Math.round(ride.durationMin)} min` : "Não informada"} />
+            <InfoCard
+              icon={RouteIcon}
+              label="Distância"
+              value={
+                ride.distanceKm !== null
+                  ? `${ride.distanceKm.toFixed(1).replace(".", ",")} km`
+                  : "Não informada"
+              }
+            />
+            <InfoCard
+              icon={Clock3}
+              label="Duração"
+              value={ride.durationMin !== null ? `${Math.round(ride.durationMin)} min` : "Não informada"}
+            />
             <InfoCard icon={Car} label="Categoria" value={categoryLabel(ride.category)} />
             <InfoCard icon={CreditCard} label="Pagamento" value={paymentLabel(ride.paymentMethod)} />
           </div>
@@ -310,7 +348,9 @@ function RideDetailsPage() {
                   <UserRound size={20} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Motorista</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                    Motorista
+                  </p>
                   <p className="mt-1 truncate text-sm font-black text-white print:text-black">
                     {ride.driverName ?? "Não informado"}
                   </p>
@@ -339,8 +379,12 @@ function RideDetailsPage() {
 
           {ride.cancellationReason ? (
             <section className="mt-6 rounded-2xl border border-red-500/20 bg-red-500/10 p-4">
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-red-300">Cancelamento</p>
-              <p className="mt-2 text-sm font-bold leading-6 text-red-100">{ride.cancellationReason}</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-red-300">
+                Cancelamento
+              </p>
+              <p className="mt-2 text-sm font-bold leading-6 text-red-100">
+                {ride.cancellationReason}
+              </p>
               {ride.cancellationFee && ride.cancellationFee > 0 ? (
                 <p className="mt-2 text-xs font-black text-red-300">
                   Multa registrada: {formatCurrency(ride.cancellationFee)}
@@ -351,8 +395,12 @@ function RideDetailsPage() {
 
           <div className="mt-6 flex items-end justify-between border-t border-white/8 pt-5 print:border-zinc-200">
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-600">Valor total</p>
-              <p className="mt-1 text-xs font-bold text-zinc-500">{paymentLabel(ride.paymentMethod)}</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-600">
+                Valor total
+              </p>
+              <p className="mt-1 text-xs font-bold text-zinc-500">
+                {paymentLabel(ride.paymentMethod)}
+              </p>
             </div>
             <p className="text-3xl font-black tracking-[-0.05em] text-white print:text-black">
               {formatCurrency(totalValue)}
@@ -361,7 +409,9 @@ function RideDetailsPage() {
 
           {ride.passengerRating !== null ? (
             <div className="mt-5 flex items-center justify-between rounded-2xl bg-apois-yellow/10 px-4 py-3">
-              <span className="text-xs font-black text-zinc-300 print:text-zinc-700">Sua avaliação</span>
+              <span className="text-xs font-black text-zinc-300 print:text-zinc-700">
+                Sua avaliação
+              </span>
               <span className="flex items-center gap-1 text-sm font-black text-apois-yellow">
                 <Star size={15} fill="currentColor" />
                 {ride.passengerRating.toFixed(0)} de 5
@@ -371,14 +421,30 @@ function RideDetailsPage() {
         </section>
 
         <div className="mx-auto mt-5 grid max-w-xl gap-3 print:hidden">
-          <button
-            type="button"
-            onClick={() => void repeatRide()}
-            className="app-pressable flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-sm font-black text-black"
-          >
-            <RotateCcw size={18} />
-            Repetir corrida para este destino
-          </button>
+          {isActive ? (
+            <button
+              type="button"
+              onClick={() =>
+                void navigate({
+                  to: "/corrida/$rideId",
+                  params: { rideId: ride.id },
+                })
+              }
+              className="app-pressable flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-sm font-black text-black"
+            >
+              Acompanhar corrida em andamento
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void handleRepeatRide()}
+              disabled={isRepeating}
+              className="app-pressable flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-sm font-black text-black disabled:opacity-60"
+            >
+              <RotateCcw className={isRepeating ? "animate-spin" : ""} size={18} />
+              {isRepeating ? "Preparando corrida..." : "Repetir corrida completa"}
+            </button>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
@@ -415,8 +481,12 @@ function InfoCard({
   return (
     <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4 print:border-zinc-200">
       <Icon className="text-apois-yellow" size={17} />
-      <p className="mt-3 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600">{label}</p>
-      <p className="mt-1 text-xs font-black leading-5 text-zinc-200 print:text-zinc-800">{value}</p>
+      <p className="mt-3 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600">
+        {label}
+      </p>
+      <p className="mt-1 text-xs font-black leading-5 text-zinc-200 print:text-zinc-800">
+        {value}
+      </p>
     </div>
   );
 }
