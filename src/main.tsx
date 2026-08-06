@@ -4,6 +4,7 @@ import { RouterProvider, createRouter, createHashHistory } from "@tanstack/react
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { registerNativePasswordRecoveryHandler } from "@/lib/auth/native-password-recovery";
 import "./styles.css";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,20 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
+
+void registerNativePasswordRecoveryHandler({
+  onReady: async () => {
+    await router.navigate({ to: "/redefinir-senha", replace: true });
+  },
+  onError: async (reason) => {
+    console.warn("[NativePasswordRecovery] Link rejected", { reason });
+    await router.navigate({ to: "/redefinir-senha", replace: true });
+  },
+}).catch((error) => {
+  console.error("[NativePasswordRecovery] Listener initialization failed", {
+    message: error instanceof Error ? error.message : "unknown_error",
+  });
+});
 
 const Normalizer = () => {
   const { authState } = useAuth();
