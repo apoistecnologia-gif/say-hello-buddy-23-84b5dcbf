@@ -30,6 +30,16 @@ export interface RideVehicle {
   plate: string;
 }
 
+export interface ActiveRideIntermediate {
+  lat: number;
+  lng: number;
+  label?: string;
+  address?: string;
+  place_id?: string;
+  source?: string;
+  order?: number;
+}
+
 export interface ActiveRide {
   id: string;
   passenger_id: string;
@@ -40,38 +50,34 @@ export interface ActiveRide {
   destination_name: string;
   origin: { lat: number; lng: number };
   destination: { lat: number; lng: number };
-  intermediates?: any[];
+  intermediates?: ActiveRideIntermediate[];
   estimated_price: number;
   final_price?: number;
+  distance_km?: number;
+  duration_min?: number;
   payment_method: string;
-  service_details?: any;
+  service_details?: Record<string, unknown>;
   encoded_polyline?: string;
 
-  // Driver Info (Snapshots from ride or joined)
   driver_name?: string;
   driver_photo?: string;
   driver_rating?: number;
   driver_phone?: string;
 
-  // Vehicle Info
   driver_vehicle_model?: string;
   driver_vehicle_color?: string;
   driver_vehicle_plate?: string;
 
-  // Driver Realtime Location
   driver_latitude?: number;
   driver_longitude?: number;
   driver_heading?: number;
 
-  // Security
   security_code?: string;
 
-  // Cancellation
   cancellation_reason?: string;
   cancelled_by?: string;
   cancellation_fee?: number;
 
-  // Timeline
   created_at: string;
   accepted_at?: string;
   driver_arrived_at?: string;
@@ -79,7 +85,6 @@ export interface ActiveRide {
   completed_at?: string;
   updated_at: string;
 
-  // Extras
   share_token?: string;
   passenger_rating?: number;
 }
