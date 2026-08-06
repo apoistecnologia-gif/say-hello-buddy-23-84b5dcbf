@@ -10,8 +10,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useDestination } from "@/hooks/use-destination";
-import { useRideStops } from "@/hooks/rides/use-ride-stops";
+import { useRepeatRide } from "@/hooks/rides/use-repeat-ride";
 import { rideHistoryService } from "@/services/rides/ride-history-service";
 import type {
   RideHistoryFilter,
@@ -108,12 +107,12 @@ function formatRideDate(dateValue: string): string {
 function CorridasPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { setDestination } = useDestination();
-  const { clearStops } = useRideStops();
+  const repeatRide = useRepeatRide();
   const [rides, setRides] = useState<RideHistoryItem[]>([]);
   const [filter, setFilter] = useState<RideHistoryFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [repeatingRideId, setRepeatingRideId] = useState<string | null>(null);
 
   const loadRides = useCallback(async () => {
     if (!profile?.id) return;
@@ -148,16 +147,14 @@ function CorridasPage() {
     return Array.from(groups.entries());
   }, [filteredRides]);
 
-  const repeatRide = async (ride: RideHistoryItem): Promise<void> => {
-    clearStops();
-    setDestination({
-      label: ride.destinationName,
-      formattedAddress: ride.destinationName,
-      latitude: ride.destination.lat,
-      longitude: ride.destination.lng,
-      placeId: `ride-history:${ride.id}:destination`,
-    });
-    await navigate({ to: "/inicio" });
+  const handleRepeatRide = async (ride: RideHistoryItem): Promise<void> => {
+    if (repeatingRideId) return;
+    setRepeatingRideId(ride.id);
+    try {
+      await repeatRide(ride);
+    } finally {
+      setRepeatingRideId(null);
+    }
   };
 
   return (
@@ -189,9 +186,7 @@ function CorridasPage() {
               onClick={() => setFilter(item.value)}
               className={cn(
                 "app-pressable min-h-10 rounded-xl px-2 text-xs font-black transition-colors",
-                filter === item.value
-                  ? "bg-apois-yellow text-black"
-                  : "text-zinc-500",
+                filter === item.value ? "bg-apois-yellow text-black" : "text-zinc-500",
               )}
             >
               {item.label}
@@ -238,6 +233,7 @@ function CorridasPage() {
                 {groupRides.map((ride) => {
                   const cancelled = isCancelled(ride);
                   const value = ride.finalPrice ?? ride.estimatedPrice;
+                  const isRepeating = repeatingRideId === ride.id;
                   return (
                     <article
                       key={ride.id}
@@ -311,11 +307,12 @@ function CorridasPage() {
                       <div className="mt-4 grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() => void repeatRide(ride)}
-                          className="app-pressable flex min-h-11 items-center justify-center gap-2 rounded-xl bg-apois-yellow text-xs font-black text-black"
+                          onClick={() => void handleRepeatRide(ride)}
+                          disabled={Boolean(repeatingRideId)}
+                          className="app-pressable flex min-h-11 items-center justify-center gap-2 rounded-xl bg-apois-yellow text-xs font-black text-black disabled:opacity-60"
                         >
-                          <RotateCcw size={15} />
-                          Repetir corrida
+                          <RotateCcw className={isRepeating ? "animate-spin" : ""} size={15} />
+                          {isRepeating ? "Preparando..." : "Repetir corrida"}
                         </button>
                         <button
                           type="button"
