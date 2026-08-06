@@ -23,7 +23,7 @@ const requirementLabels: Record<string, string> = {
   pricing_invalid: "Aguarde a validação do valor ou escolha outra categoria.",
   payment_method_missing: "Escolha uma forma de pagamento.",
   passenger_debt_block: "Regularize a pendência da carteira.",
-  insufficient_balance: "O saldo da carteira é insuficiente para esta corrida.",
+  insufficient_balance: "O saldo disponível da carteira é insuficiente para esta corrida.",
 };
 
 export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -52,8 +52,8 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
     }
 
     if (selectedMethod === "wallet" && estimate) {
-      const balance = wallet?.balance ?? 0;
-      if (balance < estimate.estimatedPrice) {
+      const availableBalance = wallet?.available_balance ?? 0;
+      if (availableBalance < estimate.estimatedPrice) {
         blockingReasons.push("insufficient_balance");
       }
     }
@@ -80,7 +80,7 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
     selectedCategory,
     selectedMethod,
     user,
-    wallet?.balance,
+    wallet?.available_balance,
     walletState,
   ]);
 
