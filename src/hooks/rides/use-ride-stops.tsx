@@ -3,6 +3,14 @@ import { v4 as uuidv4 } from "uuid";
 import { useDestination } from "@/hooks/use-destination";
 import type { RideStop, RideStopId } from "@/types/rides/stops";
 
+interface RestorableRideStop {
+  latitude: number;
+  longitude: number;
+  label: string;
+  formattedAddress: string;
+  placeId: string;
+}
+
 interface RideStopsContextType {
   stops: RideStop[];
   orderedStops: RideStop[];
@@ -12,6 +20,7 @@ interface RideStopsContextType {
   removeStop: (id: RideStopId) => void;
   reorderStops: (newStops: RideStop[]) => void;
   clearStops: () => void;
+  restoreStops: (items: RestorableRideStop[]) => void;
   validateStops: () => string | null;
   confirmStops: () => void;
   cancelEditing: () => void;
@@ -126,6 +135,25 @@ export const RideStopsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setIsEditingState(false);
   }, []);
 
+  const restoreStops = useCallback((items: RestorableRideStop[]) => {
+    const timestamp = new Date().toISOString();
+    const restored = items.slice(0, MAX_STOPS).map((item, index): RideStop => ({
+      id: uuidv4(),
+      order: index,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      label: item.label,
+      formattedAddress: item.formattedAddress,
+      placeId: item.placeId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }));
+
+    setStops(restored);
+    setTempStops(restored);
+    setIsEditingState(false);
+  }, []);
+
   const setIsEditing = useCallback(
     (value: boolean) => {
       if (value) {
@@ -150,6 +178,7 @@ export const RideStopsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         removeStop,
         reorderStops,
         clearStops,
+        restoreStops,
         validateStops,
         confirmStops,
         cancelEditing,
