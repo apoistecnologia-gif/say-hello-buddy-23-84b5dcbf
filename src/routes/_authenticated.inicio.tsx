@@ -48,9 +48,9 @@ const getGreeting = () => {
   return "Boa noite";
 };
 
-const getFirstName = (name: string | null | undefined) => {
+const getFirstName = (name: string | null | undefined): string => {
   const normalized = name?.trim();
-  return normalized ? normalized.split(/\s+/)[0] : "Passageiro";
+  return normalized?.split(/\s+/)[0] ?? "Passageiro";
 };
 
 function HomeWorkShortcuts() {
