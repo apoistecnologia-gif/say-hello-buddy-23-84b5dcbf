@@ -54,8 +54,8 @@ function readCoordinate(
 ): { lat: number; lng: number } {
   const parsed = parseJson(record[key]);
   if (isRecord(parsed)) {
-    const lat = Number(parsed.lat);
-    const lng = Number(parsed.lng);
+    const lat = Number(parsed["lat"]);
+    const lng = Number(parsed["lng"]);
     if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
   }
 
@@ -72,19 +72,28 @@ function readIntermediates(value: unknown): ActiveRideIntermediate[] {
   return parsed
     .map((item, index) => {
       if (!isRecord(item)) return null;
-      const lat = Number(item.lat);
-      const lng = Number(item.lng);
+      const lat = Number(item["lat"]);
+      const lng = Number(item["lng"]);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
+      const orderValue = Number(item["order"]);
       const stop: ActiveRideIntermediate = {
         lat,
         lng,
-        order: Number.isFinite(Number(item.order)) ? Number(item.order) : index,
+        order: Number.isFinite(orderValue) ? orderValue : index,
       };
-      if (typeof item.label === "string" && item.label.trim()) stop.label = item.label;
-      if (typeof item.address === "string" && item.address.trim()) stop.address = item.address;
-      if (typeof item.place_id === "string" && item.place_id.trim()) stop.place_id = item.place_id;
-      if (typeof item.source === "string" && item.source.trim()) stop.source = item.source;
+      if (typeof item["label"] === "string" && item["label"].trim()) {
+        stop.label = item["label"];
+      }
+      if (typeof item["address"] === "string" && item["address"].trim()) {
+        stop.address = item["address"];
+      }
+      if (typeof item["place_id"] === "string" && item["place_id"].trim()) {
+        stop.place_id = item["place_id"];
+      }
+      if (typeof item["source"] === "string" && item["source"].trim()) {
+        stop.source = item["source"];
+      }
       return stop;
     })
     .filter((item): item is ActiveRideIntermediate => item !== null)
@@ -112,7 +121,7 @@ function normalizeRide(value: unknown): RideHistoryItem {
     destinationName: readString(value, "destination_name", "Destino"),
     origin: readCoordinate(value, "origin"),
     destination: readCoordinate(value, "destination"),
-    intermediates: readIntermediates(value.intermediates),
+    intermediates: readIntermediates(value["intermediates"]),
     estimatedPrice: readNumber(value, "estimated_price"),
     finalPrice: readNullableNumber(value, "final_price"),
     distanceKm: readNullableNumber(value, "distance_km"),
