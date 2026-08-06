@@ -15,38 +15,38 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function parsePixCharge(value: unknown): CancellationFeePixCharge {
-  if (!isRecord(value) || value.ok !== true) {
+  if (!isRecord(value) || value["ok"] !== true) {
     const message =
-      isRecord(value) && typeof value.message === "string"
-        ? value.message
+      isRecord(value) && typeof value["message"] === "string"
+        ? value["message"]
         : "Não foi possível gerar o Pix desta multa.";
     throw new Error(message);
   }
 
-  const feeId = typeof value.feeId === "string" ? value.feeId : "";
-  const amount = Number(value.amount);
-  const qrCode = typeof value.qrCode === "string" ? value.qrCode : "";
+  const feeId = typeof value["feeId"] === "string" ? value["feeId"] : "";
+  const amount = Number(value["amount"]);
+  const qrCode = typeof value["qrCode"] === "string" ? value["qrCode"] : "";
   if (!feeId || !Number.isFinite(amount) || amount <= 0 || !qrCode) {
     throw new Error("A cobrança Pix retornou dados incompletos.");
   }
 
   return {
     ok: true,
-    reused: value.reused === true,
+    reused: value["reused"] === true,
     feeId,
     amount,
     qrCode,
     qrCodeBase64:
-      typeof value.qrCodeBase64 === "string" && value.qrCodeBase64.trim()
-        ? value.qrCodeBase64
+      typeof value["qrCodeBase64"] === "string" && value["qrCodeBase64"].trim()
+        ? value["qrCodeBase64"]
         : null,
     ticketUrl:
-      typeof value.ticketUrl === "string" && value.ticketUrl.trim()
-        ? value.ticketUrl
+      typeof value["ticketUrl"] === "string" && value["ticketUrl"].trim()
+        ? value["ticketUrl"]
         : null,
     expiresAt:
-      typeof value.expiresAt === "string" && value.expiresAt.trim()
-        ? value.expiresAt
+      typeof value["expiresAt"] === "string" && value["expiresAt"].trim()
+        ? value["expiresAt"]
         : null,
   };
 }
