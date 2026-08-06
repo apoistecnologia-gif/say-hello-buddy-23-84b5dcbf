@@ -7,6 +7,14 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const FIREBASE_B64 = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_B64") ?? "";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const RESERVED_DATA_KEYS = new Set(["event", "url", "ride_id"]);
+const ALLOWED_STATIC_PATHS = new Set([
+  "/inicio",
+  "/corridas",
+  "/carteira",
+  "/perfil",
+  "/notificacoes",
+]);
 
 type AdminClient = ReturnType<typeof createClient>;
 
@@ -24,12 +32,13 @@ type PushBody = {
   body?: string;
   url?: string;
   ride_id?: string;
-  data?: Record<string, string>;
+  data?: Record<string, unknown>;
 };
 
 type RideRow = {
   passenger_id: string;
   driver_id: string | null;
+  accepted_driver_id: string | null;
   status: string;
 };
 
@@ -98,6 +107,41 @@ function uniqueUuids(values: unknown): string[] {
   ].slice(0, 100);
 }
 
+function normalizeFcmData(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+
+  const output: Record<string, string> = {};
+  for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>)) {
+    if (Object.keys(output).length >= 10) break;
+
+    const key = cleanText(rawKey, 64);
+    if (!key || RESERVED_DATA_KEYS.has(key)) continue;
+    if (!["string", "number", "boolean"].includes(typeof rawValue)) continue;
+
+    output[key] = cleanText(rawValue, 256);
+  }
+  return output;
+}
+
+function normalizeInternalPath(value: unknown, fallback: string): string {
+  let candidate = cleanText(value, 300);
+  if (!candidate) return fallback;
+  if (candidate.startsWith("#")) candidate = candidate.slice(1);
+  if (!candidate.startsWith("/") || candidate.startsWith("//")) return fallback;
+
+  candidate = candidate.split("?")[0]!.split("#")[0]!;
+  if (candidate.length > 1 && candidate.endsWith("/")) candidate = candidate.slice(0, -1);
+
+  if (ALLOWED_STATIC_PATHS.has(candidate)) return candidate;
+  const match = /^\/corrida\/([^/]+)$/.exec(candidate);
+  return match && UUID_PATTERN.test(match[1]!) ? candidate : fallback;
+}
+
+function clientEventPath(event: string, rideId: string): string {
+  if (event === "ride.completed" || event === "ride.cancelled") return "/corridas";
+  return `/corrida/${rideId}`;
+}
+
 function readServiceAccount(): ServiceAccount {
   if (!FIREBASE_B64) throw new Error("firebase_secret_missing");
 
@@ -153,13 +197,18 @@ async function resolveCaller(
   admin: AdminClient,
   authUserId: string,
 ): Promise<CallerIdentity> {
-  const { data: profile, error: profileError } = await admin
+  const { data: profiles, error: profileError } = await admin
     .from("users")
-    .select("id")
-    .eq("auth_user_id", authUserId)
+    .select("id,auth_user_id")
+    .or(`auth_user_id.eq.${authUserId},id.eq.${authUserId}`)
     .is("deleted_at", null)
-    .maybeSingle();
+    .limit(2);
   if (profileError) throw new Error(`caller_profile_lookup_failed:${profileError.message}`);
+
+  const profile =
+    (profiles ?? []).find((row) => String(row.auth_user_id ?? "") === authUserId) ??
+    profiles?.[0] ??
+    null;
 
   let driverId: string | null = null;
   let mobilityAdmin = false;
@@ -170,11 +219,15 @@ async function resolveCaller(
         .from("user_roles")
         .select("role")
         .eq("user_id", profile.id)
-        .eq("role", "admin")
+        .in("role", ["admin", "super_admin", "operations"])
+        .limit(1)
         .maybeSingle(),
     ]);
     if (driverResult.error) {
       throw new Error(`caller_driver_lookup_failed:${driverResult.error.message}`);
+    }
+    if (roleResult.error) {
+      throw new Error(`caller_role_lookup_failed:${roleResult.error.message}`);
     }
     driverId = driverResult.data?.id ?? null;
     mobilityAdmin = Boolean(roleResult.data);
@@ -185,6 +238,7 @@ async function resolveCaller(
     .select("role")
     .eq("user_id", authUserId)
     .eq("role", "administrator")
+    .limit(1)
     .maybeSingle();
 
   return {
@@ -196,8 +250,8 @@ async function resolveCaller(
 }
 
 /**
- * Aceita IDs operacionais de public.users e, por compatibilidade controlada,
- * converte UUIDs de auth.users ou drivers para o respectivo public.users.id.
+ * Aceita IDs de public.users, auth.users ou public.drivers e retorna somente
+ * perfis operacionais ativos de public.users.
  */
 async function normalizeRecipientIds(
   admin: AdminClient,
@@ -216,27 +270,25 @@ async function normalizeRecipientIds(
   if (authUsers.error) throw new Error(`recipient_auth_lookup_failed:${authUsers.error.message}`);
   if (driverRows.error) throw new Error(`recipient_driver_lookup_failed:${driverRows.error.message}`);
 
-  return [
+  const candidates = [
     ...new Set([
       ...(directUsers.data ?? []).map((row) => String(row.id)),
       ...(authUsers.data ?? []).map((row) => String(row.id)),
       ...(driverRows.data ?? []).map((row) => String(row.user_id)),
     ]),
   ].slice(0, 100);
-}
+  if (!candidates.length) return [];
 
-async function driverProfileId(
-  admin: AdminClient,
-  driverId: string | null,
-): Promise<string | null> {
-  if (!driverId) return null;
-  const { data, error } = await admin
-    .from("drivers")
-    .select("user_id")
-    .eq("id", driverId)
-    .maybeSingle();
-  if (error) throw new Error(`ride_driver_lookup_failed:${error.message}`);
-  return data?.user_id ?? null;
+  const { data: validUsers, error: validUserError } = await admin
+    .from("users")
+    .select("id")
+    .in("id", candidates)
+    .is("deleted_at", null);
+  if (validUserError) {
+    throw new Error(`recipient_validation_failed:${validUserError.message}`);
+  }
+
+  return (validUsers ?? []).map((row) => String(row.id));
 }
 
 Deno.serve(async (req) => {
@@ -316,9 +368,11 @@ Deno.serve(async (req) => {
     let finalUserIds: string[] = [];
     let finalTitle = "";
     let finalBody = "";
-    const finalUrl = cleanText(input.url, 300);
-    const finalData = input.data && typeof input.data === "object" ? input.data : {};
-    const rideId = cleanText(input.ride_id, 80);
+    let rideId = cleanText(input.ride_id, 80);
+    if (!UUID_PATTERN.test(rideId)) rideId = "";
+
+    const finalData = normalizeFcmData(input.data);
+    let finalUrl = normalizeInternalPath(input.url, rideId ? `/corrida/${rideId}` : "/notificacoes");
 
     if (isServiceRequest || caller?.isAdmin) {
       if (!input.user_ids?.length || !input.title) {
@@ -328,7 +382,7 @@ Deno.serve(async (req) => {
       finalTitle = cleanText(input.title, 100);
       finalBody = cleanText(input.body, 500);
     } else {
-      if (!caller?.profileId || !rideId || !UUID_PATTERN.test(rideId)) {
+      if (!caller?.profileId || !rideId) {
         return json(req, { error: "invalid_payload" }, 422);
       }
 
@@ -337,14 +391,15 @@ Deno.serve(async (req) => {
 
       const { data, error: rideError } = await admin
         .from("rides")
-        .select("passenger_id,driver_id,status")
+        .select("passenger_id,driver_id,accepted_driver_id,status")
         .eq("id", rideId)
         .maybeSingle();
       if (rideError || !data) return json(req, { error: "ride_not_found" }, 404);
 
       const ride = data as RideRow;
+      const operationalDriverId = ride.driver_id ?? ride.accepted_driver_id;
       const isPassenger = caller.profileId === ride.passenger_id;
-      const isDriver = Boolean(caller.driverId && caller.driverId === ride.driver_id);
+      const isDriver = Boolean(caller.driverId && caller.driverId === operationalDriverId);
       const actorAllowed = rule.actor === "driver" ? isDriver : isPassenger || isDriver;
       if (!actorAllowed) return json(req, { error: "forbidden" }, 403);
       if (!rule.statuses.includes(ride.status)) {
@@ -353,13 +408,13 @@ Deno.serve(async (req) => {
 
       if (isDriver) {
         finalUserIds = [ride.passenger_id];
-      } else if (isPassenger) {
-        const recipient = await driverProfileId(admin, ride.driver_id);
-        finalUserIds = recipient ? [recipient] : [];
+      } else if (isPassenger && operationalDriverId) {
+        finalUserIds = await normalizeRecipientIds(admin, [operationalDriverId]);
       }
 
       finalTitle = rule.title;
       finalBody = rule.body;
+      finalUrl = clientEventPath(event, rideId);
       if (!finalUserIds.length) {
         return json(req, { ok: true, sent: 0, reason: "no_recipients_derived" });
       }
@@ -396,7 +451,7 @@ Deno.serve(async (req) => {
 
     const { data: tokenRows, error: tokenError } = await admin
       .from("user_notification_tokens")
-      .select("user_id,token")
+      .select("id,user_id,token")
       .in("user_id", allowedUsers)
       .eq("is_active", true)
       .in("permission_status", ["granted", "provisional"]);
@@ -405,6 +460,20 @@ Deno.serve(async (req) => {
     }
 
     if (!tokenRows?.length) {
+      const noTokenLogs = allowedUsers.map((userId) => ({
+        user_id: userId,
+        event,
+        channel: "fcm",
+        title: finalTitle,
+        body: finalBody || null,
+        data: { url: finalUrl || null },
+        ride_id: rideId || null,
+        status: "no_token",
+      }));
+      const { error: noTokenLogError } = await admin.from("notification_logs").insert(noTokenLogs);
+      if (noTokenLogError) {
+        console.error("[APOIS FCM] notification_log_failed", noTokenLogError.message);
+      }
       return json(req, { ok: true, sent: 0, no_tokens: allowedUsers.length });
     }
 
@@ -413,6 +482,9 @@ Deno.serve(async (req) => {
     const usersWithTokens = new Set(tokenRows.map((row) => String(row.user_id)));
     const successfulUsers = new Set<string>();
     const failedUsers = new Set<string>();
+    const messageData: Record<string, string> = { ...finalData, event };
+    if (finalUrl) messageData.url = finalUrl;
+    if (rideId) messageData.ride_id = rideId;
     let sent = 0;
 
     for (const row of tokenRows) {
@@ -428,12 +500,7 @@ Deno.serve(async (req) => {
             message: {
               token: row.token,
               notification: { title: finalTitle, body: finalBody },
-              data: {
-                event,
-                url: finalUrl,
-                ride_id: rideId,
-                ...finalData,
-              },
+              data: messageData,
               android: {
                 priority: "high",
                 notification: {
@@ -463,7 +530,7 @@ Deno.serve(async (req) => {
         await admin
           .from("user_notification_tokens")
           .update({ is_active: false, updated_at: new Date().toISOString() })
-          .eq("token", row.token);
+          .eq("id", row.id);
       }
     }
 
@@ -474,7 +541,7 @@ Deno.serve(async (req) => {
       title: finalTitle,
       body: finalBody || null,
       data: { url: finalUrl || null },
-      ride_id: rideId && UUID_PATTERN.test(rideId) ? rideId : null,
+      ride_id: rideId || null,
       status: successfulUsers.has(userId)
         ? "sent"
         : usersWithTokens.has(userId)
