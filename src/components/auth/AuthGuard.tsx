@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useEffect } from "react";
-import { AlertTriangle, Loader2, RefreshCw, WifiOff } from "lucide-react";
+import { AlertTriangle, Loader2, LogOut, RefreshCw, UserRoundX, WifiOff } from "lucide-react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { PrimaryButton } from "@/components/app/PrimaryButton";
 import { useAuth } from "@/hooks/use-auth";
@@ -16,8 +16,21 @@ const matchesPath = (pathname: string, allowedPath: string) => {
   return pathname === allowedPath || pathname === `/_public${allowedPath}`;
 };
 
+function LoadingAccount() {
+  return (
+    <div className="app-viewport flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-white">
+      <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-apois-yellow/20 bg-apois-yellow/10">
+        <Loader2 className="animate-spin text-apois-yellow" size={28} />
+      </div>
+      <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
+        Carregando sua conta
+      </p>
+    </div>
+  );
+}
+
 export function AuthGuard({ children }: { children: ReactNode }) {
-  const { authState, error, isLoading, refreshSession } = useAuth();
+  const { authState, error, isLoading, profile, refreshSession, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -43,18 +56,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   if (isPublicPath) return <>{children}</>;
 
-  if (authState === "initializing") {
-    return (
-      <div className="app-viewport flex min-h-[100dvh] flex-col items-center justify-center p-6 text-center text-white">
-        <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-apois-yellow/20 bg-apois-yellow/10">
-          <Loader2 className="animate-spin text-apois-yellow" size={28} />
-        </div>
-        <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-zinc-500">
-          Verificando sua conta
-        </p>
-      </div>
-    );
-  }
+  if (authState === "initializing") return <LoadingAccount />;
 
   if (authState === "connection_error" || authState === "configuration_error") {
     const isConfigurationError = authState === "configuration_error";
@@ -84,6 +86,41 @@ export function AuthGuard({ children }: { children: ReactNode }) {
           >
             Tentar novamente
           </PrimaryButton>
+        </section>
+      </div>
+    );
+  }
+
+  if (authState === "authenticated" && isLoading && !profile) return <LoadingAccount />;
+
+  if (authState === "authenticated" && !profile) {
+    return (
+      <div className="app-viewport app-safe-top app-safe-bottom app-safe-x flex min-h-[100dvh] items-center justify-center text-center text-white">
+        <section className="app-surface w-full max-w-sm rounded-3xl p-6">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-apois-danger/25 bg-apois-danger/10 text-apois-danger">
+            <UserRoundX aria-hidden="true" size={29} />
+          </div>
+          <h1 className="mt-5 text-2xl font-black tracking-tight">Não foi possível carregar sua conta</h1>
+          <p className="mt-3 text-sm leading-6 text-zinc-400">
+            Sua sessão foi encontrada, mas o perfil do passageiro ainda não está disponível. Nenhuma corrida será solicitada até essa verificação concluir.
+          </p>
+          <PrimaryButton
+            onClick={() => void refreshSession()}
+            loading={isLoading}
+            loadingLabel="Verificando..."
+            icon={<RefreshCw aria-hidden="true" size={19} />}
+            className="mt-6"
+          >
+            Verificar novamente
+          </PrimaryButton>
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="app-pressable mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-5 text-sm font-black text-zinc-300"
+          >
+            <LogOut aria-hidden="true" size={18} />
+            Sair desta conta
+          </button>
         </section>
       </div>
     );
