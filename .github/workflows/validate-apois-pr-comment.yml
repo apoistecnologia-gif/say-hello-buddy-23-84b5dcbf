@@ -10,7 +10,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: read
 
 jobs:
@@ -57,6 +57,35 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ steps.pr.outputs.head_sha }}
+
+      - name: Repair Supabase client typing
+        env:
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("supabase/functions/send-ride-push/index.ts")
+          text = path.read_text(encoding="utf-8")
+          old = "type AdminClient = ReturnType<typeof createClient>;"
+          new = 'type AdminClient = ReturnType<typeof createClient<any, "public">>;'
+
+          if old in text:
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+              print("Tipagem do cliente Supabase corrigida.")
+          elif new in text:
+              print("Tipagem do cliente Supabase já estava corrigida.")
+          else:
+              raise SystemExit("Contrato esperado de AdminClient não foi encontrado; correção interrompida.")
+          PY
+
+          if ! git diff --quiet -- supabase/functions/send-ride-push/index.ts; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add supabase/functions/send-ride-push/index.ts
+            git commit -m "fix(push): tipar cliente Supabase da edge function"
+            git push origin "HEAD:${HEAD_REF}"
+          fi
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
