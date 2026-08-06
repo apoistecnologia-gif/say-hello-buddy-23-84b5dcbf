@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { useActiveRide } from "@/hooks/rides/use-active-ride";
 import PassengerMap from "@/components/map/PassengerMap";
 import { RideStatusHeader } from "@/components/rides/active/RideStatusHeader";
@@ -8,15 +10,37 @@ import { VehicleCard } from "@/components/rides/active/VehicleCard";
 import { SecurityCodeCard } from "@/components/rides/active/SecurityCodeCard";
 import { RideStopsTimeline } from "@/components/rides/active/RideStopsTimeline";
 import { CancellationDialog } from "@/components/rides/active/CancellationDialog";
+import { RideSafetyDialog } from "@/components/rides/active/RideSafetyDialog";
+import { RideRatingCard } from "@/components/rides/RideRatingCard";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Share2, Shield, X, Search, Home, WifiOff, RefreshCw } from "lucide-react";
+import {
+  ChevronLeft,
+  FileText,
+  Home,
+  RefreshCw,
+  Search,
+  Share2,
+  Shield,
+  WifiOff,
+  X,
+} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { motion, AnimatePresence } from "framer-motion";
-import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/corrida/$rideId")({
   component: ActiveRidePage,
 });
+
+function publicShareUrl(token: string): string | null {
+  const configuredBase = String(import.meta.env.VITE_PUBLIC_APP_URL ?? "").trim();
+  const currentOriginIsPublic =
+    window.location.protocol.startsWith("http") &&
+    !["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
+  const base = configuredBase || (currentOriginIsPublic ? `${window.location.origin}${window.location.pathname}` : "");
+  if (!base) return null;
+
+  const normalizedBase = base.replace(/\/#\/?$/, "").replace(/\/+$/, "");
+  return `${normalizedBase}/#/acompanhar/${encodeURIComponent(token)}`;
+}
 
 function ActiveRidePage() {
   const { rideId } = Route.useParams();
@@ -34,19 +58,66 @@ function ActiveRidePage() {
   } = useActiveRide();
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isSafetyDialogOpen, setIsSafetyDialogOpen] = useState(false);
 
   useEffect(() => {
     if (rideId) void loadRide(rideId);
   }, [rideId, loadRide]);
 
   const handleBack = () => {
-    if (screenState === "completed" || screenState === "cancelled") clearRide();
+    if (screenState === "completed") {
+      clearRide();
+      void navigate({ to: "/corridas/$rideId", params: { rideId } });
+      return;
+    }
+    if (screenState === "cancelled") clearRide();
     void navigate({ to: "/inicio" });
   };
 
   const handleReturnHome = () => {
     clearRide();
     void navigate({ to: "/inicio" });
+  };
+
+  const handleShareRide = async (): Promise<void> => {
+    if (!ride) return;
+
+    const trackingUrl = ride.share_token ? publicShareUrl(ride.share_token) : null;
+    const vehicle = [ride.driver_vehicle_model, ride.driver_vehicle_color]
+      .filter(Boolean)
+      .join(" • ");
+    const lines = [
+      "Acompanhe minha corrida pela APOIS.",
+      `Origem: ${ride.origin_name}`,
+      `Destino: ${ride.destination_name}`,
+      ride.driver_name ? `Motorista: ${ride.driver_name}` : null,
+      vehicle ? `Veículo: ${vehicle}` : null,
+      ride.driver_vehicle_plate ? `Placa: ${ride.driver_vehicle_plate}` : null,
+      trackingUrl ? `Acompanhamento: ${trackingUrl}` : null,
+    ].filter((line): line is string => Boolean(line));
+    const text = lines.join("\n");
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Acompanhamento de corrida APOIS",
+          text,
+          ...(trackingUrl ? { url: trackingUrl } : {}),
+        });
+        return;
+      }
+
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard_unavailable");
+      await navigator.clipboard.writeText(text);
+      toast.success(
+        trackingUrl
+          ? "Link de acompanhamento copiado."
+          : "Resumo da corrida copiado. O link será incluído após a publicação do endereço oficial.",
+      );
+    } catch (caughtError: unknown) {
+      if (caughtError instanceof DOMException && caughtError.name === "AbortError") return;
+      toast.error("Não foi possível compartilhar esta corrida.");
+    }
   };
 
   if (screenState === "loading" || screenState === "idle") {
@@ -110,24 +181,26 @@ function ActiveRidePage() {
         </button>
 
         <div className="pointer-events-auto flex gap-3">
-          {actionAvailability?.canShareRide && (
+          {actionAvailability?.canShareRide ? (
             <button
               type="button"
               aria-label="Compartilhar corrida"
+              onClick={() => void handleShareRide()}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 backdrop-blur-md transition-transform active:scale-95"
             >
               <Share2 className="text-white" size={18} />
             </button>
-          )}
-          {actionAvailability?.canOpenSafety && (
+          ) : null}
+          {actionAvailability?.canOpenSafety ? (
             <button
               type="button"
               aria-label="Abrir recursos de segurança"
+              onClick={() => setIsSafetyDialogOpen(true)}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-red-500/20 bg-red-500/80 backdrop-blur-md transition-transform active:scale-95"
             >
               <Shield className="text-white" size={18} />
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -151,7 +224,7 @@ function ActiveRidePage() {
         <div className="absolute left-6 right-6 top-20 z-10 space-y-3">
           <RideStatusHeader status={status} isRefreshing={isRefreshing} />
 
-          {screenState === "active" && !isRealtimeConnected && (
+          {screenState === "active" && !isRealtimeConnected ? (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-400/20 bg-black/80 px-4 py-3 text-white backdrop-blur-md">
               <div className="flex min-w-0 items-center gap-3">
                 <WifiOff className="shrink-0 text-amber-400" size={18} />
@@ -172,14 +245,14 @@ function ActiveRidePage() {
                 <RefreshCw className={isRefreshing ? "animate-spin" : ""} size={16} />
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="max-h-[60vh] space-y-4 overflow-y-auto rounded-t-[32px] border-t border-white/5 bg-zinc-950 px-6 pb-8 pt-6 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] scrollbar-hide"
+        className="max-h-[64vh] space-y-4 overflow-y-auto rounded-t-[32px] border-t border-white/5 bg-zinc-950 px-6 pb-8 pt-6 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] scrollbar-hide"
       >
         <AnimatePresence mode="wait">
           <motion.div
@@ -189,17 +262,17 @@ function ActiveRidePage() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-4"
           >
-            {status !== "procurar_motorista" && status !== "agendada" && (
+            {status !== "procurar_motorista" && status !== "agendada" ? (
               <>
                 <DriverCard ride={ride} />
                 <VehicleCard ride={ride} />
-                {status === "motorista_a_caminho" && (
+                {status === "motorista_a_caminho" ? (
                   <SecurityCodeCard code={ride.security_code} />
-                )}
+                ) : null}
               </>
-            )}
+            ) : null}
 
-            {status === "procurar_motorista" && (
+            {status === "procurar_motorista" ? (
               <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-white/5 bg-zinc-900/50 p-8 text-center">
                 <div className="relative">
                   <div className="h-16 w-16 animate-spin rounded-full border-2 border-apois-yellow/20 border-t-apois-yellow" />
@@ -215,9 +288,9 @@ function ActiveRidePage() {
                   </p>
                 </div>
               </div>
-            )}
+            ) : null}
 
-            {(screenState === "completed" || screenState === "cancelled") && (
+            {(screenState === "completed" || screenState === "cancelled") ? (
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-4">
                   <span className="text-xs font-black uppercase text-zinc-500">Valor Total</span>
@@ -225,6 +298,31 @@ function ActiveRidePage() {
                     R$ {(ride.final_price ?? ride.estimated_price).toFixed(2).replace(".", ",")}
                   </span>
                 </div>
+
+                {screenState === "completed" ? (
+                  <RideRatingCard
+                    rideId={ride.id}
+                    driverName={ride.driver_name}
+                    currentRating={ride.passenger_rating ?? null}
+                    onRated={() => loadRide(ride.id)}
+                  />
+                ) : null}
+
+                {screenState === "completed" ? (
+                  <Button
+                    onClick={() => {
+                      clearRide();
+                      void navigate({
+                        to: "/corridas/$rideId",
+                        params: { rideId: ride.id },
+                      });
+                    }}
+                    className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow font-black text-black"
+                  >
+                    <FileText size={18} />
+                    Ver comprovante e detalhes
+                  </Button>
+                ) : null}
 
                 <Button
                   onClick={handleReturnHome}
@@ -234,11 +332,11 @@ function ActiveRidePage() {
                   Voltar ao Início
                 </Button>
               </div>
-            )}
+            ) : null}
 
             <RideStopsTimeline ride={ride} />
 
-            {screenState === "active" && (
+            {screenState === "active" ? (
               <div className="flex items-center justify-between px-1 pt-2">
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
@@ -257,11 +355,11 @@ function ActiveRidePage() {
                   </p>
                 </div>
               </div>
-            )}
+            ) : null}
           </motion.div>
         </AnimatePresence>
 
-        {actionAvailability?.canCancel && (
+        {actionAvailability?.canCancel ? (
           <Button
             variant="ghost"
             onClick={() => setIsCancelDialogOpen(true)}
@@ -269,7 +367,7 @@ function ActiveRidePage() {
           >
             CANCELAR CORRIDA
           </Button>
-        )}
+        ) : null}
       </motion.div>
 
       <CancellationDialog
@@ -279,6 +377,17 @@ function ActiveRidePage() {
         onSuccess={() => {
           setIsCancelDialogOpen(false);
           void loadRide(ride.id);
+        }}
+      />
+
+      <RideSafetyDialog
+        open={isSafetyDialogOpen}
+        onOpenChange={setIsSafetyDialogOpen}
+        driverName={ride.driver_name}
+        driverPhone={ride.driver_phone}
+        onShareRide={async () => {
+          setIsSafetyDialogOpen(false);
+          await handleShareRide();
         }}
       />
     </div>
