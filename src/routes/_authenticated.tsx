@@ -84,7 +84,7 @@ function AuthenticatedLayout() {
                                   <PushBootstrap />
                                   <div className="min-h-[100dvh] bg-zinc-950 flex justify-center selection:bg-yellow-500/30 overflow-hidden">
                                     <div className="relative w-full max-w-[430px] h-[100dvh] bg-black overflow-hidden flex flex-col">
-                                      <div className="flex-1 relative overflow-hidden">
+                                      <div className="flex-1 relative overflow-hidden flex flex-col">
                                         <Outlet />
                                       </div>
                                       <BottomNavigation />
