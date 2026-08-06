@@ -1,50 +1,56 @@
-import React from "react";
-import { ActiveRide } from "@/types/rides/active-ride";
+import type { ActiveRide } from "@/types/rides/active-ride";
 import { Car } from "lucide-react";
 
 interface VehicleCardProps {
   ride: ActiveRide;
 }
 
-export const VehicleCard: React.FC<VehicleCardProps> = ({ ride }) => {
-  if (!ride.driver_vehicle_model && !ride.driver_vehicle_plate) return null;
+export function VehicleCard({ ride }: VehicleCardProps) {
+  const model = ride.driver_vehicle_model?.trim() ?? "";
+  const color = ride.driver_vehicle_color?.trim() ?? "";
+  const plate = ride.driver_vehicle_plate?.trim().toUpperCase() ?? "";
+
+  if (!model && !plate) return null;
 
   return (
-    <div className="bg-zinc-900/50 rounded-2xl p-4 border border-white/5 space-y-3 animate-in fade-in slide-in-from-bottom duration-700">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-500">
+    <section className="space-y-3 rounded-2xl border border-white/5 bg-zinc-900/50 p-4 animate-in fade-in slide-in-from-bottom duration-700">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-500">
             <Car size={20} />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
               Veículo
             </p>
-            <p className="font-bold text-white text-sm">
-              {ride.driver_vehicle_model}{" "}
-              {ride.driver_vehicle_color && (
-                <span className="text-zinc-500 font-medium">• {ride.driver_vehicle_color}</span>
-              )}
+            <p className="truncate text-sm font-bold text-white">
+              {model || "Modelo não informado"}
+              {color ? <span className="font-medium text-zinc-500"> • {color}</span> : null}
             </p>
           </div>
         </div>
 
-        <div className="bg-white px-3 py-1.5 rounded-lg border-2 border-zinc-300 shadow-inner">
-          <p className="text-[10px] font-black text-zinc-400 leading-none mb-0.5 uppercase tracking-tighter">
-            Brasil
-          </p>
-          <p className="text-black font-black text-sm tracking-widest leading-none">
-            {ride.driver_vehicle_plate}
-          </p>
-        </div>
+        {plate ? (
+          <div
+            className="shrink-0 rounded-lg border-2 border-zinc-300 bg-white px-3 py-1.5 shadow-inner"
+            aria-label={`Placa do veículo ${plate}`}
+          >
+            <p className="mb-0.5 text-[10px] font-black uppercase leading-none tracking-tighter text-zinc-400">
+              Brasil
+            </p>
+            <p className="text-sm font-black uppercase leading-none tracking-widest text-black">
+              {plate}
+            </p>
+          </div>
+        ) : null}
       </div>
 
-      <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 flex gap-3 items-center">
-        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-        <p className="text-[10px] text-blue-400 font-medium">
-          Confira a placa e o veículo antes de embarcar.
+      <div className="flex items-center gap-3 rounded-xl border border-blue-500/10 bg-blue-500/5 p-3">
+        <div className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-blue-500" />
+        <p className="text-[10px] font-medium text-blue-400">
+          Confira a placa, o modelo e a cor antes de embarcar.
         </p>
       </div>
-    </div>
+    </section>
   );
-};
+}
