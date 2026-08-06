@@ -124,7 +124,7 @@ function InicioPage() {
     : address || "Sua localização atual";
 
   return (
-    <div className="absolute inset-0 bg-zinc-950 overflow-hidden flex flex-col">
+    <div className="absolute inset-0 bg-[#0A0D14] overflow-hidden flex flex-col">
       {/* MAPA FULLSCREEN */}
       <div className="absolute inset-0 z-0">
         <PassengerMap
@@ -136,72 +136,148 @@ function InicioPage() {
         />
       </div>
 
-      {/* GREETING CARD - FLOATING */}
+      {/* HEADER COMPACTO (REFERÊNCIA À IMAGEM) */}
       <div className="absolute top-[calc(env(safe-area-inset-top)+12px)] left-4 right-4 z-20">
-        <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-3xl p-4 shadow-2xl flex items-center justify-between">
-          <div className="flex flex-col min-w-0">
-            <h1 className="text-xs font-black text-white uppercase tracking-tighter opacity-70">
-              Olá, {readString(profile?.full_name || profile?.name, "Passageiro").split(" ")[0]}
-            </h1>
-            <p className="text-[13px] font-bold text-white truncate max-w-[220px]">
-              {currentAddressText}
-            </p>
+        <div className="bg-[#1A1D24]/80 backdrop-blur-md border border-white/5 rounded-full px-2 py-1.5 shadow-2xl flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="w-10 h-10 rounded-full border-2 border-green-500 overflow-hidden bg-zinc-800">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-white font-black text-xs">
+                    {readString(profile?.full_name || profile?.name, "P")[0]}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="text-zinc-400">🌙</span>
+                <h1 className="text-sm font-bold text-white tracking-tight">
+                  Boa noite, {readString(profile?.full_name || profile?.name, "Franciel").split(" ")[0]}
+                </h1>
+              </div>
+              <div className="flex items-center gap-1">
+                <MapPin size={10} className="text-green-500 fill-green-500/20" />
+                <span className="text-[10px] text-zinc-500 font-medium">1 motorista próximo</span>
+              </div>
+            </div>
           </div>
-          <div className="w-10 h-10 bg-apois-yellow rounded-2xl flex items-center justify-center shadow-lg shadow-apois-yellow/20 cursor-pointer active:scale-95 transition-all">
-            <Settings2 size={20} className="text-black" />
-          </div>
+          <button className="w-10 h-10 rounded-full flex items-center justify-center text-white active:scale-95 transition-all">
+            <div className="flex flex-col gap-1 w-5">
+              <div className="h-0.5 w-full bg-white rounded-full opacity-70" />
+              <div className="h-0.5 w-full bg-white rounded-full opacity-70" />
+              <div className="h-0.5 w-full bg-white rounded-full opacity-70" />
+            </div>
+          </button>
         </div>
       </div>
 
-      {/* DESTINATION CARD - FLOATING (UBER STYLE) */}
-      <div className="absolute top-[calc(env(safe-area-inset-top)+88px)] left-4 right-4 z-20">
-        <div
-          onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
-          role="button"
-          tabIndex={0}
-          className="w-full bg-white rounded-2xl flex items-center gap-4 p-3 shadow-[0_12px_40px_rgba(0,0,0,0.2)] active:scale-[0.98] transition-all cursor-pointer group"
-        >
-          <div className="w-10 h-10 bg-zinc-100 rounded-xl flex items-center justify-center shrink-0">
-            <div className="w-2.5 h-2.5 bg-black rounded-sm" />
-          </div>
-          <div className="flex-1 border-l border-zinc-100 pl-4">
-            <p className="text-zinc-400 font-bold text-xs uppercase tracking-tight">
-              De: {currentAddressText.split(',')[0]}
-            </p>
-            <p className="text-black font-black text-[15px] uppercase tracking-tighter">
-              Para onde vamos?
-            </p>
-          </div>
-          <ChevronRight size={20} className="text-zinc-300 mr-2" />
-        </div>
-      </div>
-
-      {/* RE-CENTER BUTTON */}
-      <div className="absolute right-4 bottom-[42%] z-20 flex flex-col gap-3">
+      {/* RE-CENTER / GPS STATUS BUTTON */}
+      <div className="absolute right-4 bottom-[38%] z-20 flex flex-col gap-3">
         {locationError && (
-          <div className="bg-red-500 text-white text-[10px] px-2 py-1 rounded-lg font-bold animate-bounce whitespace-nowrap">
-            Erro de GPS
+          <div className="bg-red-500 text-white text-[10px] px-2 py-1 rounded-lg font-bold animate-bounce shadow-lg">
+            GPS OFF
           </div>
         )}
         <button
           type="button"
           onClick={() => refreshLocation()}
           disabled={isLocating}
-          className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-black shadow-xl active:scale-90 transition-all disabled:opacity-50"
+          className="w-12 h-12 bg-[#1A1D24] border border-white/10 rounded-full flex items-center justify-center text-apois-yellow shadow-2xl active:scale-90 transition-all disabled:opacity-50"
         >
-          <Navigation className={cn("w-5 h-5 fill-current", isLocating && "animate-pulse")} />
+          <div className="relative">
+             <div className="absolute inset-0 bg-apois-yellow/20 rounded-full blur-sm" />
+             <Navigation className={cn("w-5 h-5 relative z-10 fill-current", isLocating && "animate-pulse")} />
+          </div>
         </button>
       </div>
 
-      {/* NATIVE BOTTOM SHEET */}
-      <BottomSheet 
-        isOpen={true} 
-        onClose={() => {}} 
-        preventClose={true}
-        showBackdrop={false}
-      >
-        <div className="w-full">
-          {hasDestination || route ? (
+      {/* PAINEL DE DESTINO (ESTILO IMAGEM) */}
+      <div className="absolute bottom-0 left-0 right-0 z-[60] p-4 bg-gradient-to-t from-black via-[#0A0D14] to-transparent pt-12">
+        <div className="max-w-[430px] mx-auto space-y-5">
+          
+          {/* ENDEREÇO ATUAL (INDICADOR) */}
+          <div 
+            onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
+            className="flex items-center gap-3 px-1 cursor-pointer group"
+          >
+            <div className="w-8 h-8 rounded-full bg-apois-yellow/10 flex items-center justify-center border border-apois-yellow/20">
+              <MapPin size={14} className="text-apois-yellow" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-white tracking-tight group-active:text-apois-yellow transition-colors">
+                {currentAddressText}
+              </p>
+            </div>
+            <div className="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center">
+              <Navigation size={12} className="text-zinc-500" />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-zinc-400">Olá,</span>
+                <span className="text-sm font-black text-apois-yellow uppercase tracking-tighter">
+                  {readString(profile?.full_name || profile?.name, "Franciel").split(" ")[0]} 👋
+                </span>
+              </div>
+              <h2 className="text-3xl font-black text-white tracking-tighter leading-tight">
+                Para onde vamos?
+              </h2>
+            </div>
+
+            {/* INPUT DE BUSCA */}
+            <div
+              onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
+              className="w-full bg-[#1A1D24] border border-white/5 rounded-2xl p-4 flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer shadow-2xl"
+            >
+              <div className="w-10 h-10 bg-apois-yellow/10 rounded-xl flex items-center justify-center">
+                <div className="w-5 h-5 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-apois-yellow rounded-full flex items-center justify-center">
+                    <div className="w-1.5 h-1.5 bg-apois-yellow rounded-full" />
+                  </div>
+                </div>
+              </div>
+              <span className="text-zinc-500 font-medium text-base">
+                Digite um endereço, bairro ou lugar
+              </span>
+            </div>
+
+            {/* ATALHOS RÁPIDOS */}
+            <div className="flex items-center gap-3 pt-2">
+              <button 
+                onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
+                className="flex-1 py-3.5 px-4 bg-[#1A1D24] border border-white/5 rounded-xl flex items-center justify-center gap-2 font-bold text-white text-sm active:scale-95 transition-all shadow-lg"
+              >
+                <span className="text-lg">+</span>
+                Adicionar favorito
+              </button>
+              <button className="flex-1 py-3.5 px-4 bg-apois-yellow/10 border border-apois-yellow/20 rounded-xl flex items-center justify-center gap-2 font-bold text-apois-yellow text-sm active:scale-95 transition-all shadow-lg">
+                <div className="w-5 h-5 bg-apois-yellow flex items-center justify-center rounded-sm">
+                   <div className="w-3 h-3 border border-black/50" />
+                </div>
+                Serviços
+              </button>
+            </div>
+          </div>
+
+          {/* ESPAÇADOR PARA O TECLADO / HOME INDICATOR */}
+          <div className="h-[env(safe-area-inset-bottom)]" />
+        </div>
+      </div>
+
+      {/* ESTADO DE ROTA SELECIONADA (MODAL SOBREPOSTO SE HOUVER DESTINO) */}
+      {(hasDestination || route) && (
+        <BottomSheet 
+          isOpen={true} 
+          onClose={() => {}} 
+          preventClose={true}
+          showBackdrop={false}
+        >
+          <div className="w-full">
             <div className="animate-in fade-in slide-in-from-bottom duration-300 space-y-4">
               {routeError && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3">
@@ -241,7 +317,7 @@ function InicioPage() {
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 pb-4">
                 <button
                   type="button"
                   onClick={handleReview}
@@ -258,29 +334,9 @@ function InicioPage() {
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="space-y-6 pt-2">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-xl font-black text-white tracking-tighter">Para onde vamos hoje?</h2>
-                <p className="text-sm text-zinc-500 font-medium">
-                  Atalhos salvos e destinos frequentes
-                </p>
-              </div>
-
-              {/* FAVORITOS / ATALHOS */}
-              <HomeWorkShortcuts />
-
-              <button
-                onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
-                className="w-full py-5 bg-white text-black font-black rounded-2xl active:scale-95 shadow-xl uppercase tracking-tighter text-sm flex items-center justify-center gap-2"
-              >
-                <MapPin size={18} strokeWidth={3} />
-                Escolher destino no mapa
-              </button>
-            </div>
-          )}
-        </div>
-      </BottomSheet>
+          </div>
+        </BottomSheet>
+      )}
 
       <ServiceDetailsForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
       <PaymentMethodList isOpen={isPaymentListOpen} onClose={() => setIsPaymentListOpen(false)} />
