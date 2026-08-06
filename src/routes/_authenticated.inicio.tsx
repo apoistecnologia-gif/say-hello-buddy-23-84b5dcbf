@@ -33,14 +33,14 @@ function readString(value: unknown, fallback = ""): string {
 
 function InicioPage() {
   const navigate = useNavigate();
-  const { address, status: addressStatus } = usePickupAddress();
+  const { address, status: addressStatus, isLoading: isGeocoding } = usePickupAddress();
   const { profile } = useAuth();
-  const { hasDestination } = useDestination();
-  const { route } = useRoute();
+  const { destination, hasDestination } = useDestination();
+  const { route, status: routeStatus, error: routeError } = useRoute();
   const { selectedCategory } = useRideCategories();
   const { checkout } = useCheckoutPreparation();
   const { initiateReview } = useRideRequest();
-  const { location, refreshLocation, isLoading: isLocating } = useLocation();
+  const { location, refreshLocation, isLoading: isLocating, permissionState, error: locationError } = useLocation();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isPaymentListOpen, setIsPaymentListOpen] = useState(false);
@@ -50,7 +50,7 @@ function InicioPage() {
     navigate({ to: "/revisar-solicitacao" });
   };
 
-  const currentAddressText = addressStatus === "identifying" 
+  const currentAddressText = addressStatus === "identifying" || isGeocoding
     ? "Buscando localização..." 
     : address || "Sua localização atual";
 
@@ -60,7 +60,7 @@ function InicioPage() {
       <div className="absolute inset-0 z-0">
         <PassengerMap
           origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
-          destination={undefined}
+          destination={destination ? { lat: destination.latitude, lng: destination.longitude } : undefined}
           encodedPolyline={route?.encodedPolyline}
           driverLocation={undefined}
           isStatic={false}
@@ -108,7 +108,12 @@ function InicioPage() {
       </div>
 
       {/* RE-CENTER BUTTON */}
-      <div className="absolute right-4 bottom-[42%] z-20">
+      <div className="absolute right-4 bottom-[42%] z-20 flex flex-col gap-3">
+        {locationError && (
+          <div className="bg-red-500 text-white text-[10px] px-2 py-1 rounded-lg font-bold animate-bounce whitespace-nowrap">
+            Erro de GPS
+          </div>
+        )}
         <button
           type="button"
           onClick={() => refreshLocation()}
@@ -128,6 +133,15 @@ function InicioPage() {
         <div className="w-full">
           {hasDestination || route ? (
             <div className="animate-in fade-in slide-in-from-bottom duration-300 space-y-4">
+              {routeError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3">
+                  <AlertCircle size={18} className="text-red-500 shrink-0" />
+                  <p className="text-xs text-red-400 font-medium leading-tight">
+                    {routeError}
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
                   Selecione sua categoria
@@ -161,10 +175,10 @@ function InicioPage() {
                 <button
                   type="button"
                   onClick={handleReview}
-                  disabled={!checkout.readiness}
+                  disabled={!checkout.readiness || !!routeError}
                   className={cn(
                     "w-full flex items-center justify-center gap-2 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
-                    checkout.readiness
+                    checkout.readiness && !routeError
                       ? "bg-apois-yellow text-black shadow-apois-yellow/20"
                       : "bg-zinc-800 text-zinc-600 cursor-not-allowed",
                   )}
@@ -184,26 +198,7 @@ function InicioPage() {
               </div>
 
               {/* FAVORITOS / ATALHOS */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-zinc-900/80 p-4 rounded-2xl border border-white/5 flex items-center gap-3 cursor-pointer active:scale-95 transition-all">
-                  <div className="w-8 h-8 bg-zinc-800 rounded-lg flex items-center justify-center text-zinc-400">
-                    <MapPin size={18} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-black text-white">CASA</span>
-                    <span className="text-[10px] text-zinc-500 truncate">Sua residência</span>
-                  </div>
-                </div>
-                <div className="bg-zinc-900/80 p-4 rounded-2xl border border-white/5 flex items-center gap-3 cursor-pointer active:scale-95 transition-all">
-                  <div className="w-8 h-8 bg-zinc-800 rounded-lg flex items-center justify-center text-zinc-400">
-                    <MapPin size={18} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs font-black text-white">TRABALHO</span>
-                    <span className="text-[10px] text-zinc-500 truncate">Seu escritório</span>
-                  </div>
-                </div>
-              </div>
+              <HomeWorkShortcuts />
 
               <button
                 onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
