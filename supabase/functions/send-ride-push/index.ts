@@ -257,7 +257,16 @@ Deno.serve(async (req) => {
         },
       );
       if (response.ok) sent += 1;
-      else failures.add(row.user_id);
+      else {
+        failures.add(row.user_id);
+        // Token rejeitado pelo FCM (404/UNREGISTERED) -> desativar para não reenviar.
+        if (response.status === 404 || response.status === 400) {
+          await admin
+            .from("user_notification_tokens")
+            .update({ is_active: false })
+            .eq("token", row.token);
+        }
+      }
     }
 
     const { error: logError } = await admin.from("notification_logs").insert(
@@ -267,10 +276,12 @@ Deno.serve(async (req) => {
         channel: "fcm",
         title: finalTitle,
         body: finalBody || null,
-        data: { ride_id: input.ride_id ?? null, url: finalUrl || null },
+        data: { url: finalUrl || null },
+        ride_id: input.ride_id ?? null,
         status: failures.has(userId) ? "failed" : "sent",
       })),
     );
+
     if (logError) console.error("[APOIS FCM] notification_log_failed", logError.message);
 
     return json(req, { ok: failures.size === 0, sent, failed: failures.size }, 200);
