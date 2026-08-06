@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Toaster } from "@/components/ui/sonner";
@@ -57,6 +58,11 @@ function ActiveRideRecovery() {
   return null;
 }
 
+function PushBootstrap() {
+  usePushNotifications();
+  return null;
+}
+
 function AuthenticatedLayout() {
   return (
     <AuthGuard>
@@ -75,6 +81,7 @@ function AuthenticatedLayout() {
                               <RideRequestProvider>
                                 <ActiveRideProvider>
                                   <ActiveRideRecovery />
+                                  <PushBootstrap />
                                   <div className="min-h-[100dvh] bg-zinc-950 flex justify-center selection:bg-yellow-500/30 overflow-hidden">
                                     <div className="relative w-full max-w-[430px] h-[100dvh] bg-black overflow-hidden flex flex-col">
                                       <div className="flex-1 relative overflow-hidden">

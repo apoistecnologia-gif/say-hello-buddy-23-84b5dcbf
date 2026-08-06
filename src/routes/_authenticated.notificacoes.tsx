@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Bell, CheckCheck, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { PushStatusCard } from "@/components/notifications/PushStatusCard";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -185,6 +186,8 @@ function NotificacoesPage() {
           <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
         </button>
       </header>
+
+      <PushStatusCard />
 
       {unreadCount > 0 && state === "ready" && (
         <button
