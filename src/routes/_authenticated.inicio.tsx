@@ -124,8 +124,8 @@ function InicioPage() {
     : address || "Sua localização atual";
 
   return (
-    <div className="absolute inset-0 bg-[#0A0D14] overflow-hidden flex flex-col">
-      {/* MAPA FULLSCREEN */}
+    <div className="relative flex-1 bg-[#0A0D14] overflow-hidden flex flex-col">
+      {/* MAPA FULLSCREEN - FUNDO */}
       <div className="absolute inset-0 z-0">
         <PassengerMap
           origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
@@ -136,8 +136,8 @@ function InicioPage() {
         />
       </div>
 
-      {/* HEADER COMPACTO (REFERÊNCIA À IMAGEM) */}
-      <div className="absolute top-[calc(env(safe-area-inset-top)+12px)] left-4 right-4 z-20">
+      {/* HEADER FIXO NO TOPO */}
+      <div className="relative z-20 pt-[calc(env(safe-area-inset-top)+12px)] px-4">
         <div className="bg-[#1A1D24]/80 backdrop-blur-md border border-white/5 rounded-full px-2 py-1.5 shadow-2xl flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -174,8 +174,8 @@ function InicioPage() {
         </div>
       </div>
 
-      {/* RE-CENTER / GPS STATUS BUTTON */}
-      <div className="absolute right-4 bottom-[38%] z-20 flex flex-col gap-3">
+      {/* CONTROLES DO MAPA (SOBRE O MAPA) */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3">
         {locationError && (
           <div className="bg-red-500 text-white text-[10px] px-2 py-1 rounded-lg font-bold animate-bounce shadow-lg">
             GPS OFF
@@ -194,82 +194,78 @@ function InicioPage() {
         </button>
       </div>
 
-      {/* PAINEL DE DESTINO (ESTILO IMAGEM) */}
-      <div className="absolute bottom-0 left-0 right-0 z-[60] p-4 bg-gradient-to-t from-black via-[#0A0D14] to-transparent pt-12">
-        <div className="max-w-[430px] mx-auto space-y-5">
-          
-          {/* ENDEREÇO ATUAL (INDICADOR) */}
-          <div 
-            onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
-            className="flex items-center gap-3 px-1 cursor-pointer group"
-          >
-            <div className="w-8 h-8 rounded-full bg-apois-yellow/10 flex items-center justify-center border border-apois-yellow/20">
-              <MapPin size={14} className="text-apois-yellow" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-white tracking-tight group-active:text-apois-yellow transition-colors">
-                {currentAddressText}
-              </p>
-            </div>
-            <div className="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center">
-              <Navigation size={12} className="text-zinc-500" />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-zinc-400">Olá,</span>
-                <span className="text-sm font-black text-apois-yellow uppercase tracking-tighter">
-                  {readString(profile?.full_name || profile?.name, "Franciel").split(" ")[0]} 👋
-                </span>
-              </div>
-              <h2 className="text-3xl font-black text-white tracking-tighter leading-tight">
-                Para onde vamos?
-              </h2>
-            </div>
-
-            {/* INPUT DE BUSCA */}
-            <div
+      {/* PAINEL INFERIOR - BOTTOM SHEET COMPACTO */}
+      <div className="mt-auto relative z-[60]">
+        <div className="bg-gradient-to-t from-black via-[#0A0D14] to-transparent pt-8 px-4 pb-4">
+          <div className="max-w-[430px] mx-auto space-y-5">
+            {/* ENDEREÇO ATUAL */}
+            <div 
               onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
-              className="w-full bg-[#1A1D24] border border-white/5 rounded-2xl p-4 flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer shadow-2xl"
+              className="flex items-center gap-3 px-1 cursor-pointer group"
             >
-              <div className="w-10 h-10 bg-apois-yellow/10 rounded-xl flex items-center justify-center">
-                <div className="w-5 h-5 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-apois-yellow/10 flex items-center justify-center border border-apois-yellow/20">
+                <MapPin size={14} className="text-apois-yellow" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-white tracking-tight group-active:text-apois-yellow transition-colors truncate">
+                  {currentAddressText}
+                </p>
+              </div>
+              <div className="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center">
+                <Navigation size={12} className="text-zinc-500" />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-zinc-400">Olá,</span>
+                  <span className="text-sm font-black text-apois-yellow uppercase tracking-tighter">
+                    {readString(profile?.full_name || profile?.name, "Franciel").split(" ")[0]} 👋
+                  </span>
+                </div>
+                <h2 className="text-3xl font-black text-white tracking-tighter leading-tight">
+                  Para onde vamos?
+                </h2>
+              </div>
+
+              {/* INPUT DE BUSCA */}
+              <div
+                onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
+                className="w-full bg-[#1A1D24] border border-white/5 rounded-2xl p-4 flex items-center gap-4 active:scale-[0.98] transition-all cursor-pointer shadow-2xl"
+              >
+                <div className="w-10 h-10 bg-apois-yellow/10 rounded-xl flex items-center justify-center">
                   <div className="w-5 h-5 border-2 border-apois-yellow rounded-full flex items-center justify-center">
                     <div className="w-1.5 h-1.5 bg-apois-yellow rounded-full" />
                   </div>
                 </div>
+                <span className="text-zinc-500 font-medium text-base">
+                  Digite um endereço...
+                </span>
               </div>
-              <span className="text-zinc-500 font-medium text-base">
-                Digite um endereço, bairro ou lugar
-              </span>
-            </div>
 
-            {/* ATALHOS RÁPIDOS */}
-            <div className="flex items-center gap-3 pt-2">
-              <button 
-                onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
-                className="flex-1 py-3.5 px-4 bg-[#1A1D24] border border-white/5 rounded-xl flex items-center justify-center gap-2 font-bold text-white text-sm active:scale-95 transition-all shadow-lg"
-              >
-                <span className="text-lg">+</span>
-                Adicionar favorito
-              </button>
-              <button className="flex-1 py-3.5 px-4 bg-apois-yellow/10 border border-apois-yellow/20 rounded-xl flex items-center justify-center gap-2 font-bold text-apois-yellow text-sm active:scale-95 transition-all shadow-lg">
-                <div className="w-5 h-5 bg-apois-yellow flex items-center justify-center rounded-sm">
-                   <div className="w-3 h-3 border border-black/50" />
-                </div>
-                Serviços
-              </button>
+              {/* ATALHOS */}
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => navigate({ to: "/buscar-destino", search: { stop: false } })}
+                  className="flex-1 py-3 px-4 bg-[#1A1D24] border border-white/5 rounded-xl flex items-center justify-center gap-2 font-bold text-white text-xs active:scale-95 transition-all"
+                >
+                  <span className="text-lg">+</span>
+                  Favorito
+                </button>
+                <button className="flex-1 py-3 px-4 bg-apois-yellow/10 border border-apois-yellow/20 rounded-xl flex items-center justify-center gap-2 font-bold text-apois-yellow text-xs active:scale-95 transition-all">
+                  <div className="w-4 h-4 bg-apois-yellow flex items-center justify-center rounded-sm">
+                     <div className="w-2 h-2 border border-black/50" />
+                  </div>
+                  Serviços
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* ESPAÇADOR PARA O TECLADO / HOME INDICATOR */}
-          <div className="h-[env(safe-area-inset-bottom)]" />
         </div>
       </div>
 
-      {/* ESTADO DE ROTA SELECIONADA (MODAL SOBREPOSTO SE HOUVER DESTINO) */}
+      {/* MODAL DE CATEGORIAS/ROTA (UBER STYLE) */}
       {(hasDestination || route) && (
         <BottomSheet 
           isOpen={true} 
@@ -277,29 +273,20 @@ function InicioPage() {
           preventClose={true}
           showBackdrop={false}
         >
-          <div className="w-full">
+          <div className="w-full pb-4">
             <div className="animate-in fade-in slide-in-from-bottom duration-300 space-y-4">
               {routeError && (
                 <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3">
                   <AlertCircle size={18} className="text-red-500 shrink-0" />
-                  <p className="text-xs text-red-400 font-medium leading-tight">
-                    {routeError}
-                  </p>
+                  <p className="text-xs text-red-400 font-medium leading-tight">{routeError}</p>
                 </div>
               )}
 
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                  Selecione sua categoria
-                </p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Selecione sua categoria</p>
                 {selectedCategory && ["fretes", "guincho", "envios"].includes(selectedCategory.code) && (
-                  <button
-                    type="button"
-                    onClick={() => setIsFormOpen(true)}
-                    className="flex items-center gap-1.5 text-apois-yellow font-bold text-xs"
-                  >
-                    <Settings2 size={14} />
-                    Detalhes
+                  <button onClick={() => setIsFormOpen(true)} className="flex items-center gap-1.5 text-apois-yellow font-bold text-xs">
+                    <Settings2 size={14} /> Detalhes
                   </button>
                 )}
               </div>
@@ -310,29 +297,23 @@ function InicioPage() {
               <div className="space-y-4">
                 <PaymentMethodSelector onOpenList={() => setIsPaymentListOpen(true)} />
                 <CouponInput />
-
                 <div className="pt-2">
                   <FareDetails />
                   <CheckoutSummary />
                 </div>
               </div>
 
-              <div className="pt-2 pb-4">
-                <button
-                  type="button"
-                  onClick={handleReview}
-                  disabled={!checkout.readiness || !!routeError}
-                  className={cn(
-                    "w-full flex items-center justify-center gap-2 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
-                    checkout.readiness && !routeError
-                      ? "bg-apois-yellow text-black shadow-apois-yellow/20"
-                      : "bg-zinc-800 text-zinc-600 cursor-not-allowed",
-                  )}
-                >
-                  Confirmar {selectedCategory?.name || "Solicitação"}
-                  <ChevronRight size={20} strokeWidth={3} />
-                </button>
-              </div>
+              <button
+                onClick={handleReview}
+                disabled={!checkout.readiness || !!routeError}
+                className={cn(
+                  "w-full flex items-center justify-center gap-2 py-5 rounded-2xl font-black transition-all active:scale-95 shadow-lg",
+                  checkout.readiness && !routeError ? "bg-apois-yellow text-black" : "bg-zinc-800 text-zinc-600"
+                )}
+              >
+                Confirmar {selectedCategory?.name || "Solicitação"}
+                <ChevronRight size={20} strokeWidth={3} />
+              </button>
             </div>
           </div>
         </BottomSheet>
