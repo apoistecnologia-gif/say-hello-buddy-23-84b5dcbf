@@ -19,7 +19,7 @@ import {
 import { CouponInput } from "@/components/coupons/CouponInput";
 import { CheckoutSummary } from "@/components/pricing/CheckoutSummary";
 import { FareDetails } from "@/components/pricing/FareDetails";
-import { MapPin, ChevronRight, Settings2, RefreshCw, Navigation } from "lucide-react";
+import { MapPin, ChevronRight, Settings2, RefreshCw, Navigation, AlertCircle, Home, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BottomSheet } from "@/components/ui/bottom-sheet/BottomSheet";
 
@@ -30,6 +30,75 @@ export const Route = createFileRoute("/_authenticated/inicio")({
 function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
+
+function HomeWorkShortcuts() {
+  const navigate = useNavigate();
+  const { favorites } = useDestinationHistory();
+  const { setDestination } = useDestination();
+
+  const homeFav = favorites.find((f) => f.icon === "home");
+  const workFav = favorites.find((f) => f.icon === "briefcase");
+
+  const handleShortcut = (type: "home" | "briefcase") => {
+    const fav = type === "home" ? homeFav : workFav;
+    if (fav) {
+      setDestination({
+        label: fav.label,
+        formattedAddress: fav.formattedAddress,
+        latitude: fav.latitude,
+        longitude: fav.longitude,
+        placeId: fav.placeId,
+      });
+    } else {
+      navigate({ to: "/buscar-destino", search: { stop: false } });
+    }
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div 
+        onClick={() => handleShortcut("home")}
+        className="bg-zinc-900/80 p-4 rounded-2xl border border-white/5 flex items-center gap-3 cursor-pointer active:scale-95 transition-all"
+      >
+        <div className={cn(
+          "w-8 h-8 rounded-lg flex items-center justify-center",
+          homeFav ? "bg-blue-500/20 text-blue-400" : "bg-zinc-800 text-zinc-600"
+        )}>
+          <Home size={18} />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-black text-white uppercase tracking-tighter">
+            {homeFav ? "CASA" : "ADD CASA"}
+          </span>
+          <span className="text-[10px] text-zinc-500 truncate w-[80px]">
+            {homeFav ? homeFav.label : "Sua residência"}
+          </span>
+        </div>
+      </div>
+      <div 
+        onClick={() => handleShortcut("briefcase")}
+        className="bg-zinc-900/80 p-4 rounded-2xl border border-white/5 flex items-center gap-3 cursor-pointer active:scale-95 transition-all"
+      >
+        <div className={cn(
+          "w-8 h-8 rounded-lg flex items-center justify-center",
+          workFav ? "bg-orange-500/20 text-orange-400" : "bg-zinc-800 text-zinc-600"
+        )}>
+          <Briefcase size={18} />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-xs font-black text-white uppercase tracking-tighter">
+            {workFav ? "TRABALHO" : "ADD TRAMPO"}
+          </span>
+          <span className="text-[10px] text-zinc-500 truncate w-[80px]">
+            {workFav ? workFav.label : "Seu escritório"}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+import { useDestinationHistory } from "@/hooks/use-destination-history";
 
 function InicioPage() {
   const navigate = useNavigate();
