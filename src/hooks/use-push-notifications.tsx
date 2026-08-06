@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -36,24 +36,4 @@ export const usePushNotifications = (): PushState => {
   }, [authState, user?.id]);
 
   return state;
-};
-
-/** Rótulo amigável do estado de push, sem jargão técnico. */
-export const usePushStatusLabel = (): { title: string; tone: "ok" | "muted" | "warn" } => {
-  const { status } = usePushNotifications();
-
-  return useCallback((): { title: string; tone: "ok" | "muted" | "warn" } => {
-    switch (status) {
-      case "granted":
-        return { title: "Notificações ativas neste dispositivo", tone: "ok" };
-      case "denied":
-        return { title: "Notificações desativadas nas configurações do celular", tone: "warn" };
-      case "unsupported":
-        return { title: "Notificações push disponíveis apenas no aplicativo", tone: "muted" };
-      case "error":
-        return { title: "Notificações indisponíveis no momento", tone: "muted" };
-      default:
-        return { title: "Preparando notificações…", tone: "muted" };
-    }
-  }, [status])();
 };
