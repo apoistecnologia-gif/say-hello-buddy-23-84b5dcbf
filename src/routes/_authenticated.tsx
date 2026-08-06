@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/
 import { useEffect, useRef } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { AppShell } from "@/components/layout/AppShell";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Toaster } from "@/components/ui/sonner";
 import { LocationProvider } from "@/hooks/use-location";
@@ -63,6 +64,12 @@ function PushBootstrap() {
 }
 
 function AuthenticatedLayout() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const shouldHideBottomNavigation =
+    pathname.startsWith("/corrida/") ||
+    pathname === "/revisar-solicitacao" ||
+    pathname === "/buscar-destino";
+
   return (
     <AuthGuard>
       <LocationProvider>
@@ -81,15 +88,14 @@ function AuthenticatedLayout() {
                                 <ActiveRideProvider>
                                   <ActiveRideRecovery />
                                   <PushBootstrap />
-                                  <div className="app-viewport flex h-[100dvh] min-h-[100dvh] justify-center overflow-hidden selection:bg-yellow-500/30">
-                                    <div className="relative flex h-full w-full max-w-[430px] flex-col overflow-hidden bg-apois-black shadow-[0_0_80px_rgba(0,0,0,0.55)]">
-                                      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-                                        <Outlet />
-                                      </div>
-                                      <BottomNavigation />
-                                      <Toaster position="top-center" />
-                                    </div>
-                                  </div>
+                                  <AppShell
+                                    bottomNavigation={
+                                      shouldHideBottomNavigation ? undefined : <BottomNavigation />
+                                    }
+                                  >
+                                    <Outlet />
+                                  </AppShell>
+                                  <Toaster position="top-center" />
                                 </ActiveRideProvider>
                               </RideRequestProvider>
                             </CheckoutPreparationProvider>
