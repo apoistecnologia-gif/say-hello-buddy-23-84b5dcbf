@@ -74,11 +74,11 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
     };
   }, [
     estimate,
-    paymentMethodDependency(selectedMethod),
     pricingStatus,
     profile,
     route,
     selectedCategory,
+    selectedMethod,
     user,
     wallet?.balance,
     walletState,
@@ -95,10 +95,6 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
     </CheckoutPreparationContext.Provider>
   );
 };
-
-function paymentMethodDependency(value: string | null): string | null {
-  return value;
-}
 
 export const useCheckoutPreparation = () => {
   const context = useContext(CheckoutPreparationContext);
