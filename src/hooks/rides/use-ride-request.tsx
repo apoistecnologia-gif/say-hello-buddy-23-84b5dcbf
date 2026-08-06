@@ -10,6 +10,7 @@ import { usePricing } from "@/hooks/use-pricing";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 import { useRoute } from "@/hooks/use-route";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
+import { activeRideService } from "@/services/rides/active-ride-service";
 import type {
   RideRequestPayload,
   RideRequestResponse,
@@ -42,9 +43,14 @@ type UntypedRpcClient = {
 };
 
 const RideRequestContext = createContext<RideRequestContextType | undefined>(undefined);
+const RECOVERY_DELAYS_MS = [0, 500, 1_200] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 }
 
 function readErrorMessage(error: unknown, fallback: string): string {
@@ -81,12 +87,48 @@ function friendlyRideError(error: unknown): string {
     return "Você já possui uma corrida em andamento.";
   }
   if (normalized.includes("request_timeout") || normalized.includes("timeout")) {
-    return "A resposta demorou mais que o esperado. Vamos verificar se a corrida foi criada.";
+    return "A resposta demorou mais que o esperado. Verificamos se a corrida foi criada antes de liberar uma nova tentativa.";
   }
   if (normalized.includes("network") || normalized.includes("fetch")) {
-    return "Falha de conexão. Verifique a internet e tente novamente.";
+    return "A conexão foi interrompida. Verificamos se a corrida foi criada antes de liberar uma nova tentativa.";
   }
   return raw;
+}
+
+function isUnknownSubmissionOutcome(error: unknown): boolean {
+  const normalized = readErrorMessage(error, "").toLowerCase();
+  return ["timeout", "request_timeout", "network", "fetch", "connection", "aborted"].some(
+    (marker) => normalized.includes(marker),
+  );
+}
+
+async function recoverRideCreatedWithoutResponse(
+  passengerId: string,
+): Promise<RideRequestResponse | null> {
+  for (const delay of RECOVERY_DELAYS_MS) {
+    if (delay > 0) await sleep(delay);
+
+    try {
+      const recoveredRide = await activeRideService.getActiveRide(passengerId);
+      if (!recoveredRide) continue;
+
+      return {
+        ok: true,
+        rideId: recoveredRide.id,
+        reused: true,
+        status: recoveredRide.status,
+        estimated_price: recoveredRide.estimated_price,
+        message: "A corrida foi encontrada após a reconexão.",
+      };
+    } catch (caughtError: unknown) {
+      console.warn("[RideRequest] Active ride recovery attempt failed", {
+        message: readErrorMessage(caughtError, "unknown_recovery_error"),
+        delay,
+      });
+    }
+  }
+
+  return null;
 }
 
 function friendlyCancellationError(error: unknown): string {
@@ -303,9 +345,24 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
           message: readErrorMessage(error, "unknown_error"),
           requestKey: request.requestKey,
         });
+
+        if (isUnknownSubmissionOutcome(error)) {
+          const recovered = await recoverRideCreatedWithoutResponse(profile.id);
+          if (recovered) {
+            setRequest((previous) => ({
+              ...previous,
+              status: "reused",
+              isSubmitting: false,
+              error: null,
+              lastResponse: recovered,
+            }));
+            return recovered;
+          }
+        }
+
         setRequest((previous) => ({
           ...previous,
-          status: message.includes("demorou") ? "timeout_unknown" : "failed",
+          status: isUnknownSubmissionOutcome(error) ? "timeout_unknown" : "failed",
           isSubmitting: false,
           error: message,
         }));
