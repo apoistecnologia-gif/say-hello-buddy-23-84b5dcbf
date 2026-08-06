@@ -23,18 +23,17 @@ declare module "@tanstack/react-router" {
   }
 }
 
-// Componente para normalização de rota inicial (sem hash)
 const Normalizer = () => {
   const { authState } = useAuth();
 
   useEffect(() => {
     const hash = window.location.hash;
-    // Se não houver hash ou for apenas "#", normaliza conforme a sessão
+
     if (!hash || hash === "#" || hash === "#/") {
       if (authState === "authenticated") {
-        router.navigate({ to: "/inicio", replace: true });
+        void router.navigate({ to: "/inicio", replace: true });
       } else if (authState === "unauthenticated") {
-        router.navigate({ to: "/login", replace: true });
+        void router.navigate({ to: "/", replace: true });
       }
     }
   }, [authState]);
