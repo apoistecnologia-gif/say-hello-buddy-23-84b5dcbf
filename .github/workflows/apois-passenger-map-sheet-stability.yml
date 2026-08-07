@@ -1,0 +1,44 @@
+name: APOIS Passageiro - painel estavel sobre mapa
+
+on:
+  push:
+    branches:
+      - feat/apois-passageiro-completo
+    paths:
+      - ".github/workflows/apois-passenger-map-sheet-stability.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/apois-passageiro-completo
+      - name: Fixar altura do painel de categoria
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/routes/_authenticated.inicio.tsx')
+          s=p.read_text()
+          old='<BottomSheet isOpen onClose={handleClearDestination} preventClose showBackdrop={false}>'
+          new='''<BottomSheet\n          isOpen\n          onClose={handleClearDestination}\n          preventClose\n          showBackdrop={false}\n          height="62dvh"\n          maxHeight="560px"\n        >'''
+          if new not in s:
+            if old not in s: raise RuntimeError('BottomSheet principal nao encontrado')
+            s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Validar regra visual do PDF
+        run: |
+          grep -F 'height="62dvh"' src/routes/_authenticated.inicio.tsx
+          grep -F 'maxHeight="560px"' src/routes/_authenticated.inicio.tsx
+          grep -F 'showBackdrop={false}' src/routes/_authenticated.inicio.tsx
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/routes/_authenticated.inicio.tsx
+          git commit -m "fix(passageiro): manter mapa visivel na revisao da categoria"
+          git push origin HEAD:feat/apois-passageiro-completo
