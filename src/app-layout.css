@@ -41,9 +41,10 @@
   overscroll-behavior: contain;
 }
 
-/* The old Home button occupied the same position as the new global menu. */
+/* Keep the Home header slot so the new hamburger occupies the same space. */
 button[aria-label="Abrir menu da conta"] {
-  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 /* Keep page-specific refresh actions visible beside the global hamburger. */
