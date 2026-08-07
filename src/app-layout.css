@@ -61,6 +61,12 @@
   display: none;
 }
 
+/* Sonner notifications are fixed to the viewport, so top notifications need
+ * the same physical safe-area contract as page headers. */
+[data-sonner-toaster][data-y-position="top"] {
+  top: calc(max(16px, var(--app-safe-top)) + 8px) !important;
+}
+
 /* Active ride is a full-map journey and used fixed top offsets. Move its
  * floating controls below the Android status bar and keep the lower sheet
  * above gesture/navigation insets. */
