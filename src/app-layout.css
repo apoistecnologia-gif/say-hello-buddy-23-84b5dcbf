@@ -1,0 +1,52 @@
+/*
+ * APOIS mobile viewport contract.
+ * AppShell owns the single 100dvh viewport. Route screens fill only the
+ * remaining shell space and scroll internally, preventing content from being
+ * hidden behind Android system bars or duplicated viewport heights.
+ */
+
+.app-screen {
+  height: 100%;
+  min-height: 0 !important;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.app-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-bottom: max(32px, var(--app-safe-bottom)) !important;
+  scroll-padding-bottom: max(40px, var(--app-safe-bottom));
+}
+
+.app-main-menu-trigger {
+  position: absolute;
+  z-index: 90;
+  top: calc(max(16px, var(--app-safe-top)) + 4px);
+  right: max(16px, var(--app-safe-right));
+}
+
+.app-main-menu-drawer {
+  padding-top: max(16px, var(--app-safe-top));
+  padding-bottom: max(16px, var(--app-safe-bottom));
+}
+
+/* The old Home button occupied the same position as the new global menu. */
+button[aria-label="Abrir menu da conta"] {
+  display: none !important;
+}
+
+/* Keep page-specific refresh actions visible beside the global hamburger. */
+button[aria-label="Atualizar perfil"],
+button[aria-label="Atualizar histórico"],
+button[aria-label="Atualizar carteira"],
+button[aria-label="Atualizar notificações"] {
+  margin-right: 54px;
+}
+
+/* Dialogs opened from Perfil/Carteira must never exceed the physical viewport. */
+[role="dialog"] {
+  max-height: calc(100dvh - max(16px, var(--app-safe-top)) - max(16px, var(--app-safe-bottom)));
+}
