@@ -245,7 +245,7 @@ class PlacesService {
       label,
       ...(formattedAddress ? { subLabel: formattedAddress } : {}),
       formattedAddress: safeFormattedAddress,
-      ...(displayName ? { name: displayName } : {}),
+      name: displayName || label,
       components,
       types: place.types || [],
       selectedAt: new Date().toISOString(),
