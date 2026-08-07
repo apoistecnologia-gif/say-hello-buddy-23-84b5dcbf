@@ -28,6 +28,7 @@
     <script>
       (() => {
         const token = "%VITE_BETTERSTACK_TOKEN%";
+        const smokeTest = "%VITE_BETTERSTACK_SMOKE_TEST%";
 
         if (!token || token.includes("VITE_BETTERSTACK_TOKEN")) {
           return;
@@ -44,6 +45,24 @@
           script.async = true;
           script.crossOrigin = "anonymous";
           script.src = `https://betterstack.net/b.js?t=${encodeURIComponent(r)}`;
+
+          if (smokeTest === "1") {
+            script.addEventListener("load", () => {
+              window.setTimeout(() => {
+                const marker = "apois_betterstack_smoke_v1";
+
+                try {
+                  if (window.localStorage.getItem(marker) === "sent") return;
+                  window.localStorage.setItem(marker, "sent");
+                } catch {
+                  // If storage is unavailable, still emit the isolated smoke-test error.
+                }
+
+                throw new Error("APOIS_BETTERSTACK_SMOKE_TEST");
+              }, 750);
+            });
+          }
+
           (e.head || e.getElementsByTagName("head")[0]).appendChild(script);
         })(window, document, "betterstack", token);
 
@@ -52,7 +71,7 @@
             sendDefaultPii: false,
           },
         });
-        window.betterstack("init");
+        window.betterstack("init", { environment: "homologation" });
       })();
     </script>
   </head>
