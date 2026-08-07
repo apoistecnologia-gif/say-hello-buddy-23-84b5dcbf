@@ -18,7 +18,11 @@ export function MainHamburgerMenu() {
   const pathname = location.pathname;
   const [open, setOpen] = useState(false);
 
-  const isJourney = journeyRoutes.includes(pathname) || pathname.startsWith("/corrida/");
+  const isNestedRideDetails = pathname.startsWith("/corridas/");
+  const isJourney =
+    journeyRoutes.includes(pathname) ||
+    pathname.startsWith("/corrida/") ||
+    isNestedRideDetails;
 
   useEffect(() => {
     setOpen(false);
