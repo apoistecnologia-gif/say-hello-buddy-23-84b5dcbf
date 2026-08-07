@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AlertTriangle, Loader2, LogOut, RefreshCw, UserRoundX, WifiOff } from "lucide-react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { PrimaryButton } from "@/components/app/PrimaryButton";
@@ -17,6 +17,7 @@ const PUBLIC_PATHS = [
 const PUBLIC_PREFIXES = ["/acompanhar/"];
 const AUTHENTICATED_PUBLIC_PATHS = ["/redefinir-senha", "/termos", "/privacidade"];
 const AUTHENTICATED_PUBLIC_PREFIXES = ["/acompanhar/"];
+const PROFILE_MISSING_GRACE_MS = 1800;
 
 const matchesPath = (pathname: string, allowedPath: string) => {
   if (allowedPath === "/") {
@@ -46,6 +47,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   const { authState, error, isLoading, profile, refreshSession, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [profileMissingConfirmed, setProfileMissingConfirmed] = useState(false);
 
   const isPublicPath =
     PUBLIC_PATHS.some((path) => matchesPath(location.pathname, path)) ||
@@ -68,6 +70,19 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       void navigate({ to: "/inicio", replace: true });
     }
   }, [authState, canRenderWhileAuthenticated, isPublicPath, navigate]);
+
+  useEffect(() => {
+    if (authState !== "authenticated" || profile || isLoading) {
+      setProfileMissingConfirmed(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setProfileMissingConfirmed(true);
+    }, PROFILE_MISSING_GRACE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [authState, isLoading, profile]);
 
   if (isPublicPath) return <>{children}</>;
 
@@ -106,7 +121,9 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  if (authState === "authenticated" && isLoading && !profile) return <LoadingAccount />;
+  if (authState === "authenticated" && !profile && (isLoading || !profileMissingConfirmed)) {
+    return <LoadingAccount />;
+  }
 
   if (authState === "authenticated" && !profile) {
     return (
