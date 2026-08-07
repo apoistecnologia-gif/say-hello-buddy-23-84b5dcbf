@@ -1,10 +1,11 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter, createHashHistory } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { routeTree } from "./routeTree.gen";
+import apoisLogo from "@/assets/logo.jpg";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { registerNativePasswordRecoveryHandler } from "@/lib/auth/native-password-recovery";
 import "./styles.css";
@@ -42,6 +43,7 @@ void registerNativePasswordRecoveryHandler({
 
 const Normalizer = () => {
   const { authState } = useAuth();
+  const [showNativeIntro, setShowNativeIntro] = useState(() => Capacitor.isNativePlatform());
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -67,10 +69,28 @@ const Normalizer = () => {
     };
 
     const frameId = window.requestAnimationFrame(hideSplash);
-    return () => window.cancelAnimationFrame(frameId);
+    const introTimer = window.setTimeout(() => setShowNativeIntro(false), 950);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(introTimer);
+    };
   }, []);
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <RouterProvider router={router} />
+      {showNativeIntro ? (
+        <div className="apois-native-intro" aria-hidden="true">
+          <div className="apois-native-intro__brand">
+            <img src={apoisLogo} alt="" className="apois-native-intro__logo" />
+            <p className="apois-native-intro__eyebrow">APOIS PASSAGEIRO</p>
+            <p className="apois-native-intro__tagline">Apois, vamos?</p>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
 };
 
 const rootElement = document.getElementById("root");
