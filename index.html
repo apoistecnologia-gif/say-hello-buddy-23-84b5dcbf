@@ -19,6 +19,42 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="APOIS Passageiro" />
     <meta name="twitter:description" content="Sua jornada oficial começa aqui." />
+
+    <!--
+      APOIS observability (Better Stack)
+      Disabled by default. Vite only enables the loader when VITE_BETTERSTACK_TOKEN
+      is provided by the build environment. No token is stored in this repository.
+    -->
+    <script>
+      (() => {
+        const token = "%VITE_BETTERSTACK_TOKEN%";
+
+        if (!token || token.includes("VITE_BETTERSTACK_TOKEN")) {
+          return;
+        }
+
+        !(function (b, e, t, r) {
+          b[t] =
+            b[t] ||
+            function (...args) {
+              (b[t].q = b[t].q || []).push(args);
+            };
+          b[t].l = +new Date();
+          const script = e.createElement("script");
+          script.async = true;
+          script.crossOrigin = "anonymous";
+          script.src = `https://betterstack.net/b.js?t=${encodeURIComponent(r)}`;
+          (e.head || e.getElementsByTagName("head")[0]).appendChild(script);
+        })(window, document, "betterstack", token);
+
+        window.betterstack("config", {
+          sentry: {
+            sendDefaultPii: false,
+          },
+        });
+        window.betterstack("init");
+      })();
+    </script>
   </head>
   <body class="bg-black">
     <div id="root">
