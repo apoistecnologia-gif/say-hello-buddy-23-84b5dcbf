@@ -74,6 +74,14 @@ export interface ActiveRide {
 
   security_code?: string;
 
+  /**
+   * Quando preenchido com status procurar_motorista + driver_id, a corrida já
+   * foi reservada por um motorista que está finalizando outra viagem próxima.
+   * Ela só muda para motorista_a_caminho ao terminar a corrida anterior.
+   */
+  queued_after_ride_id?: string;
+  queued_at?: string;
+
   cancellation_reason?: string;
   cancelled_by?: string;
   cancellation_fee?: number;
