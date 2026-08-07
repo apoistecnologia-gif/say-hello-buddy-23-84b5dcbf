@@ -1,9 +1,10 @@
 /**
  * APOIS Edge Function CORS helper.
  *
- * Browser and Capacitor calls are accepted only when the exact Origin appears
- * in the ALLOWED_ORIGINS secret. Requests without Origin remain supported for
- * trusted server-to-server integrations.
+ * Web origins must be explicitly configured through ALLOWED_ORIGINS. The
+ * Capacitor/Ionic application uses a local virtual origin even in production,
+ * so only the exact native origins below are trusted without depending on an
+ * environment secret.
  */
 
 const ENVIRONMENT =
@@ -14,6 +15,12 @@ const ENVIRONMENT =
 const ALLOWED_METHODS = "GET, POST, OPTIONS";
 const ALLOWED_HEADERS =
   "authorization, x-client-info, apikey, content-type, x-signature, x-request-id";
+
+const NATIVE_ORIGINS = new Set([
+  "https://localhost",
+  "capacitor://localhost",
+  "ionic://localhost",
+]);
 
 function configuredOrigins(): Set<string> {
   return new Set(
@@ -37,7 +44,7 @@ export function getCorsHeaders(request: Request): Record<string, string> {
 
   const origin = originHeader.replace(/\/$/, "");
   const allowedOrigins = configuredOrigins();
-  let allowed = allowedOrigins.has(origin);
+  let allowed = NATIVE_ORIGINS.has(origin) || allowedOrigins.has(origin);
 
   try {
     const url = new URL(origin);
@@ -47,15 +54,9 @@ export function getCorsHeaders(request: Request): Record<string, string> {
 
     if (localDevelopment) allowed = true;
 
-    if (allowed && ENVIRONMENT !== "development") {
-      const explicitlyAllowedNativeOrigin =
-        allowedOrigins.has(origin) &&
-        (url.hostname === "localhost" ||
-          url.hostname === "127.0.0.1" ||
-          url.protocol === "capacitor:" ||
-          url.protocol === "ionic:");
-      const secureWebOrigin = url.protocol === "https:";
-      allowed = secureWebOrigin || explicitlyAllowedNativeOrigin;
+    if (allowed && ENVIRONMENT !== "development" && !NATIVE_ORIGINS.has(origin)) {
+      // Configured web origins must still be HTTPS in production.
+      allowed = url.protocol === "https:";
     }
   } catch {
     allowed = false;
