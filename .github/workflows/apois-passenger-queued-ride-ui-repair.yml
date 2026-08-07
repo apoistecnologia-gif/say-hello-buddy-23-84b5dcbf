@@ -1,0 +1,89 @@
+name: APOIS Passageiro - corrida reservada repair
+
+on:
+  push:
+    branches:
+      - feat/apois-passageiro-completo
+    paths:
+      - ".github/workflows/apois-passenger-queued-ride-ui-repair.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/apois-passageiro-completo
+      - name: Aplicar adaptação robusta
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def must_replace(text, old, new, label):
+            if new in text:
+              return text
+            if old not in text:
+              raise RuntimeError(f'padrao nao encontrado: {label}')
+            return text.replace(old,new,1)
+
+          # Active ride service
+          p=Path('src/services/rides/active-ride-service.ts'); s=p.read_text()
+          s=must_replace(s,'  | "share_token";','  | "share_token"\n  | "queued_after_ride_id"\n  | "queued_at";','service type')
+          s=must_replace(s,'      ["share_token", "share_token"],','      ["share_token", "share_token"],\n      ["queued_after_ride_id", "queued_after_ride_id"],\n      ["queued_at", "queued_at"],','service normalize')
+          old='''      canContactDriver:\n        Boolean(ride.driver_id) &&\n        ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),'''
+          new='''      canContactDriver:\n        Boolean(ride.driver_id) &&\n        (["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status) ||\n          (status === "procurar_motorista" && Boolean(ride.queued_after_ride_id))),'''
+          s=must_replace(s,old,new,'contact queued')
+          p.write_text(s)
+
+          # Status header
+          p=Path('src/components/rides/active/RideStatusHeader.tsx'); s=p.read_text()
+          s=must_replace(s,'  estimatedArrivalMinutes?: number | null | undefined;','  estimatedArrivalMinutes?: number | null | undefined;\n  isQueuedRide?: boolean | undefined;','header prop')
+          s=must_replace(s,'  estimatedArrivalMinutes,\n}: RideStatusHeaderProps) {','  estimatedArrivalMinutes,\n  isQueuedRide = false,\n}: RideStatusHeaderProps) {','header arg')
+          old='''      case "procurar_motorista":\n        return {\n          title: "Procurando motorista",\n          subtitle: "A solicitação está sendo enviada aos motoristas disponíveis.",\n          icon: <Search className="animate-pulse text-apois-yellow" size={20} />,\n          color: "bg-apois-yellow/10 border-apois-yellow/20",\n        };'''
+          new='''      case "procurar_motorista":\n        if (isQueuedRide) {\n          return {\n            title: "Motorista reservado",\n            subtitle: "Ele está concluindo uma corrida próxima. Assim que finalizar, seguirá para o seu embarque.",\n            icon: <Navigation className="text-apois-yellow" size={20} />,\n            color: "bg-apois-yellow/10 border-apois-yellow/20",\n          };\n        }\n        return {\n          title: "Procurando motorista",\n          subtitle: "A solicitação está sendo enviada aos motoristas disponíveis.",\n          icon: <Search className="animate-pulse text-apois-yellow" size={20} />,\n          color: "bg-apois-yellow/10 border-apois-yellow/20",\n        };'''
+          s=must_replace(s,old,new,'header queued case')
+          p.write_text(s)
+
+          # Map
+          p=Path('src/components/map/ActiveRideMap.tsx'); s=p.read_text()
+          marker='  const driverLocation = useMemo<Coordinate | null>(() => {\n'
+          if 'if (ride.queued_after_ride_id) return null;' not in s:
+            if marker not in s: raise RuntimeError('map driverLocation')
+            s=s.replace(marker,marker+'    if (ride.queued_after_ride_id) return null;\n',1)
+          s=s.replace('  }, [ride.driver_latitude, ride.driver_longitude]);','  }, [ride.driver_latitude, ride.driver_longitude, ride.queued_after_ride_id]);',1)
+          p.write_text(s)
+
+          # Active route
+          p=Path('src/routes/_authenticated.corrida.$rideId.tsx'); s=p.read_text()
+          anchor='  if (!ride || !status) return null;\n\n'
+          derived='''  const isQueuedRide =\n    status === "procurar_motorista" &&\n    Boolean(ride.driver_id && ride.queued_after_ride_id);\n\n'''
+          if 'const isQueuedRide =' not in s:
+            if anchor not in s: raise RuntimeError('route derive anchor')
+            s=s.replace(anchor,anchor+derived,1)
+          s=s.replace('<RideStatusHeader status={status} isRefreshing={isRefreshing} />','<RideStatusHeader status={status} isRefreshing={isRefreshing} isQueuedRide={isQueuedRide} />',1)
+          s=s.replace('{status !== "procurar_motorista" && status !== "agendada" ? (','{(isQueuedRide || (status !== "procurar_motorista" && status !== "agendada")) ? (',1)
+          s=s.replace('{status === "procurar_motorista" ? (','{status === "procurar_motorista" && !isQueuedRide ? (',1)
+          if 'Sua corrida já está reservada.' not in s:
+            marker='            {screenState === "completed" || screenState === "cancelled" ? ('
+            queued='''            {isQueuedRide ? (\n              <div className="rounded-2xl border border-apois-yellow/20 bg-apois-yellow/10 p-4">\n                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-apois-yellow">Motorista confirmado</p>\n                <p className="mt-2 text-sm font-black text-white">Sua corrida já está reservada.</p>\n                <p className="mt-1 text-[11px] font-medium leading-5 text-zinc-400">O motorista está finalizando uma viagem próxima. Você poderá acompanhar a aproximação assim que ele iniciar o deslocamento até o embarque.</p>\n              </div>\n            ) : null}\n\n'''
+            if marker not in s: raise RuntimeError('route queued card anchor')
+            s=s.replace(marker,queued+marker,1)
+          p.write_text(s)
+          PY
+      - name: Validar
+        run: |
+          grep -q 'queued_after_ride_id' src/services/rides/active-ride-service.ts
+          grep -q 'Motorista reservado' src/components/rides/active/RideStatusHeader.tsx
+          grep -q 'Sua corrida já está reservada' 'src/routes/_authenticated.corrida.$rideId.tsx'
+          grep -q 'ride.queued_after_ride_id' src/components/map/ActiveRideMap.tsx
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/rides/active-ride-service.ts src/components/rides/active/RideStatusHeader.tsx src/components/map/ActiveRideMap.tsx 'src/routes/_authenticated.corrida.$rideId.tsx'
+          git commit -m "feat(passageiro): exibir próxima corrida reservada"
+          git push origin HEAD:feat/apois-passageiro-completo
