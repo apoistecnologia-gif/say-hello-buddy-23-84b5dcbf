@@ -2,6 +2,8 @@ import React, { useEffect } from "react";
 import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter, createHashHistory } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
+import { SplashScreen } from "@capacitor/splash-screen";
 import { routeTree } from "./routeTree.gen";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { registerNativePasswordRecoveryHandler } from "@/lib/auth/native-password-recovery";
@@ -52,6 +54,21 @@ const Normalizer = () => {
       }
     }
   }, [authState]);
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const hideSplash = () => {
+      void SplashScreen.hide().catch((error) => {
+        console.warn("[SplashScreen] Não foi possível ocultar a splash", {
+          message: error instanceof Error ? error.message : "unknown_error",
+        });
+      });
+    };
+
+    const frameId = window.requestAnimationFrame(hideSplash);
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
 
   return <RouterProvider router={router} />;
 };
