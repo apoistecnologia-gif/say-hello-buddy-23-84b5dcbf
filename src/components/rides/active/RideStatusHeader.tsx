@@ -94,18 +94,20 @@ export function RideStatusHeader({
   return (
     <div
       className={cn(
-        "flex items-center gap-4 rounded-2xl border p-4 transition-all duration-500",
+        "flex items-start gap-3 rounded-2xl border px-4 py-3.5 transition-all duration-500",
         config.color,
       )}
     >
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-black/20">
+      <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/20">
         {config.icon}
       </div>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-lg font-black leading-tight text-white">{config.title}</h3>
-        <p className="truncate text-xs font-medium text-zinc-400">{config.subtitle}</p>
+      <div className="min-w-0 flex-1 py-0.5">
+        <h3 className="text-base font-black leading-5 text-white">{config.title}</h3>
+        <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-4 text-zinc-400">
+          {config.subtitle}
+        </p>
       </div>
-      {isRefreshing ? <div className="h-2 w-2 animate-ping rounded-full bg-apois-yellow" /> : null}
+      {isRefreshing ? <div className="mt-2 h-2 w-2 shrink-0 animate-ping rounded-full bg-apois-yellow" /> : null}
     </div>
   );
 }
