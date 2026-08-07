@@ -2,8 +2,8 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@android:color/black" />
     <item
-        android:width="132dp"
-        android:height="132dp"
+        android:width="184dp"
+        android:height="184dp"
         android:gravity="center"
-        android:drawable="@drawable/apois_splash_icon" />
+        android:drawable="@drawable/apois_brand_logo" />
 </layer-list>
