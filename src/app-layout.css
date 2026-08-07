@@ -12,6 +12,13 @@
   overflow: hidden;
 }
 
+/* Legacy route states still carrying h-[100dvh] must not create a second
+ * viewport inside AppShell. This also covers loading/error states. */
+.app-viewport [class~="h-[100dvh]"] {
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
 .app-scroll {
   min-height: 0;
   flex: 1 1 auto;
@@ -31,7 +38,7 @@
 
 .app-main-menu-trigger {
   position: absolute;
-  z-index: 90;
+  z-index: 40;
   top: calc(max(16px, var(--app-safe-top)) + 4px);
   right: max(16px, var(--app-safe-right));
 }
@@ -41,22 +48,32 @@
   padding-bottom: max(16px, var(--app-safe-bottom));
 }
 
-.app-dialog-content,
-[role="dialog"] {
+.app-dialog-content {
   max-height: calc(
     100dvh - max(16px, var(--app-safe-top)) - max(16px, var(--app-safe-bottom))
   ) !important;
+  overflow-y: auto;
   overscroll-behavior: contain;
-}
-
-[role="dialog"][class*="overflow-y-auto"],
-[role="dialog"] > [class*="overflow-y-auto"] {
   scrollbar-width: none;
 }
 
-[role="dialog"][class*="overflow-y-auto"]::-webkit-scrollbar,
-[role="dialog"] > [class*="overflow-y-auto"]::-webkit-scrollbar {
+.app-dialog-content::-webkit-scrollbar {
   display: none;
+}
+
+/* Active ride is a full-map journey and used fixed top offsets. Move its
+ * floating controls below the Android status bar and keep the lower sheet
+ * above gesture/navigation insets. */
+.app-viewport .absolute.left-6.right-6.top-6.z-20 {
+  top: calc(max(16px, var(--app-safe-top)) + 8px) !important;
+}
+
+.app-viewport .absolute.left-6.right-6.top-20.z-10 {
+  top: calc(max(16px, var(--app-safe-top)) + 64px) !important;
+}
+
+.app-viewport div[class*="max-h-[64vh]"][class*="rounded-t-[32px]"] {
+  padding-bottom: max(32px, var(--app-safe-bottom)) !important;
 }
 
 /* Home already had a hamburger placeholder. Keep its physical space so the
@@ -72,6 +89,21 @@ button[aria-label="Atualizar histórico"],
 button[aria-label="Atualizar carteira"],
 button[aria-label="Atualizar notificações"] {
   margin-right: 54px;
+}
+
+/* Long headers must yield space to refresh + hamburger buttons on 320–360px
+ * devices instead of overflowing horizontally. */
+header:has(button[aria-label="Atualizar histórico"]) > div:first-child,
+header:has(button[aria-label="Atualizar carteira"]) > div:first-child,
+header:has(button[aria-label="Atualizar notificações"]) > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+header:has(button[aria-label="Atualizar histórico"]) h1,
+header:has(button[aria-label="Atualizar carteira"]) h1,
+header:has(button[aria-label="Atualizar notificações"]) h1 {
+  overflow-wrap: anywhere;
 }
 
 /* No page may reserve the retired bottom navigation bar. */
