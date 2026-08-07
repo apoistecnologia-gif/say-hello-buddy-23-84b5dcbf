@@ -52,7 +52,7 @@ jobs:
         run: bun run typecheck
 
       - name: Check Supabase push function
-        run: deno check supabase/functions/send-ride-push/index.ts
+        run: deno check --node-modules-dir=auto supabase/functions/send-ride-push/index.ts
 
       - name: Validate Firebase passenger client
         run: |
