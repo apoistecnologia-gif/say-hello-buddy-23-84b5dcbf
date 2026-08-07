@@ -328,7 +328,14 @@ function InicioPage() {
       ) : null}
 
       {hasDestination ? (
-        <BottomSheet isOpen onClose={handleClearDestination} preventClose showBackdrop={false}>
+        <BottomSheet
+          isOpen
+          onClose={handleClearDestination}
+          preventClose
+          showBackdrop={false}
+          height="62dvh"
+          maxHeight="560px"
+        >
           <div className="w-full pb-4">
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom duration-300">
               <div className="flex items-center gap-3">
