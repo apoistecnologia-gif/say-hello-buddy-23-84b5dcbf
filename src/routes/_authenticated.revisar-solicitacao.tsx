@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   AlertTriangle,
   ChevronRight,
@@ -98,7 +98,7 @@ function RideRequestReviewPage() {
   const { recoverActiveRide } = useActiveRide();
   const { address: pickupAddress, pickupLabel } = usePickupAddress();
   const { destination } = useDestination();
-  const { route } = useRoute();
+  const { route, freeze: freezeRoute, unfreeze: unfreezeRoute } = useRoute();
   const { selectedCategory } = useRideCategories();
   const { checkout } = useCheckoutPreparation();
   const { selectedMethod } = usePaymentMethods();
@@ -112,6 +112,13 @@ function RideRequestReviewPage() {
     refresh: refreshPolicy,
   } = useCancellationPolicy();
   const confirmationInFlightRef = useRef(false);
+
+  // O PDF exige que esta tela não fique se mexendo/atualizando sozinha.
+  // Congelamos a rota já revisada até o usuário sair desta página.
+  useEffect(() => {
+    freezeRoute();
+    return () => unfreezeRoute();
+  }, [freezeRoute, unfreezeRoute]);
 
   const serviceSummary = useMemo(
     () => getServiceSummary(selectedCategory?.code, serviceDetails),

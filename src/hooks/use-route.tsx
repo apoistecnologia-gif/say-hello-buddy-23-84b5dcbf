@@ -156,6 +156,9 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStatus("idle");
   }, []);
 
+  const freeze = useCallback(() => setIsFrozen(true), []);
+  const unfreeze = useCallback(() => setIsFrozen(false), []);
+
   return (
     <RouteContext.Provider
       value={{
@@ -168,8 +171,8 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         clearRoute,
         refresh: () => calculateRoute(true),
         retry: () => calculateRoute(true),
-        freeze: () => setIsFrozen(true),
-        unfreeze: () => setIsFrozen(false),
+        freeze,
+        unfreeze,
       }}
     >
       {children}
