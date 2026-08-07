@@ -23,7 +23,7 @@
 
 .app-main-menu-trigger {
   position: absolute;
-  z-index: 90;
+  z-index: 40;
   top: calc(max(16px, var(--app-safe-top)) + 4px);
   right: max(16px, var(--app-safe-right));
 }
