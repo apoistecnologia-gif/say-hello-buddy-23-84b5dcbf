@@ -50,7 +50,7 @@ const Normalizer = () => {
       if (authState === "authenticated") {
         void router.navigate({ to: "/inicio", replace: true });
       } else if (authState === "unauthenticated") {
-        void router.navigate({ to: "/", replace: true });
+        void router.navigate({ to: "/login", replace: true });
       }
     }
   }, [authState]);
