@@ -8,6 +8,7 @@ on:
     branches:
       - fix/apois-auditoria-completa
       - feat/apois-passageiro-completo
+      - feat/apois-betterstack-observability
 
 concurrency:
   group: validate-apois-${{ github.ref }}
