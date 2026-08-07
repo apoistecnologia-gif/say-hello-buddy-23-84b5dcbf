@@ -69,8 +69,13 @@ jobs:
           grep -F 'freezeRoute();' src/routes/_authenticated.revisar-solicitacao.tsx
           grep -F 'void navigate({ to: "/inicio", replace: true });' 'src/routes/_authenticated.corrida.$rideId.tsx'
           grep -F 'walletState === "blocked"' src/routes/_authenticated.revisar-solicitacao.tsx
-          grep -F 'slice(0, 4)' src/components/rides/active/SecurityCodeCard.tsx
-          grep -F '/^\\d{4}$/' src/components/rides/active/SecurityCodeCard.tsx
+          python3 - <<'PY'
+          from pathlib import Path
+          card = Path('src/components/rides/active/SecurityCodeCard.tsx').read_text(encoding='utf-8')
+          assert 'slice(0, 4)' in card, 'PIN não está limitado a quatro dígitos'
+          assert '/^\\d{4}$/' in card, 'PIN não exige exatamente quatro dígitos'
+          print('PIN de 4 dígitos validado')
+          PY
 
       - name: Validate Firebase passenger client
         run: |
