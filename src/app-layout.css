@@ -118,6 +118,13 @@ header:has(button[aria-label="Atualizar notificações"]) > div:first-child {
   flex: 1 1 auto;
 }
 
+/* Corridas/Notificações wrap title + refresh in an extra flex row. */
+header:has(button[aria-label="Atualizar histórico"]) > div:first-child > div:first-child,
+header:has(button[aria-label="Atualizar notificações"]) > div:first-child > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 header:has(button[aria-label="Atualizar histórico"]) h1,
 header:has(button[aria-label="Atualizar carteira"]) h1,
 header:has(button[aria-label="Atualizar notificações"]) h1 {
