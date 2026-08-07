@@ -3,7 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useActiveRide } from "@/hooks/rides/use-active-ride";
-import PassengerMap from "@/components/map/PassengerMap";
+import { ActiveRideMap } from "@/components/map/ActiveRideMap";
 import { RideStatusHeader } from "@/components/rides/active/RideStatusHeader";
 import { DriverCard } from "@/components/rides/active/DriverCard";
 import { VehicleCard } from "@/components/rides/active/VehicleCard";
@@ -61,10 +61,21 @@ function ActiveRidePage() {
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isSafetyDialogOpen, setIsSafetyDialogOpen] = useState(false);
+  const [showReconnectWarning, setShowReconnectWarning] = useState(false);
 
   useEffect(() => {
     if (rideId) void loadRide(rideId);
   }, [rideId, loadRide]);
+
+  useEffect(() => {
+    if (screenState !== "active" || isRealtimeConnected) {
+      setShowReconnectWarning(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setShowReconnectWarning(true), 1800);
+    return () => window.clearTimeout(timer);
+  }, [isRealtimeConnected, screenState]);
 
   const handleBack = () => {
     if (screenState === "completed") {
@@ -167,9 +178,6 @@ function ActiveRidePage() {
 
   if (!ride || !status) return null;
 
-  const hasDriverLocation =
-    ride.driver_latitude !== undefined && ride.driver_longitude !== undefined;
-
   return (
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-black">
       <div className="pointer-events-none absolute left-6 right-6 top-6 z-20 flex items-center justify-between">
@@ -207,26 +215,12 @@ function ActiveRidePage() {
       </div>
 
       <div className="relative flex-1">
-        <PassengerMap
-          origin={ride.origin}
-          destination={ride.destination}
-          encodedPolyline={ride.encoded_polyline}
-          driverLocation={
-            hasDriverLocation
-              ? {
-                  lat: ride.driver_latitude as number,
-                  lng: ride.driver_longitude as number,
-                  ...(ride.driver_heading !== undefined ? { heading: ride.driver_heading } : {}),
-                }
-              : undefined
-          }
-          isStatic={screenState === "completed" || screenState === "cancelled"}
-        />
+        <ActiveRideMap ride={ride} />
 
         <div className="absolute left-6 right-6 top-20 z-10 space-y-3">
           <RideStatusHeader status={status} isRefreshing={isRefreshing} />
 
-          {screenState === "active" && !isRealtimeConnected ? (
+          {screenState === "active" && showReconnectWarning ? (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-400/20 bg-black/80 px-4 py-3 text-white backdrop-blur-md">
               <div className="flex min-w-0 items-center gap-3">
                 <WifiOff className="shrink-0 text-amber-400" size={18} />
