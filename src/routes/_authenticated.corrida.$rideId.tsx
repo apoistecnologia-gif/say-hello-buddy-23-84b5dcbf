@@ -178,6 +178,10 @@ function ActiveRidePage() {
 
   if (!ride || !status) return null;
 
+  const isQueuedRide =
+    status === "procurar_motorista" &&
+    Boolean(ride.driver_id && ride.queued_after_ride_id);
+
   return (
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-black">
       <div className="pointer-events-none absolute left-6 right-6 top-6 z-20 flex items-center justify-between">
@@ -218,7 +222,7 @@ function ActiveRidePage() {
         <ActiveRideMap ride={ride} />
 
         <div className="absolute left-6 right-6 top-20 z-10 space-y-3">
-          <RideStatusHeader status={status} isRefreshing={isRefreshing} />
+          <RideStatusHeader status={status} isRefreshing={isRefreshing} isQueuedRide={isQueuedRide} />
 
           {screenState === "active" && showReconnectWarning ? (
             <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-400/20 bg-black/80 px-4 py-3 text-white backdrop-blur-md">
@@ -258,7 +262,7 @@ function ActiveRidePage() {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-4"
           >
-            {status !== "procurar_motorista" && status !== "agendada" ? (
+            {(isQueuedRide || (status !== "procurar_motorista" && status !== "agendada")) ? (
               <>
                 <DriverCard ride={ride} />
                 <VehicleCard ride={ride} />
@@ -268,7 +272,7 @@ function ActiveRidePage() {
               </>
             ) : null}
 
-            {status === "procurar_motorista" ? (
+            {status === "procurar_motorista" && !isQueuedRide ? (
               <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-white/5 bg-zinc-900/50 p-8 text-center">
                 <div className="relative">
                   <div className="h-16 w-16 animate-spin rounded-full border-2 border-apois-yellow/20 border-t-apois-yellow" />
@@ -283,6 +287,14 @@ function ActiveRidePage() {
                     A busca continuará enquanto houver motoristas elegíveis na região.
                   </p>
                 </div>
+              </div>
+            ) : null}
+
+            {isQueuedRide ? (
+              <div className="rounded-2xl border border-apois-yellow/20 bg-apois-yellow/10 p-4">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-apois-yellow">Motorista confirmado</p>
+                <p className="mt-2 text-sm font-black text-white">Sua corrida já está reservada.</p>
+                <p className="mt-1 text-[11px] font-medium leading-5 text-zinc-400">O motorista está finalizando uma viagem próxima. Você poderá acompanhar a aproximação assim que ele iniciar o deslocamento até o embarque.</p>
               </div>
             ) : null}
 

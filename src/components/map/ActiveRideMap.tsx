@@ -45,6 +45,7 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
   const [reloadKey, setReloadKey] = useState(0);
 
   const driverLocation = useMemo<Coordinate | null>(() => {
+    if (ride.queued_after_ride_id) return null;
     if (
       typeof ride.driver_latitude !== "number" ||
       typeof ride.driver_longitude !== "number"
@@ -57,7 +58,7 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
       lng: ride.driver_longitude,
     };
     return validCoordinate(coordinate) ? coordinate : null;
-  }, [ride.driver_latitude, ride.driver_longitude]);
+  }, [ride.driver_latitude, ride.driver_longitude, ride.queued_after_ride_id]);
 
   const routePoints = useMemo<Coordinate[]>(() => {
     if (ride.encoded_polyline) {

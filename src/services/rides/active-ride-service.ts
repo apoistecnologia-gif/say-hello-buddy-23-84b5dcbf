@@ -47,7 +47,9 @@ type OptionalStringRideKey =
   | "driver_arrived_at"
   | "started_at"
   | "completed_at"
-  | "share_token";
+  | "share_token"
+  | "queued_after_ride_id"
+  | "queued_at";
 
 type OptionalNumberRideKey =
   | "final_price"
@@ -297,6 +299,8 @@ class ActiveRideService {
       ["started_at", "started_at"],
       ["completed_at", "completed_at"],
       ["share_token", "share_token"],
+      ["queued_after_ride_id", "queued_after_ride_id"],
+      ["queued_at", "queued_at"],
     ];
 
     for (const [targetKey, sourceKey] of optionalStrings) {
@@ -334,7 +338,8 @@ class ActiveRideService {
       canCancel: ["procurar_motorista", "motorista_a_caminho"].includes(status),
       canContactDriver:
         Boolean(ride.driver_id) &&
-        ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
+        (["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status) ||
+          (status === "procurar_motorista" && Boolean(ride.queued_after_ride_id))),
       canOpenSafety: ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
       canRate: status === "finalizada" && ride.passenger_rating === undefined,
       canRequestAgain: isTerminal,

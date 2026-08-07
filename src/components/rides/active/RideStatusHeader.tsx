@@ -7,6 +7,7 @@ interface RideStatusHeaderProps {
   isRefreshing?: boolean | undefined;
   driverDistanceMeters?: number | null | undefined;
   estimatedArrivalMinutes?: number | null | undefined;
+  isQueuedRide?: boolean | undefined;
 }
 
 function formatDistance(distanceMeters: number): string {
@@ -19,6 +20,7 @@ export function RideStatusHeader({
   isRefreshing,
   driverDistanceMeters,
   estimatedArrivalMinutes,
+  isQueuedRide = false,
 }: RideStatusHeaderProps) {
   const hasRealDistance =
     typeof driverDistanceMeters === "number" &&
@@ -32,6 +34,14 @@ export function RideStatusHeader({
   const getStatusConfig = () => {
     switch (status) {
       case "procurar_motorista":
+        if (isQueuedRide) {
+          return {
+            title: "Motorista reservado",
+            subtitle: "Ele está concluindo uma corrida próxima. Assim que finalizar, seguirá para o seu embarque.",
+            icon: <Navigation className="text-apois-yellow" size={20} />,
+            color: "bg-apois-yellow/10 border-apois-yellow/20",
+          };
+        }
         return {
           title: "Procurando motorista",
           subtitle: "A solicitação está sendo enviada aos motoristas disponíveis.",
