@@ -7,10 +7,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      ...(req ? getCorsHeaders(req) : {}),
-      "content-type": "application/json",
-    },
+    headers: { ...(req ? getCorsHeaders(req) : {}), "content-type": "application/json" },
   });
 }
 
@@ -37,55 +34,37 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-async function resolveProfile(
-  admin: ReturnType<typeof createClient>,
-  authUserId: string,
-): Promise<Record<string, unknown> | null> {
-  const primary = await admin
+async function resolveProfile(admin: ReturnType<typeof createClient>, authUserId: string) {
+  const { data, error } = await admin
     .from("users")
-    .select(
-      "id,auth_user_id,name,email,phone,avatar_url,city,cpf,birth_date,gender,average_rating,total_ratings,completed_rides,preferences,created_at,updated_at,deleted_at",
-    )
+    .select("id,auth_user_id,name,email,phone,avatar_url,city,cpf,birth_date,gender,average_rating,total_ratings,completed_rides,preferences,created_at,updated_at,deleted_at")
     .eq("auth_user_id", authUserId)
     .maybeSingle();
-  if (primary.data) return primary.data as Record<string, unknown>;
-
-  const legacy = await admin
-    .from("users")
-    .select(
-      "id,auth_user_id,name,email,phone,avatar_url,city,cpf,birth_date,gender,average_rating,total_ratings,completed_rides,preferences,created_at,updated_at,deleted_at",
-    )
-    .eq("id", authUserId)
-    .maybeSingle();
-  return (legacy.data as Record<string, unknown> | null) ?? null;
+  if (error) throw new Error(`profile_lookup_failed:${error.message}`);
+  return data;
 }
 
-async function loadCenter(
-  admin: ReturnType<typeof createClient>,
-  profile: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+async function loadCenter(admin: ReturnType<typeof createClient>, profile: Record<string, unknown>) {
   const profileId = String(profile["id"]);
   const [contactsResult, preferencesResult] = await Promise.all([
     admin
       .from("passenger_emergency_contacts")
       .select("id,name,phone,relationship,is_primary,created_at,updated_at")
-      .eq("passenger_user_id", profileId)
+      .eq("passenger_id", profileId)
       .order("is_primary", { ascending: false })
       .order("created_at", { ascending: true }),
     admin
       .from("user_notification_preferences")
-      .select("ride_updates,ride_requests,promotions,safety_alerts,payment_updates")
+      .select("ride_updates,promotions,safety_alerts,payment_updates,accessibility_large_text")
       .eq("user_id", profileId)
       .maybeSingle(),
   ]);
 
   if (contactsResult.error) throw new Error(`contacts_read_failed:${contactsResult.error.message}`);
-  if (preferencesResult.error) {
-    throw new Error(`preferences_read_failed:${preferencesResult.error.message}`);
-  }
+  if (preferencesResult.error) throw new Error(`preferences_read_failed:${preferencesResult.error.message}`);
 
   const rawPreferences = isRecord(profile["preferences"])
-    ? (profile["preferences"] as Record<string, unknown>)
+    ? profile["preferences"] as Record<string, unknown>
     : {};
   const databasePreferences = preferencesResult.data ?? {};
 
@@ -112,7 +91,8 @@ async function loadCenter(
       promotions: databasePreferences.promotions ?? false,
       safetyAlerts: databasePreferences.safety_alerts ?? true,
       paymentUpdates: databasePreferences.payment_updates ?? true,
-      accessibilityLargeText: rawPreferences["accessibility_large_text"] === true,
+      accessibilityLargeText:
+        databasePreferences.accessibility_large_text ?? rawPreferences["accessibility_large_text"] === true,
     },
     emergencyContacts: contactsResult.data ?? [],
   };
@@ -120,13 +100,9 @@ async function loadCenter(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
-  if (!["GET", "POST"].includes(req.method)) {
-    return json({ error: "method_not_allowed" }, 405, req);
-  }
+  if (!["GET", "POST"].includes(req.method)) return json({ error: "method_not_allowed" }, 405, req);
 
-  const token = (req.headers.get("Authorization") ?? "")
-    .replace(/^Bearer\s+/i, "")
-    .trim();
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return json({ error: "unauthorized" }, 401, req);
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -137,27 +113,12 @@ Deno.serve(async (req) => {
   if (authError || !authUser) return json({ error: "unauthorized" }, 401, req);
 
   const profile = await resolveProfile(admin, authUser.id);
-  if (!profile || profile["deleted_at"]) {
-    return json({ error: "passenger_profile_missing" }, 404, req);
-  }
-  const profileId = String(profile["id"]);
+  if (!profile || profile.deleted_at) return json({ error: "passenger_profile_missing" }, 404, req);
+  const profileId = profile.id;
 
-  if (req.method === "GET") {
-    try {
-      return json(await loadCenter(admin, profile), 200, req);
-    } catch (error) {
-      return json(
-        {
-          error: "profile_center_read_failed",
-          detail: error instanceof Error ? error.message : String(error),
-        },
-        500,
-        req,
-      );
-    }
-  }
+  if (req.method === "GET") return json(await loadCenter(admin, profile), 200, req);
 
-  let input: Record<string, unknown> = {};
+  let input: Record<string, unknown>;
   try {
     const parsed = await req.json();
     input = isRecord(parsed) ? parsed : {};
@@ -174,142 +135,69 @@ Deno.serve(async (req) => {
       const city = cleanText(input["city"], 100);
       const birthDate = input["birthDate"] ? cleanDate(input["birthDate"]) : null;
       const gender = cleanText(input["gender"], 40);
+      if (!name || !phone) return json({ error: "invalid_profile", message: "Informe um nome e telefone válidos." }, 422, req);
+      if (input["birthDate"] && !birthDate) return json({ error: "invalid_birth_date" }, 422, req);
 
-      if (!name || !phone) {
-        return json(
-          { error: "invalid_profile", message: "Informe um nome e telefone válidos." },
-          422,
-          req,
-        );
-      }
-      if (input["birthDate"] && !birthDate) {
-        return json({ error: "invalid_birth_date", message: "Data de nascimento inválida." }, 422, req);
-      }
-
-      const { error } = await admin
-        .from("users")
-        .update({
-          name,
-          phone,
-          city,
-          birth_date: birthDate,
-          gender,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", profileId);
+      const { error } = await admin.from("users").update({
+        name, phone, city, birth_date: birthDate, gender, updated_at: new Date().toISOString(),
+      }).eq("id", profileId);
       if (error) throw new Error(`profile_update_failed:${error.message}`);
     } else if (action === "update_preferences") {
-      const rideUpdates = input["rideUpdates"] !== false;
-      const promotions = input["promotions"] === true;
-      const safetyAlerts = input["safetyAlerts"] !== false;
-      const paymentUpdates = input["paymentUpdates"] !== false;
       const accessibilityLargeText = input["accessibilityLargeText"] === true;
+      const { error } = await admin.from("user_notification_preferences").upsert({
+        user_id: profileId,
+        ride_updates: input["rideUpdates"] !== false,
+        promotions: input["promotions"] === true,
+        safety_alerts: input["safetyAlerts"] !== false,
+        payment_updates: input["paymentUpdates"] !== false,
+        accessibility_large_text: accessibilityLargeText,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id" });
+      if (error) throw new Error(`preferences_update_failed:${error.message}`);
 
-      const { error: preferenceError } = await admin
-        .from("user_notification_preferences")
-        .upsert(
-          {
-            user_id: profileId,
-            ride_updates: rideUpdates,
-            ride_requests: true,
-            promotions,
-            safety_alerts: safetyAlerts,
-            payment_updates: paymentUpdates,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" },
-        );
-      if (preferenceError) {
-        throw new Error(`preferences_update_failed:${preferenceError.message}`);
-      }
-
-      const currentPreferences = isRecord(profile["preferences"])
-        ? (profile["preferences"] as Record<string, unknown>)
-        : {};
-      const { error: profilePreferenceError } = await admin
-        .from("users")
-        .update({
-          preferences: {
-            ...currentPreferences,
-            accessibility_large_text: accessibilityLargeText,
-          },
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", profileId);
-      if (profilePreferenceError) {
-        throw new Error(`profile_preferences_update_failed:${profilePreferenceError.message}`);
-      }
+      const currentPreferences = isRecord(profile.preferences) ? profile.preferences : {};
+      const { error: profileError } = await admin.from("users").update({
+        preferences: { ...currentPreferences, accessibility_large_text: accessibilityLargeText },
+        updated_at: new Date().toISOString(),
+      }).eq("id", profileId);
+      if (profileError) throw new Error(`profile_preferences_update_failed:${profileError.message}`);
     } else if (action === "save_emergency_contact") {
       const contactId = cleanText(input["id"], 60);
       const name = cleanText(input["name"], 100);
       const phone = cleanPhone(input["phone"]);
       const relationship = cleanText(input["relationship"], 60);
       const isPrimary = input["isPrimary"] === true;
-
-      if (!name || !phone) {
-        return json(
-          { error: "invalid_contact", message: "Informe o nome e o telefone do contato." },
-          422,
-          req,
-        );
-      }
+      if (!name || !phone) return json({ error: "invalid_contact" }, 422, req);
 
       if (!contactId) {
-        const { count, error: countError } = await admin
-          .from("passenger_emergency_contacts")
-          .select("id", { count: "exact", head: true })
-          .eq("passenger_user_id", profileId);
-        if (countError) throw new Error(`contact_count_failed:${countError.message}`);
-        if ((count ?? 0) >= 3) {
-          return json(
-            { error: "contact_limit_reached", message: "Você pode cadastrar até três contatos." },
-            409,
-            req,
-          );
-        }
+        const { count, error } = await admin.from("passenger_emergency_contacts")
+          .select("id", { count: "exact", head: true }).eq("passenger_id", profileId);
+        if (error) throw new Error(`contact_count_failed:${error.message}`);
+        if ((count ?? 0) >= 3) return json({ error: "contact_limit_reached" }, 409, req);
       }
 
       if (isPrimary) {
-        const { error: primaryResetError } = await admin
-          .from("passenger_emergency_contacts")
+        const { error } = await admin.from("passenger_emergency_contacts")
           .update({ is_primary: false, updated_at: new Date().toISOString() })
-          .eq("passenger_user_id", profileId)
-          .eq("is_primary", true);
-        if (primaryResetError) throw new Error(`primary_contact_reset_failed:${primaryResetError.message}`);
+          .eq("passenger_id", profileId).eq("is_primary", true);
+        if (error) throw new Error(`primary_contact_reset_failed:${error.message}`);
       }
 
       if (contactId) {
-        const { error } = await admin
-          .from("passenger_emergency_contacts")
-          .update({
-            name,
-            phone,
-            relationship,
-            is_primary: isPrimary,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", contactId)
-          .eq("passenger_user_id", profileId);
+        const { error } = await admin.from("passenger_emergency_contacts")
+          .update({ name, phone, relationship, is_primary: isPrimary, updated_at: new Date().toISOString() })
+          .eq("id", contactId).eq("passenger_id", profileId);
         if (error) throw new Error(`contact_update_failed:${error.message}`);
       } else {
-        const { error } = await admin.from("passenger_emergency_contacts").insert({
-          passenger_user_id: profileId,
-          name,
-          phone,
-          relationship,
-          is_primary: isPrimary,
-        });
+        const { error } = await admin.from("passenger_emergency_contacts")
+          .insert({ passenger_id: profileId, name, phone, relationship, is_primary: isPrimary });
         if (error) throw new Error(`contact_insert_failed:${error.message}`);
       }
     } else if (action === "delete_emergency_contact") {
       const contactId = cleanText(input["id"], 60);
       if (!contactId) return json({ error: "invalid_contact_id" }, 422, req);
-
-      const { error } = await admin
-        .from("passenger_emergency_contacts")
-        .delete()
-        .eq("id", contactId)
-        .eq("passenger_user_id", profileId);
+      const { error } = await admin.from("passenger_emergency_contacts")
+        .delete().eq("id", contactId).eq("passenger_id", profileId);
       if (error) throw new Error(`contact_delete_failed:${error.message}`);
     } else {
       return json({ error: "unsupported_action" }, 422, req);
@@ -319,15 +207,7 @@ Deno.serve(async (req) => {
     if (!refreshed) throw new Error("profile_refresh_failed");
     return json(await loadCenter(admin, refreshed), 200, req);
   } catch (error) {
-    console.error("[passenger-profile] action failed", { action, error });
-    return json(
-      {
-        error: "profile_action_failed",
-        message: "Não foi possível salvar as alterações agora.",
-        detail: error instanceof Error ? error.message : String(error),
-      },
-      500,
-      req,
-    );
+    console.error("[passenger-profile]", error);
+    return json({ error: "profile_action_failed", message: "Não foi possível salvar as alterações agora." }, 500, req);
   }
 });
