@@ -214,6 +214,21 @@ async function notifyCandidates(ride: Record<string, unknown>, userIds: string[]
   if (!response.ok) console.error("[passenger-ride-request] push failed", response.status);
 }
 
+async function loadNextRideRadiusKm(admin: ReturnType<typeof createClient>): Promise<number> {
+  try {
+    const { data } = await admin
+      .from("app_settings")
+      .select("value")
+      .eq("key", "ride.next_offer_max_distance_km")
+      .maybeSingle();
+    const parsed = Number(data?.value ?? 5);
+    if (Number.isFinite(parsed)) return Math.max(0.5, Math.min(parsed, 20));
+  } catch {
+    // Usa o valor seguro de homologação quando a configuração não estiver disponível.
+  }
+  return 5;
+}
+
 async function dispatch(admin: ReturnType<typeof createClient>, ride: Record<string, unknown>): Promise<string[]> {
   const rejected = new Set(Array.isArray(ride.rejected_driver_ids) ? ride.rejected_driver_ids.map(String) : []);
   const { data: drivers, error: driverError } = await admin
@@ -223,40 +238,81 @@ async function dispatch(admin: ReturnType<typeof createClient>, ride: Record<str
     .eq("approval_status", "aprovado");
   if (driverError) throw new Error(`driver_lookup_failed:${driverError.message}`);
 
-  const { data: assigned, error: assignedError } = await admin
+  const { data: activeRides, error: activeError } = await admin
     .from("rides")
-    .select("driver_id")
+    .select("id,driver_id,status,destination_lat,destination_lng")
     .in("status", ["motorista_a_caminho", "motorista_chegou", "em_viagem"])
     .not("driver_id", "is", null);
-  if (assignedError) throw new Error(`active_driver_lookup_failed:${assignedError.message}`);
-  const busyDriverIds = new Set((assigned ?? []).map((row) => String(row.driver_id)));
+  if (activeError) throw new Error(`active_driver_lookup_failed:${activeError.message}`);
+
+  const { data: queuedRides, error: queuedError } = await admin
+    .from("rides")
+    .select("driver_id")
+    .eq("status", "procurar_motorista")
+    .not("queued_after_ride_id", "is", null)
+    .not("driver_id", "is", null);
+  if (queuedError) throw new Error(`queued_driver_lookup_failed:${queuedError.message}`);
+
+  const activeByDriver = new Map<string, Record<string, unknown>>();
+  for (const activeRide of activeRides ?? []) {
+    const key = String(activeRide.driver_id ?? "");
+    if (key) activeByDriver.set(key, activeRide as Record<string, unknown>);
+  }
+  const queuedDriverIds = new Set((queuedRides ?? []).map((row) => String(row.driver_id)));
 
   const origin = { lat: Number(ride.origin_lat), lng: Number(ride.origin_lng) };
   const category = normalizeCategory(ride.category);
   const now = Date.now();
-  const eligible = (drivers ?? [])
-    .filter((driver) => {
-      const profileId = String(driver.user_id ?? "");
-      if (!profileId || rejected.has(profileId) || busyDriverIds.has(String(driver.id))) return false;
-      if (normalizeCategory(driver.category) !== category) return false;
-      const lat = Number(driver.current_lat);
-      const lng = Number(driver.current_lng);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
-      if (driver.last_location_at) {
-        const age = (now - new Date(driver.last_location_at).getTime()) / 1000;
-        if (!Number.isFinite(age) || age > MAX_GPS_AGE_SECONDS) return false;
-      }
-      return ["ativa", "teste", "active"].includes(cleanText(driver.subscription_status, 30).toLowerCase());
-    })
-    .map((driver) => ({ profileId: String(driver.user_id), distance: haversineKm(origin, { lat: Number(driver.current_lat), lng: Number(driver.current_lng) }) }))
-    .sort((a, b) => a.distance - b.distance);
+  const nextRideRadiusKm = await loadNextRideRadiusKm(admin);
 
-  let selected: Array<{ profileId: string; distance: number }> = [];
-  for (const radius of DISPATCH_RADII_KM) {
-    selected = eligible.filter((driver) => driver.distance <= radius);
-    if (selected.length) break;
+  type Candidate = { profileId: string; distance: number; mode: "idle" | "next" };
+  const eligible: Candidate[] = [];
+
+  for (const driver of drivers ?? []) {
+    const profileId = String(driver.user_id ?? "");
+    const driverId = String(driver.id ?? "");
+    if (!profileId || !driverId || rejected.has(profileId)) continue;
+    if (normalizeCategory(driver.category) !== category) continue;
+    if (!["ativa", "teste", "active"].includes(cleanText(driver.subscription_status, 30).toLowerCase())) continue;
+
+    if (driver.last_location_at) {
+      const age = (now - new Date(driver.last_location_at).getTime()) / 1000;
+      if (!Number.isFinite(age) || age > MAX_GPS_AGE_SECONDS) continue;
+    }
+
+    const currentRide = activeByDriver.get(driverId);
+    const currentStatus = cleanText(currentRide?.status, 40);
+    if (currentStatus === "motorista_a_caminho" || currentStatus === "motorista_chegou") continue;
+
+    if (currentStatus === "em_viagem") {
+      if (queuedDriverIds.has(driverId)) continue;
+      const destinationLat = Number(currentRide?.destination_lat);
+      const destinationLng = Number(currentRide?.destination_lng);
+      if (!Number.isFinite(destinationLat) || !Number.isFinite(destinationLng)) continue;
+      const distance = haversineKm(origin, { lat: destinationLat, lng: destinationLng });
+      if (distance <= nextRideRadiusKm) eligible.push({ profileId, distance, mode: "next" });
+      continue;
+    }
+
+    const lat = Number(driver.current_lat);
+    const lng = Number(driver.current_lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    eligible.push({ profileId, distance: haversineKm(origin, { lat, lng }), mode: "idle" });
   }
-  const candidateIds = selected.slice(0, 20).map((driver) => driver.profileId);
+
+  const idle = eligible.filter((candidate) => candidate.mode === "idle").sort((a, b) => a.distance - b.distance);
+  const next = eligible.filter((candidate) => candidate.mode === "next").sort((a, b) => a.distance - b.distance);
+
+  let selectedIdle: Candidate[] = [];
+  for (const radius of DISPATCH_RADII_KM) {
+    selectedIdle = idle.filter((driver) => driver.distance <= radius);
+    if (selectedIdle.length) break;
+  }
+
+  const selected = [...selectedIdle, ...next]
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 20);
+  const candidateIds = Array.from(new Set(selected.map((driver) => driver.profileId)));
   if (!candidateIds.length) return [];
 
   const { error } = await admin
@@ -275,7 +331,6 @@ async function dispatch(admin: ReturnType<typeof createClient>, ride: Record<str
   if (error) throw new Error(`dispatch_update_failed:${error.message}`);
   return candidateIds;
 }
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, req);
