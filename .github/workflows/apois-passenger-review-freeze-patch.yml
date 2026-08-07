@@ -1,0 +1,59 @@
+name: APOIS Passageiro - congelar revisao
+
+on:
+  push:
+    branches:
+      - feat/apois-passageiro-completo
+    paths:
+      - ".github/workflows/apois-passenger-review-freeze-patch.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/apois-passageiro-completo
+      - name: Congelar rota e preço na tela de revisão
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # callbacks estáveis no RouteProvider
+          p=Path('src/hooks/use-route.tsx')
+          s=p.read_text()
+          anchor='''  const clearRoute = useCallback(() => {\n    setIsFrozen(false);\n    lastInputRef.current = null;\n    setRoute(null);\n    setError(null);\n    setStatus("idle");\n  }, []);\n\n  return ('''
+          replacement='''  const clearRoute = useCallback(() => {\n    setIsFrozen(false);\n    lastInputRef.current = null;\n    setRoute(null);\n    setError(null);\n    setStatus("idle");\n  }, []);\n\n  const freeze = useCallback(() => setIsFrozen(true), []);\n  const unfreeze = useCallback(() => setIsFrozen(false), []);\n\n  return ('''
+          if 'const freeze = useCallback' not in s:
+            if anchor not in s: raise RuntimeError('ancora route provider ausente')
+            s=s.replace(anchor,replacement,1)
+          s=s.replace('        freeze: () => setIsFrozen(true),\n        unfreeze: () => setIsFrozen(false),','        freeze,\n        unfreeze,',1)
+          p.write_text(s)
+
+          # Tela de revisão prende o snapshot até sair da página
+          p=Path('src/routes/_authenticated.revisar-solicitacao.tsx')
+          s=p.read_text()
+          s=s.replace('import { useCallback, useMemo, useRef } from "react";','import { useCallback, useEffect, useMemo, useRef } from "react";',1)
+          s=s.replace('  const { route } = useRoute();','  const { route, freeze: freezeRoute, unfreeze: unfreezeRoute } = useRoute();',1)
+          anchor='''  const confirmationInFlightRef = useRef(false);\n\n  const serviceSummary = useMemo('''
+          replacement='''  const confirmationInFlightRef = useRef(false);\n\n  // O PDF exige que esta tela não fique se mexendo/atualizando sozinha.\n  // Congelamos a rota já revisada até o usuário sair desta página.\n  useEffect(() => {\n    freezeRoute();\n    return () => unfreezeRoute();\n  }, [freezeRoute, unfreezeRoute]);\n\n  const serviceSummary = useMemo('''
+          if 'freezeRoute();' not in s:
+            if anchor not in s: raise RuntimeError('ancora review ausente')
+            s=s.replace(anchor,replacement,1)
+          p.write_text(s)
+          PY
+      - name: Validar
+        run: |
+          grep -F 'freezeRoute();' src/routes/_authenticated.revisar-solicitacao.tsx
+          grep -F 'const freeze = useCallback' src/hooks/use-route.tsx
+          grep -F 'haversineMeters(previous.origin, originCoord) < 50' src/hooks/use-route.tsx
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/hooks/use-route.tsx src/routes/_authenticated.revisar-solicitacao.tsx
+          git commit -m "fix(passageiro): impedir atualização da revisão durante GPS"
+          git push origin HEAD:feat/apois-passageiro-completo
