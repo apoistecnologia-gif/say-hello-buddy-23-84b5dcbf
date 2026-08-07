@@ -18,12 +18,20 @@
   overflow-y: auto;
   overscroll-behavior-y: contain;
   padding-bottom: max(32px, var(--app-safe-bottom)) !important;
+  scroll-padding-top: max(16px, var(--app-safe-top));
   scroll-padding-bottom: max(40px, var(--app-safe-bottom));
+  scrollbar-width: none;
+}
+
+.app-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .app-main-menu-trigger {
   position: absolute;
-  z-index: 40;
+  z-index: 90;
   top: calc(max(16px, var(--app-safe-top)) + 4px);
   right: max(16px, var(--app-safe-right));
 }
@@ -33,15 +41,26 @@
   padding-bottom: max(16px, var(--app-safe-bottom));
 }
 
-.app-dialog-content {
+.app-dialog-content,
+[role="dialog"] {
   max-height: calc(
     100dvh - max(16px, var(--app-safe-top)) - max(16px, var(--app-safe-bottom))
   ) !important;
-  overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-/* Keep the Home header slot so the new hamburger occupies the same space. */
+[role="dialog"][class*="overflow-y-auto"],
+[role="dialog"] > [class*="overflow-y-auto"] {
+  scrollbar-width: none;
+}
+
+[role="dialog"][class*="overflow-y-auto"]::-webkit-scrollbar,
+[role="dialog"] > [class*="overflow-y-auto"]::-webkit-scrollbar {
+  display: none;
+}
+
+/* Home already had a hamburger placeholder. Keep its physical space so the
+ * new global trigger can occupy the exact same slot without covering text. */
 button[aria-label="Abrir menu da conta"] {
   visibility: hidden !important;
   pointer-events: none !important;
@@ -53,4 +72,9 @@ button[aria-label="Atualizar histórico"],
 button[aria-label="Atualizar carteira"],
 button[aria-label="Atualizar notificações"] {
   margin-right: 54px;
+}
+
+/* No page may reserve the retired bottom navigation bar. */
+:root {
+  --app-nav-height: 0px;
 }
