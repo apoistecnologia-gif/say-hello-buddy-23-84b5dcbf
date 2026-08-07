@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { AppShell } from "@/components/layout/AppShell";
-import { BottomNavigation } from "@/components/BottomNavigation";
 import { Toaster } from "@/components/ui/sonner";
 import { LocationProvider } from "@/hooks/use-location";
 import { PickupAddressProvider } from "@/hooks/use-pickup-address";
@@ -64,12 +63,6 @@ function PushBootstrap() {
 }
 
 function AuthenticatedLayout() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const shouldHideBottomNavigation =
-    pathname.startsWith("/corrida/") ||
-    pathname === "/revisar-solicitacao" ||
-    pathname === "/buscar-destino";
-
   return (
     <AuthGuard>
       <LocationProvider>
@@ -88,11 +81,7 @@ function AuthenticatedLayout() {
                                 <ActiveRideProvider>
                                   <ActiveRideRecovery />
                                   <PushBootstrap />
-                                  <AppShell
-                                    bottomNavigation={
-                                      shouldHideBottomNavigation ? undefined : <BottomNavigation />
-                                    }
-                                  >
+                                  <AppShell>
                                     <Outlet />
                                   </AppShell>
                                   <Toaster position="top-center" />
