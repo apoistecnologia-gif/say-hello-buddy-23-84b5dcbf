@@ -24,6 +24,7 @@ jobs:
     env:
       GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
       GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+      BETTERSTACK_APP_TOKEN: ${{ secrets.VITE_BETTERSTACK_TOKEN }}
 
     steps:
       - name: Checkout
@@ -104,10 +105,22 @@ jobs:
           src/routes/_public.termos.tsx
           src/routes/_authenticated.perfil.tsx
 
+      - name: Verify Better Stack token on observability branch
+        if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability' }}
+        run: |
+          if [ -z "$BETTERSTACK_APP_TOKEN" ]; then
+            echo "::error::VITE_BETTERSTACK_TOKEN não está cadastrado nos secrets do repositório."
+            exit 1
+          fi
+          echo "Better Stack token disponível para o build de observabilidade."
+
       - name: Build web
         run: |
           export VITE_GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_WEB_API_KEY:-ci_validation_placeholder}"
           export VITE_PUBLIC_APP_URL="https://passageiro.apois.example"
+          if [ "${GITHUB_REF}" = "refs/heads/feat/apois-betterstack-observability" ]; then
+            export VITE_BETTERSTACK_TOKEN="${BETTERSTACK_APP_TOKEN}"
+          fi
           bun run build
 
       - name: Sync Capacitor Android
