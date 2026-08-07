@@ -61,6 +61,17 @@ jobs:
           grep -F 'Motorista reservado' src/components/rides/active/RideStatusHeader.tsx
           grep -F 'Sua corrida já está reservada.' 'src/routes/_authenticated.corrida.$rideId.tsx'
 
+      - name: Validate PDF passenger checklist
+        run: |
+          grep -F 'height="62dvh"' src/routes/_authenticated.inicio.tsx
+          grep -F 'maxHeight="560px"' src/routes/_authenticated.inicio.tsx
+          grep -F 'haversineMeters(previous.origin, originCoord) < 50' src/hooks/use-route.tsx
+          grep -F 'freezeRoute();' src/routes/_authenticated.revisar-solicitacao.tsx
+          grep -F 'void navigate({ to: "/inicio", replace: true });' 'src/routes/_authenticated.corrida.$rideId.tsx'
+          grep -F 'walletState === "blocked"' src/routes/_authenticated.revisar-solicitacao.tsx
+          grep -F 'slice(0, 4)' src/components/rides/active/SecurityCodeCard.tsx
+          grep -F '/^\\d{4}$/' src/components/rides/active/SecurityCodeCard.tsx
+
       - name: Validate Firebase passenger client
         run: |
           python3 - <<'PY'
