@@ -49,11 +49,18 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const requestSequenceRef = useRef(0);
   const recoveryPromiseRef = useRef<Promise<string | null> | null>(null);
   const pollingPromiseRef = useRef<Promise<void> | null>(null);
+  const realtimeConnectedRef = useRef(false);
+
+  const handleRealtimeConnectionChange = useCallback((connected: boolean) => {
+    realtimeConnectedRef.current = connected;
+    setIsRealtimeConnected(connected);
+  }, []);
 
   const clearRide = useCallback(() => {
     requestSequenceRef.current += 1;
     recoveryPromiseRef.current = null;
     pollingPromiseRef.current = null;
+    realtimeConnectedRef.current = false;
     void activeRideService.unsubscribe();
     setRide(null);
     setScreenState("idle");
@@ -73,10 +80,12 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setError(null);
 
     if (updatedRide.status === "finalizada") {
+      realtimeConnectedRef.current = false;
       setScreenState("completed");
       setIsRealtimeConnected(false);
       void activeRideService.unsubscribe();
     } else if (updatedRide.status.startsWith("cancelada")) {
+      realtimeConnectedRef.current = false;
       setScreenState("cancelled");
       setIsRealtimeConnected(false);
       void activeRideService.unsubscribe();
@@ -101,14 +110,18 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleUpdate(data);
 
         if (data.status !== "finalizada" && !data.status.startsWith("cancelada")) {
-          activeRideService.subscribeToRide(rideId, handleUpdate, setIsRealtimeConnected);
+          activeRideService.subscribeToRide(
+            rideId,
+            handleUpdate,
+            handleRealtimeConnectionChange,
+          );
         }
       } catch (caughtError: unknown) {
         if (requestId !== requestSequenceRef.current) return;
 
         const message = readErrorMessage(caughtError);
         console.error("[useActiveRide] Error loading ride:", caughtError);
-        setIsRealtimeConnected(false);
+        handleRealtimeConnectionChange(false);
 
         if (message === "not_found") setScreenState("not_found");
         else if (message === "unauthorized") setScreenState("unauthorized");
@@ -120,7 +133,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (requestId === requestSequenceRef.current) setIsRefreshing(false);
       }
     },
-    [handleUpdate, passengerId],
+    [handleRealtimeConnectionChange, handleUpdate, passengerId],
   );
 
   const refreshRide = useCallback(async () => {
@@ -177,15 +190,15 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           return null;
         }
 
-        if (currentRideIdRef.current !== activeRide.id || ride?.id !== activeRide.id) {
+        if (currentRideIdRef.current !== activeRide.id) {
           await loadRide(activeRide.id);
         } else {
           handleUpdate(activeRide);
-          if (!isRealtimeConnected) {
+          if (!realtimeConnectedRef.current) {
             activeRideService.subscribeToRide(
               activeRide.id,
               handleUpdate,
-              setIsRealtimeConnected,
+              handleRealtimeConnectionChange,
             );
           }
         }
@@ -202,7 +215,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     recoveryPromiseRef.current = recovery;
     return recovery;
-  }, [handleUpdate, isRealtimeConnected, loadRide, passengerId, ride?.id]);
+  }, [handleRealtimeConnectionChange, handleUpdate, loadRide, passengerId]);
 
   const retry = useCallback(() => {
     if (currentRideIdRef.current) void loadRide(currentRideIdRef.current);
@@ -261,6 +274,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   useEffect(() => {
     return () => {
       requestSequenceRef.current += 1;
+      realtimeConnectedRef.current = false;
       void activeRideService.unsubscribe();
     };
   }, []);
