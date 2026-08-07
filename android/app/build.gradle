@@ -9,6 +9,27 @@ if (localPropertiesFile.exists()) {
 }
 
 def googleMapsApiKey = localProperties.getProperty('GOOGLE_MAPS_API_KEY') ?: "MISSING_KEY"
+def apoisBrandSource = rootProject.file('../src/assets/logo.jpg')
+def apoisBrandTargetDir = file('src/main/res/drawable-nodpi')
+def apoisBrandTarget = new File(apoisBrandTargetDir, 'apois_brand_logo.jpg')
+
+tasks.register('prepareApoisBranding') {
+    inputs.file(apoisBrandSource)
+    outputs.file(apoisBrandTarget)
+
+    doLast {
+        if (!apoisBrandSource.exists()) {
+            throw new GradleException("Logo oficial da APOIS não encontrada em src/assets/logo.jpg")
+        }
+
+        apoisBrandTargetDir.mkdirs()
+        copy {
+            from apoisBrandSource
+            into apoisBrandTargetDir
+            rename { 'apois_brand_logo.jpg' }
+        }
+    }
+}
 
 android {
     namespace = "com.apois.passageiro"
@@ -20,9 +41,9 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        
+
         manifestPlaceholders = [GOOGLE_MAPS_API_KEY: googleMapsApiKey]
-        
+
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -35,12 +56,16 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-    
+
     applicationVariants.all { variant ->
         if (googleMapsApiKey == "MISSING_KEY") {
             println("WARNING: GOOGLE_MAPS_API_KEY not found in local.properties")
         }
     }
+}
+
+tasks.named('preBuild').configure {
+    dependsOn tasks.named('prepareApoisBranding')
 }
 
 repositories {
