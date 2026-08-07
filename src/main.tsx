@@ -9,6 +9,7 @@ import apoisLogo from "@/assets/logo.jpg";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { registerNativePasswordRecoveryHandler } from "@/lib/auth/native-password-recovery";
 import "./styles.css";
+import "./android-system-bars.css";
 import "./native-intro.css";
 
 const queryClient = new QueryClient();
