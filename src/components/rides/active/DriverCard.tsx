@@ -1,12 +1,52 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Phone, Star, User } from "lucide-react";
 import type { ActiveRide } from "@/types/rides/active-ride";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DriverCardProps {
   ride: ActiveRide;
 }
 
+function isHttpUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
+
 export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
+  const [driverPhotoUrl, setDriverPhotoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const photo = ride.driver_photo?.trim() ?? "";
+
+    if (!photo) {
+      setDriverPhotoUrl(null);
+      return;
+    }
+
+    if (isHttpUrl(photo)) {
+      setDriverPhotoUrl(photo);
+      return;
+    }
+
+    setDriverPhotoUrl(null);
+    void supabase.storage
+      .from("profile-photos")
+      .createSignedUrl(photo, 600)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data?.signedUrl) {
+          console.warn("[APOIS Passageiro] foto do motorista indisponível", error?.message);
+          setDriverPhotoUrl(null);
+          return;
+        }
+        setDriverPhotoUrl(data.signedUrl);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ride.driver_photo]);
+
   if (!ride.driver_id && !ride.driver_name) return null;
 
   const driverName = ride.driver_name?.trim() || "Motorista parceiro";
@@ -15,10 +55,10 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
 
   return (
     <section className="app-surface flex items-center gap-4 rounded-2xl p-4 animate-in fade-in slide-in-from-bottom duration-500">
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-zinc-800">
-        {ride.driver_photo ? (
+      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-apois-yellow/20 bg-zinc-800">
+        {driverPhotoUrl ? (
           <img
-            src={ride.driver_photo}
+            src={driverPhotoUrl}
             alt={`Foto de ${driverName}`}
             className="h-full w-full object-cover"
           />
