@@ -120,6 +120,7 @@ jobs:
           export VITE_PUBLIC_APP_URL="https://passageiro.apois.example"
           if [ "${GITHUB_REF}" = "refs/heads/feat/apois-betterstack-observability" ]; then
             export VITE_BETTERSTACK_TOKEN="${BETTERSTACK_APP_TOKEN}"
+            export VITE_BETTERSTACK_SMOKE_TEST="1"
           fi
           bun run build
 
@@ -150,10 +151,10 @@ jobs:
         if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: APOIS-Passageiro-Homologacao
+          name: APOIS-Passageiro-BetterStack-SmokeTest
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
 
       - name: Full lint debt inventory
         continue-on-error: true
