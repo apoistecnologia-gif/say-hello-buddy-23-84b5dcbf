@@ -15,7 +15,8 @@ const config: CapacitorConfig = {
     },
     SystemBars: {
       insetsHandling: "css",
-      style: "LIGHT",
+      // Capacitor 8: DARK = light system-bar icons/content on a dark background.
+      style: "DARK",
       hidden: false,
       animation: "NONE",
     },
