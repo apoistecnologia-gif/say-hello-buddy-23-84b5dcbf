@@ -61,6 +61,12 @@
   display: none;
 }
 
+/* Radix supplies a small default close control. Profile/Wallet dialogs already
+ * render a branded close button; hide the duplicate only in that case. */
+.app-dialog-content:has(button[aria-label^="Fechar"]) > button.absolute.right-4.top-4 {
+  display: none;
+}
+
 /* Sonner notifications are fixed to the viewport, so top notifications need
  * the same physical safe-area contract as page headers. */
 [data-sonner-toaster][data-y-position="top"] {
