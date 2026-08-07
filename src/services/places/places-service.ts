@@ -191,10 +191,12 @@ class PlacesService {
     return {
       placeId: prediction.placeId,
       primaryText,
-      secondaryText,
+      ...(secondaryText ? { secondaryText } : {}),
       fullText,
       types: prediction.types || [],
-      distanceMeters: prediction.distanceMeters,
+      ...(Number.isFinite(prediction.distanceMeters)
+        ? { distanceMeters: prediction.distanceMeters }
+        : {}),
       place: prediction.toPlace(),
     } as PlaceSuggestion;
   }
@@ -231,17 +233,19 @@ class PlacesService {
     const formattedAddress = String(place.formattedAddress ?? "").trim();
     const displayName =
       typeof place.displayName === "string"
-        ? place.displayName
+        ? place.displayName.trim()
         : String(place.displayName?.text ?? "").trim();
+    const label = displayName || formattedAddress.split(",")[0] || "Local selecionado";
+    const safeFormattedAddress = formattedAddress || label;
 
     return {
       placeId: place.id,
       latitude,
       longitude,
-      label: displayName || formattedAddress.split(",")[0] || "Local selecionado",
-      subLabel: formattedAddress || undefined,
-      formattedAddress: formattedAddress || displayName,
-      name: displayName || undefined,
+      label,
+      ...(formattedAddress ? { subLabel: formattedAddress } : {}),
+      formattedAddress: safeFormattedAddress,
+      ...(displayName ? { name: displayName } : {}),
       components,
       types: place.types || [],
       selectedAt: new Date().toISOString(),
