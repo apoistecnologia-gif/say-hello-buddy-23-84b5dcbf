@@ -11,6 +11,35 @@ type PricingInput = {
   city?: unknown;
 };
 
+const TARIFF_COLUMNS = [
+  "category_id",
+  "city",
+  "base_fare",
+  "min_fare",
+  "per_km",
+  "per_min",
+  "stop_fee",
+  "fixed_fee",
+  "dynamic_multiplier",
+  "helper1_fee",
+  "helper2_fee",
+  "heavy_furniture_fee",
+  "assembly_fee",
+  "packing_fee",
+  "difficult_access_fee",
+  "stair_fee",
+  "heavy_vehicle_fee",
+  "accident_fee",
+  "platform_fee",
+  "locked_wheels_fee",
+  "garage_fee",
+  "max_weight_kg",
+  "per_kg",
+  "is_active",
+  "valid_from",
+  "valid_to",
+].join(",");
+
 function json(body: unknown, status: number, req: Request): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -34,9 +63,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, req);
 
   try {
-    const token = (req.headers.get("Authorization") ?? "")
-      .replace(/^Bearer\s+/i, "")
-      .trim();
+    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
     if (!token) return json({ error: "unauthorized" }, 401, req);
 
     const url = Deno.env.get("SUPABASE_URL") ?? "";
@@ -47,16 +74,12 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: authData, error: authError } = await admin.auth.getUser(token);
-    if (authError || !authData.user) {
-      return json({ error: "unauthorized", detail: authError?.message }, 401, req);
-    }
+    if (authError || !authData.user) return json({ error: "unauthorized" }, 401, req);
 
     const input = (await req.json()) as PricingInput;
     const distanceMeters = finitePositive(input.distanceMeters);
     const durationSeconds = finitePositive(input.durationSeconds);
-    if (!distanceMeters || !durationSeconds) {
-      return json({ error: "invalid_route_metrics" }, 422, req);
-    }
+    if (!distanceMeters || !durationSeconds) return json({ error: "invalid_route_metrics" }, 422, req);
 
     const requestedIds = Array.isArray(input.categoryIds)
       ? input.categoryIds.filter((value): value is string => typeof value === "string")
@@ -73,39 +96,32 @@ Deno.serve(async (req) => {
     if (requestedIds.length) categoriesQuery = categoriesQuery.in("id", requestedIds);
 
     const { data: categories, error: categoryError } = await categoriesQuery;
-    if (categoryError) {
-      return json({ error: "category_lookup_failed", detail: categoryError.message }, 500, req);
-    }
+    if (categoryError) return json({ error: "category_lookup_failed" }, 500, req);
 
     const categoryIds = (categories ?? []).map((category) => category.id);
     const { data: rules, error: ruleError } = categoryIds.length
       ? await admin
           .from("tariff_rules")
-          .select(
-            "category_id,city,base_fare,min_fare,per_km,per_min,stop_fee,fixed_fee,dynamic_multiplier,is_active,valid_from,valid_to",
-          )
+          .select(TARIFF_COLUMNS)
           .in("category_id", categoryIds)
           .eq("is_active", true)
           .in("city", [city, "default"])
       : { data: [], error: null };
 
-    if (ruleError) {
-      return json({ error: "tariff_lookup_failed", detail: ruleError.message }, 500, req);
-    }
+    if (ruleError) return json({ error: "tariff_lookup_failed" }, 500, req);
 
     const now = Date.now();
     const estimates = (categories ?? []).map((category) => {
-      const categoryRules = (rules ?? [])
-        .filter((rule) => rule.category_id === category.id)
-        .filter((rule) => !rule.valid_from || new Date(rule.valid_from).getTime() <= now)
-        .filter((rule) => !rule.valid_to || new Date(rule.valid_to).getTime() >= now)
+      const rule = (rules ?? [])
+        .filter((item) => item.category_id === category.id)
+        .filter((item) => !item.valid_from || new Date(item.valid_from).getTime() <= now)
+        .filter((item) => !item.valid_to || new Date(item.valid_to).getTime() >= now)
         .sort((a, b) => {
           if (a.city === city && b.city !== city) return -1;
           if (b.city === city && a.city !== city) return 1;
           return 0;
-        });
+        })[0];
 
-      const rule = categoryRules[0];
       if (!rule) {
         return {
           categoryId: category.id,
@@ -119,7 +135,7 @@ Deno.serve(async (req) => {
         };
       }
 
-      const tariff = {
+      const tariff: Record<string, number> = {
         base_fare: Number(rule.base_fare ?? 0),
         min_fare: Number(rule.min_fare ?? 0),
         per_km: Number(rule.per_km ?? 0),
@@ -127,6 +143,20 @@ Deno.serve(async (req) => {
         stop_fee: Number(rule.stop_fee ?? 0),
         fixed_fee: Number(rule.fixed_fee ?? 0),
         dynamic_multiplier: Number(rule.dynamic_multiplier ?? 1),
+        helper1_fee: Number(rule.helper1_fee ?? 0),
+        helper2_fee: Number(rule.helper2_fee ?? 0),
+        heavy_furniture_fee: Number(rule.heavy_furniture_fee ?? 0),
+        assembly_fee: Number(rule.assembly_fee ?? 0),
+        packing_fee: Number(rule.packing_fee ?? 0),
+        difficult_access_fee: Number(rule.difficult_access_fee ?? 0),
+        stair_fee: Number(rule.stair_fee ?? 0),
+        heavy_vehicle_fee: Number(rule.heavy_vehicle_fee ?? 0),
+        accident_fee: Number(rule.accident_fee ?? 0),
+        platform_fee: Number(rule.platform_fee ?? 0),
+        locked_wheels_fee: Number(rule.locked_wheels_fee ?? 0),
+        garage_fee: Number(rule.garage_fee ?? 0),
+        max_weight_kg: Number(rule.max_weight_kg ?? 0),
+        per_kg: Number(rule.per_kg ?? 0),
       };
 
       try {
@@ -169,10 +199,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("[passenger-pricing-estimate] fatal", error);
     return json(
-      {
-        error: "internal_error",
-        detail: error instanceof Error ? error.message : String(error),
-      },
+      { error: "internal_error", detail: error instanceof Error ? error.message : String(error) },
       500,
       req,
     );
