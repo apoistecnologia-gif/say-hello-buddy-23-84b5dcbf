@@ -33,6 +33,14 @@
   padding-bottom: max(16px, var(--app-safe-bottom));
 }
 
+.app-dialog-content {
+  max-height: calc(
+    100dvh - max(16px, var(--app-safe-top)) - max(16px, var(--app-safe-bottom))
+  ) !important;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* The old Home button occupied the same position as the new global menu. */
 button[aria-label="Abrir menu da conta"] {
   display: none !important;
@@ -44,9 +52,4 @@ button[aria-label="Atualizar histórico"],
 button[aria-label="Atualizar carteira"],
 button[aria-label="Atualizar notificações"] {
   margin-right: 54px;
-}
-
-/* Dialogs opened from Perfil/Carteira must never exceed the physical viewport. */
-[role="dialog"] {
-  max-height: calc(100dvh - max(16px, var(--app-safe-top)) - max(16px, var(--app-safe-bottom)));
 }
