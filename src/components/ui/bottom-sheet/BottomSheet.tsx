@@ -9,6 +9,10 @@ interface BottomSheetProps {
   title?: string;
   preventClose?: boolean;
   showBackdrop?: boolean;
+  /** Altura fixa opcional. Útil em telas com mapa para impedir layout jumping. */
+  height?: string;
+  /** Limite de altura opcional. */
+  maxHeight?: string;
 }
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({
@@ -17,6 +21,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   children,
   preventClose = false,
   showBackdrop = true,
+  height,
+  maxHeight,
 }) => {
   const controls = useAnimation();
 
@@ -50,7 +56,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               "overflow-hidden rounded-t-[32px] border-x border-t border-white/5 bg-[#121212] shadow-[0_-12px_40px_rgba(0,0,0,0.6)]",
             )}
             style={{
+              height,
               maxHeight:
+                maxHeight ??
                 "calc(100dvh - max(16px, var(--app-safe-top)) - 8px)",
               paddingBottom: "max(12px, var(--app-safe-bottom))",
             }}
