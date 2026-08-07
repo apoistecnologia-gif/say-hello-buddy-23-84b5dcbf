@@ -13,6 +13,12 @@ const config: CapacitorConfig = {
       androidScaleType: "CENTER_INSIDE",
       showSpinner: false,
     },
+    SystemBars: {
+      insetsHandling: "css",
+      style: "DARK",
+      hidden: false,
+      animation: "NONE",
+    },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
     },
