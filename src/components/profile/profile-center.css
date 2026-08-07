@@ -26,6 +26,16 @@
   opacity: 0.55;
 }
 
+/* Menu descriptions may use two lines on narrow phones instead of ellipsis. */
+.app-screen button[class*="min-h-[72px]"] p.truncate {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: normal;
+  text-overflow: clip;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 html.apois-large-text {
   font-size: 17px;
 }
