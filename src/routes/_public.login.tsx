@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { AppBrand } from "@/components/app/AppBrand";
 import { PrimaryButton } from "@/components/app/PrimaryButton";
@@ -85,19 +85,9 @@ function LoginPage() {
   return (
     <PublicAuthShell contentClassName="justify-center">
       <div className="flex w-full flex-col">
-        <div className="mb-5 flex items-center">
-          <Link
-            to="/"
-            aria-label="Voltar para as boas-vindas"
-            className="app-pressable flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-white/5 text-zinc-300"
-          >
-            <ArrowLeft size={20} />
-          </Link>
-        </div>
-
         <AppBrand subtitle="Sua corrida, do seu jeito." />
 
-        <section className="app-surface mt-8 rounded-3xl p-5 sm:p-6" aria-labelledby="login-title">
+        <section className="app-surface mt-7 rounded-3xl p-5 sm:p-6" aria-labelledby="login-title">
           <div className="mb-6">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-apois-yellow">Passageiro</p>
             <h1 id="login-title" className="mt-2 text-2xl font-black tracking-tight text-white">
