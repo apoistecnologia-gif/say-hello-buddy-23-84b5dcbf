@@ -385,7 +385,8 @@ function ActiveRidePage() {
         rideCreatedAt={ride.created_at}
         onSuccess={() => {
           setIsCancelDialogOpen(false);
-          void loadRide(ride.id);
+          clearRide();
+          void navigate({ to: "/inicio", replace: true });
         }}
       />
 
