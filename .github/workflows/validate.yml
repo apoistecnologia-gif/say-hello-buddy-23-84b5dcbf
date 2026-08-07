@@ -54,6 +54,13 @@ jobs:
       - name: Check Supabase push function
         run: deno check --node-modules-dir=auto supabase/functions/send-ride-push/index.ts
 
+      - name: Validate reserved next-ride contract
+        run: |
+          grep -F 'queued_after_ride_id' src/types/rides/active-ride.ts
+          grep -F 'queued_after_ride_id' src/services/rides/active-ride-service.ts
+          grep -F 'Motorista reservado' src/components/rides/active/RideStatusHeader.tsx
+          grep -F 'Sua corrida já está reservada.' 'src/routes/_authenticated.corrida.$rideId.tsx'
+
       - name: Validate Firebase passenger client
         run: |
           python3 - <<'PY'
