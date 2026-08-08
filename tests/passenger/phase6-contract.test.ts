@@ -67,8 +67,10 @@ describe("APOIS Passenger Phase 6 contracts", () => {
     const nativeRecovery = source("src/lib/auth/native-password-recovery.ts");
     const manifest = source("android/app/src/main/AndroidManifest.xml");
 
-    expect(recovery).toContain("apoispassageiro://auth/redefinir-senha");
+    expect(nativeRecovery).toContain("apoispassageiro://auth/redefinir-senha");
     expect(nativeRecovery).toContain("redefinir-senha");
+    expect(recovery).toContain("NATIVE_PASSWORD_RECOVERY_REDIRECT");
+    expect(recovery).toContain("Capacitor.isNativePlatform()");
     expect(manifest).toContain('android:scheme="apoispassageiro"');
     expect(manifest).toContain('android:pathPrefix="/redefinir-senha"');
   });
