@@ -58,6 +58,14 @@ export interface EmergencyContactInput {
   isPrimary: boolean;
 }
 
+const PROFILE_PHOTO_BUCKET = "profile-photos";
+const MAX_PROFILE_PHOTO_BYTES = 10 * 1024 * 1024;
+const PROFILE_PHOTO_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -155,7 +163,33 @@ function functionErrorMessage(error: unknown, data: unknown, fallback: string): 
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+function isExternalAvatar(value: string): boolean {
+  return /^(https?:|data:|blob:)/i.test(value);
+}
+
+function normalizeAvatarPath(value: string): string {
+  return value.startsWith(`${PROFILE_PHOTO_BUCKET}/`)
+    ? value.slice(PROFILE_PHOTO_BUCKET.length + 1)
+    : value;
+}
+
 class PassengerProfileService {
+  private async hydrateAvatar(center: PassengerProfileCenter): Promise<PassengerProfileCenter> {
+    const storedAvatar = center.profile.avatarUrl?.trim();
+    if (!storedAvatar || isExternalAvatar(storedAvatar)) return center;
+
+    const { data, error } = await supabase.storage
+      .from(PROFILE_PHOTO_BUCKET)
+      .createSignedUrl(normalizeAvatarPath(storedAvatar), 60 * 60);
+
+    if (error || !data?.signedUrl) {
+      console.warn("[PassengerProfileService] Could not sign private avatar", error);
+      return { ...center, profile: { ...center.profile, avatarUrl: null } };
+    }
+
+    return { ...center, profile: { ...center.profile, avatarUrl: data.signedUrl } };
+  }
+
   private async invoke(body?: Record<string, unknown>): Promise<PassengerProfileCenter> {
     const { data, error } = await supabase.functions.invoke("passenger-profile", {
       method: body ? "POST" : "GET",
@@ -164,7 +198,7 @@ class PassengerProfileService {
     if (error) {
       throw new Error(functionErrorMessage(error, data, "Não foi possível carregar seu perfil."));
     }
-    return parseCenter(data);
+    return this.hydrateAvatar(parseCenter(data));
   }
 
   load(): Promise<PassengerProfileCenter> {
@@ -185,6 +219,41 @@ class PassengerProfileService {
 
   deleteEmergencyContact(id: string): Promise<PassengerProfileCenter> {
     return this.invoke({ action: "delete_emergency_contact", id });
+  }
+
+  async uploadAvatar(file: File): Promise<PassengerProfileCenter> {
+    const extension = PROFILE_PHOTO_MIME[file.type];
+    if (!extension) throw new Error("Use uma foto JPG, PNG ou WebP.");
+    if (file.size <= 0 || file.size > MAX_PROFILE_PHOTO_BYTES) {
+      throw new Error("A foto deve ter no máximo 10 MB.");
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError || !authData.user) throw new Error("Sua sessão expirou. Entre novamente.");
+
+    const objectPath = `${authData.user.id}/avatar.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from(PROFILE_PHOTO_BUCKET)
+      .upload(objectPath, file, {
+        upsert: true,
+        contentType: file.type,
+        cacheControl: "3600",
+      });
+    if (uploadError) {
+      console.error("[PassengerProfileService] Avatar upload failed", uploadError);
+      throw new Error("Não foi possível enviar sua foto agora.");
+    }
+
+    const { error: profileError } = await supabase
+      .from("users")
+      .update({ avatar_url: objectPath, updated_at: new Date().toISOString() })
+      .eq("auth_user_id", authData.user.id);
+    if (profileError) {
+      console.error("[PassengerProfileService] Avatar profile update failed", profileError);
+      throw new Error("A foto foi enviada, mas não foi possível vinculá-la ao seu perfil.");
+    }
+
+    return this.load();
   }
 
   async sendPasswordReset(email: string): Promise<void> {
