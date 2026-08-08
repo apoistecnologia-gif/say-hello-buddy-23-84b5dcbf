@@ -49,6 +49,19 @@ describe("APOIS Passenger Phase 6 contracts", () => {
     expect(historyRoute).toContain("Não é um recibo financeiro");
   });
 
+  test("payment methods use backend availability instead of table-active equals usable", () => {
+    const paymentService = source("src/services/payments/payment-service.ts");
+    const paymentHook = source("src/hooks/use-payment-methods.tsx");
+    const selector = source("src/components/payments/PaymentMethodSelector.tsx");
+
+    expect(paymentService).toContain('rpc("get_passenger_payment_methods"');
+    expect(paymentService).toContain('enabled: value["enabled"] === true');
+    expect(paymentService).not.toContain("enabled: isActive");
+    expect(paymentHook).toContain("enabledMethods");
+    expect(paymentHook).not.toContain("method.isActive && method.enabled");
+    expect(selector).toContain("Indisponível até a APOIS configurar o provedor eletrônico");
+  });
+
   test("profile exposes photo, legal documents and a New rating state", () => {
     const profile = source("src/components/profile/PassengerProfileCenter.tsx");
     const profileService = source("src/services/profile/passenger-profile-service.ts");
