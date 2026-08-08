@@ -54,5 +54,6 @@ jobs:
           grep -F 'passenger_trigger_sos' src/services/rides/ride-safety-service.ts
           grep -F 'get_passenger_ride_receipt' src/services/rides/ride-receipt-service.ts
           grep -F 'uploadAvatar(file: File)' src/services/profile/passenger-profile-service.ts
-          grep -F 'apoispassageiro://auth/redefinir-senha' src/lib/auth/password-recovery.ts
+          grep -F 'apoispassageiro://auth/redefinir-senha' src/lib/auth/native-password-recovery.ts
+          grep -F 'NATIVE_PASSWORD_RECOVERY_REDIRECT' src/lib/auth/password-recovery.ts
           echo 'APOIS_PASSENGER_PHASE6_VALIDATION_OK'
