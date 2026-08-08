@@ -135,6 +135,7 @@ function normalizeRide(value: unknown): RideHistoryItem {
     cancellationReason: readNullableString(value, "cancellation_reason"),
     cancellationFee: readNullableNumber(value, "cancellation_fee"),
     passengerRating: readNullableNumber(value, "passenger_rating"),
+    passengerDriverRating: readNullableNumber(value, "passenger_driver_rating"),
     createdAt,
     acceptedAt: readNullableString(value, "accepted_at"),
     startedAt: readNullableString(value, "started_at"),
