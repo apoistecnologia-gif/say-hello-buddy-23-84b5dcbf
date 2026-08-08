@@ -8,6 +8,7 @@ on:
     branches:
       - fix/apois-auditoria-completa
       - feat/apois-passageiro-completo
+      - feat/apois-betterstack-observability-v2
 
 concurrency:
   group: validate-apois-${{ github.ref }}
@@ -23,6 +24,7 @@ jobs:
     env:
       GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
       GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+      BETTERSTACK_APP_TOKEN: ${{ secrets.VITE_BETTERSTACK_TOKEN }}
 
     steps:
       - name: Checkout
@@ -126,11 +128,31 @@ jobs:
           src/routes/_public.termos.tsx
           src/routes/_authenticated.perfil.tsx
 
+      - name: Verify Better Stack token on observability branch
+        if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability-v2' }}
+        run: |
+          if [ -z "$BETTERSTACK_APP_TOKEN" ]; then
+            echo "::error::VITE_BETTERSTACK_TOKEN não está cadastrado nos secrets do repositório."
+            exit 1
+          fi
+          echo "Better Stack token disponível para o build isolado de observabilidade."
+
       - name: Build web
         run: |
           export VITE_GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_WEB_API_KEY:-ci_validation_placeholder}"
           export VITE_PUBLIC_APP_URL="https://passageiro.apois.example"
+          if [ "${GITHUB_REF}" = "refs/heads/feat/apois-betterstack-observability-v2" ]; then
+            export VITE_BETTERSTACK_TOKEN="${BETTERSTACK_APP_TOKEN}"
+            export VITE_BETTERSTACK_SMOKE_TEST="1"
+          fi
           bun run build
+
+      - name: Verify Better Stack loader in built web app
+        if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability-v2' }}
+        run: |
+          grep -R -q 'betterstack.net/b.js' dist
+          grep -R -q 'APOIS_BETTERSTACK_SMOKE_TEST_V3' dist
+          echo "Loader Better Stack e smoke test encontrados no build web."
 
       - name: Sync Capacitor Android
         run: |
@@ -142,7 +164,23 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          if [ "${GITHUB_REF}" = "refs/heads/feat/apois-betterstack-observability-v2" ]; then
+            ./gradlew assembleDebug -PAPOIS_OBSERVABILITY=true --no-daemon --stacktrace
+          else
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          fi
+
+      - name: Verify isolated observability package
+        if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability-v2' }}
+        run: |
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          if command -v apkanalyzer >/dev/null 2>&1; then
+            APP_ID="$(apkanalyzer manifest application-id "$APK")"
+            echo "Application ID do APK de observabilidade: $APP_ID"
+            test "$APP_ID" = "com.apois.passageiro.observability"
+          else
+            echo "::warning::apkanalyzer não disponível; validação do applicationId será feita na instalação ADB."
+          fi
 
       - name: Explain missing homologation keys
         if: ${{ env.GOOGLE_MAPS_WEB_API_KEY == '' || env.GOOGLE_MAPS_ANDROID_API_KEY == '' }}
@@ -155,8 +193,17 @@ jobs:
           fi
           echo "::warning::O APK compilou apenas para validação e não será publicado como artefato de homologação."
 
+      - name: Publish isolated Better Stack APK
+        if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability-v2' && env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: APOIS-Passageiro-BetterStack-Isolado-v3
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Publish homologation APK
-        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
+        if: ${{ github.ref != 'refs/heads/feat/apois-betterstack-observability-v2' && env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: APOIS-Passageiro-Homologacao
