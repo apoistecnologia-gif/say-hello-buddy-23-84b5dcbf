@@ -28,11 +28,12 @@ export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = (
     setError(null);
 
     try {
-      const data = (await paymentService.getPaymentMethods()).filter(
-        (method) => method.isActive && method.enabled,
-      );
+      // Keep active-but-unavailable methods in the UI so the app is explicit
+      // about provider configuration instead of presenting a fake working method.
+      const data = (await paymentService.getPaymentMethods()).filter((method) => method.isActive);
       setMethods(data);
 
+      const enabledMethods = data.filter((method) => method.enabled === true);
       let savedMethod: string | null = null;
       if (userId) {
         try {
@@ -44,12 +45,14 @@ export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = (
         }
       }
 
-      const savedActiveMethod = data.find((method) => method.code === savedMethod)?.code ?? null;
-      const currentActiveMethod = data.find((method) => method.code === selectedMethod)?.code ?? null;
-      const nextMethod = savedActiveMethod ?? currentActiveMethod ?? data[0]?.code ?? null;
+      const savedEnabledMethod =
+        enabledMethods.find((method) => method.code === savedMethod)?.code ?? null;
+      const currentEnabledMethod =
+        enabledMethods.find((method) => method.code === selectedMethod)?.code ?? null;
+      const nextMethod = savedEnabledMethod ?? currentEnabledMethod ?? enabledMethods[0]?.code ?? null;
       setSelectedMethodState(nextMethod);
 
-      if (userId && savedMethod && savedMethod !== nextMethod) {
+      if (userId && savedMethod !== nextMethod) {
         try {
           if (nextMethod) {
             window.localStorage.setItem(
@@ -64,7 +67,7 @@ export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = (
         }
       }
 
-      if (data.length === 0) {
+      if (enabledMethods.length === 0) {
         setError("Nenhuma forma de pagamento está disponível no momento.");
       }
     } catch (caughtError: unknown) {
@@ -84,7 +87,7 @@ export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = (
   const handleSelect = useCallback(
     (code: PaymentMethodCode): void => {
       const method = methods.find((item) => item.code === code);
-      if (!method?.isActive || !method.enabled) return;
+      if (!method?.isActive || method.enabled !== true) return;
 
       setSelectedMethodState(code);
       if (userId) {
