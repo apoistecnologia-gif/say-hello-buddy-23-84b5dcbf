@@ -2,18 +2,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   Bell,
-  CalendarDays,
+  Camera,
   Check,
   ChevronRight,
   CircleHelp,
-  CreditCard,
+  FileText,
   Loader2,
   LockKeyhole,
   LogOut,
   Mail,
-  MapPin,
   Pencil,
-  Phone,
   Plus,
   RefreshCw,
   Shield,
@@ -115,12 +113,14 @@ function formatMemberSince(value: string | null): string {
 }
 
 function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "P";
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "P"
+  );
 }
 
 export function PassengerProfileCenter() {
@@ -130,10 +130,10 @@ export function PassengerProfileCenter() {
   const [dialog, setDialog] = useState<DialogName>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAvatarSaving, setIsAvatarSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profileDraft, setProfileDraft] = useState<ProfileUpdateInput>(emptyProfileDraft);
-  const [preferencesDraft, setPreferencesDraft] =
-    useState<PassengerPreferences>(defaultPreferences);
+  const [preferencesDraft, setPreferencesDraft] = useState<PassengerPreferences>(defaultPreferences);
   const [contactDraft, setContactDraft] = useState<EmergencyContactInput>(emptyContactDraft);
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [supportDraft, setSupportDraft] = useState<SupportDraft>(emptySupportDraft);
@@ -170,6 +170,13 @@ export function PassengerProfileCenter() {
   const displayPhone = center?.profile.phone || profile?.phone || null;
   const displayAvatar = center?.profile.avatarUrl || profile?.avatar_url || undefined;
 
+  const ratingLabel = useMemo(() => {
+    const totalRatings = center?.profile.totalRatings ?? 0;
+    const average = center?.profile.averageRating;
+    if (totalRatings <= 0 || average === null || !Number.isFinite(average)) return "Novo";
+    return average.toFixed(1).replace(".", ",");
+  }, [center?.profile.averageRating, center?.profile.totalRatings]);
+
   const openProfile = () => {
     setProfileDraft({
       name: center?.profile.name ?? displayName,
@@ -198,7 +205,6 @@ export function PassengerProfileCenter() {
       toast.error("Informe um nome e telefone válidos.");
       return;
     }
-
     setIsSaving(true);
     try {
       const updated = await passengerProfileService.updateProfile(profileDraft);
@@ -207,11 +213,24 @@ export function PassengerProfileCenter() {
       setDialog(null);
       toast.success("Dados pessoais atualizados.");
     } catch (caughtError: unknown) {
-      toast.error(
-        caughtError instanceof Error ? caughtError.message : "Não foi possível salvar seus dados.",
-      );
+      toast.error(caughtError instanceof Error ? caughtError.message : "Não foi possível salvar seus dados.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const uploadAvatar = async (file: File | undefined): Promise<void> => {
+    if (!file || isAvatarSaving) return;
+    setIsAvatarSaving(true);
+    try {
+      const updated = await passengerProfileService.uploadAvatar(file);
+      setCenter(updated);
+      await refreshSession();
+      toast.success("Foto do perfil atualizada.");
+    } catch (caughtError: unknown) {
+      toast.error(caughtError instanceof Error ? caughtError.message : "Não foi possível atualizar sua foto.");
+    } finally {
+      setIsAvatarSaving(false);
     }
   };
 
@@ -224,11 +243,7 @@ export function PassengerProfileCenter() {
       setDialog(null);
       toast.success("Preferências atualizadas.");
     } catch (caughtError: unknown) {
-      toast.error(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Não foi possível salvar suas preferências.",
-      );
+      toast.error(caughtError instanceof Error ? caughtError.message : "Não foi possível salvar suas preferências.");
     } finally {
       setIsSaving(false);
     }
@@ -255,7 +270,6 @@ export function PassengerProfileCenter() {
       toast.error("Informe o nome e o telefone do contato.");
       return;
     }
-
     setIsSaving(true);
     try {
       const updated = await passengerProfileService.saveEmergencyContact(contactDraft);
@@ -264,9 +278,7 @@ export function PassengerProfileCenter() {
       setIsEditingContact(false);
       toast.success("Contato de emergência salvo.");
     } catch (caughtError: unknown) {
-      toast.error(
-        caughtError instanceof Error ? caughtError.message : "Não foi possível salvar o contato.",
-      );
+      toast.error(caughtError instanceof Error ? caughtError.message : "Não foi possível salvar o contato.");
     } finally {
       setIsSaving(false);
     }
@@ -284,9 +296,7 @@ export function PassengerProfileCenter() {
       }
       toast.success("Contato removido.");
     } catch (caughtError: unknown) {
-      toast.error(
-        caughtError instanceof Error ? caughtError.message : "Não foi possível remover o contato.",
-      );
+      toast.error(caughtError instanceof Error ? caughtError.message : "Não foi possível remover o contato.");
     } finally {
       setIsSaving(false);
     }
@@ -299,11 +309,7 @@ export function PassengerProfileCenter() {
       await passengerProfileService.sendPasswordReset(displayEmail);
       toast.success("Enviamos as instruções de alteração de senha para seu e-mail.");
     } catch (caughtError: unknown) {
-      toast.error(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Não foi possível enviar as instruções.",
-      );
+      toast.error(caughtError instanceof Error ? caughtError.message : "Não foi possível enviar as instruções.");
     } finally {
       setIsSaving(false);
     }
@@ -315,7 +321,6 @@ export function PassengerProfileCenter() {
       toast.error("Descreva o problema com mais detalhes.");
       return;
     }
-
     setIsSaving(true);
     try {
       const ticket = await passengerSupportService.createTicket({
@@ -326,15 +331,9 @@ export function PassengerProfileCenter() {
       });
       setSupportDraft(emptySupportDraft);
       setDialog(null);
-      toast.success(`Atendimento registrado. Protocolo ${ticket.protocol}.`, {
-        duration: 7000,
-      });
+      toast.success(`Atendimento registrado. Protocolo ${ticket.protocol}.`, { duration: 7000 });
     } catch (caughtError: unknown) {
-      toast.error(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Não foi possível registrar o atendimento.",
-      );
+      toast.error(caughtError instanceof Error ? caughtError.message : "Não foi possível registrar o atendimento.");
     } finally {
       setIsSaving(false);
     }
@@ -354,21 +353,10 @@ export function PassengerProfileCenter() {
       await navigate({ to: "/login", replace: true });
       toast.success("Sua conta foi excluída.");
     } catch (caughtError: unknown) {
-      toast.error(
-        caughtError instanceof Error ? caughtError.message : "Não foi possível excluir sua conta.",
-      );
+      toast.error(caughtError instanceof Error ? caughtError.message : "Não foi possível excluir sua conta.");
       setIsSaving(false);
     }
   };
-
-  const ratingLabel = useMemo(() => {
-    const totalRatings = center?.profile.totalRatings ?? 0;
-    const average = center?.profile.averageRating;
-    if (totalRatings <= 0 || average === null || !Number.isFinite(average)) {
-      return "Sem avaliações";
-    }
-    return average.toFixed(1).replace(".", ",");
-  }, [center?.profile.averageRating, center?.profile.totalRatings]);
 
   if (isLoading && !center) {
     return (
@@ -396,12 +384,33 @@ export function PassengerProfileCenter() {
           </button>
         </div>
 
-        <Avatar className="mx-auto h-24 w-24 border-2 border-apois-yellow p-1 shadow-[0_18px_50px_rgba(255,184,0,0.18)]">
-          <AvatarImage src={displayAvatar} alt={displayName} />
-          <AvatarFallback className="bg-zinc-900 text-2xl font-black text-apois-yellow">
-            {initials(displayName)}
-          </AvatarFallback>
-        </Avatar>
+        <div className="relative mx-auto w-fit">
+          <Avatar className="h-24 w-24 border-2 border-apois-yellow p-1 shadow-[0_18px_50px_rgba(255,184,0,0.18)]">
+            <AvatarImage src={displayAvatar} alt={displayName} />
+            <AvatarFallback className="bg-zinc-900 text-2xl font-black text-apois-yellow">
+              {initials(displayName)}
+            </AvatarFallback>
+          </Avatar>
+          <label
+            aria-label="Alterar foto do perfil"
+            className={`app-pressable absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-2xl border border-black bg-apois-yellow text-black shadow-lg ${
+              isAvatarSaving ? "pointer-events-none opacity-70" : "cursor-pointer"
+            }`}
+          >
+            {isAvatarSaving ? <Loader2 className="animate-spin" size={17} /> : <Camera size={17} />}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              disabled={isAvatarSaving}
+              onChange={(event) => {
+                const selected = event.currentTarget.files?.[0];
+                event.currentTarget.value = "";
+                void uploadAvatar(selected);
+              }}
+            />
+          </label>
+        </div>
         <h1 className="mt-4 text-2xl font-black tracking-[-0.04em]">{displayName}</h1>
         <p className="mt-1 text-sm text-zinc-500">{displayEmail}</p>
 
@@ -411,15 +420,11 @@ export function PassengerProfileCenter() {
               <Star className="text-apois-yellow" size={15} fill="currentColor" />
               {ratingLabel}
             </p>
-            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600">
-              Avaliação
-            </p>
+            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600">Avaliação</p>
           </div>
           <div className="rounded-2xl border border-white/8 bg-black/40 p-3">
             <p className="text-sm font-black text-white">{center?.profile.completedRides ?? 0}</p>
-            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600">
-              Corridas concluídas
-            </p>
+            <p className="mt-1 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600">Corridas concluídas</p>
           </div>
         </div>
       </header>
@@ -473,6 +478,21 @@ export function PassengerProfileCenter() {
           />
         </MenuSection>
 
+        <MenuSection title="Documentos legais">
+          <MenuButton
+            icon={FileText}
+            title="Termos de Uso"
+            description="Regras de uso do APOIS Passageiro"
+            onClick={() => void navigate({ to: "/termos" })}
+          />
+          <MenuButton
+            icon={Shield}
+            title="Política de Privacidade"
+            description="Como seus dados são tratados e protegidos"
+            onClick={() => void navigate({ to: "/privacidade" })}
+          />
+        </MenuSection>
+
         <MenuSection title="Suporte">
           <MenuButton
             icon={CircleHelp}
@@ -508,9 +528,7 @@ export function PassengerProfileCenter() {
             <Field label="Nome completo">
               <input
                 value={profileDraft.name}
-                onChange={(event) =>
-                  setProfileDraft((current) => ({ ...current, name: event.target.value }))
-                }
+                onChange={(event) => setProfileDraft((current) => ({ ...current, name: event.target.value }))}
                 autoComplete="name"
                 className="profile-input"
                 maxLength={120}
@@ -519,9 +537,7 @@ export function PassengerProfileCenter() {
             <Field label="Telefone">
               <input
                 value={profileDraft.phone}
-                onChange={(event) =>
-                  setProfileDraft((current) => ({ ...current, phone: event.target.value }))
-                }
+                onChange={(event) => setProfileDraft((current) => ({ ...current, phone: event.target.value }))}
                 inputMode="tel"
                 autoComplete="tel"
                 className="profile-input"
@@ -531,9 +547,7 @@ export function PassengerProfileCenter() {
             <Field label="Cidade">
               <input
                 value={profileDraft.city}
-                onChange={(event) =>
-                  setProfileDraft((current) => ({ ...current, city: event.target.value }))
-                }
+                onChange={(event) => setProfileDraft((current) => ({ ...current, city: event.target.value }))}
                 autoComplete="address-level2"
                 className="profile-input"
                 maxLength={100}
@@ -544,18 +558,14 @@ export function PassengerProfileCenter() {
                 type="date"
                 value={profileDraft.birthDate}
                 max={new Date().toISOString().slice(0, 10)}
-                onChange={(event) =>
-                  setProfileDraft((current) => ({ ...current, birthDate: event.target.value }))
-                }
+                onChange={(event) => setProfileDraft((current) => ({ ...current, birthDate: event.target.value }))}
                 className="profile-input [color-scheme:dark]"
               />
             </Field>
             <Field label="Como deseja se identificar">
               <select
                 value={profileDraft.gender}
-                onChange={(event) =>
-                  setProfileDraft((current) => ({ ...current, gender: event.target.value }))
-                }
+                onChange={(event) => setProfileDraft((current) => ({ ...current, gender: event.target.value }))}
                 className="profile-input [color-scheme:dark]"
               >
                 <option value="">Prefiro não informar</option>
@@ -565,24 +575,17 @@ export function PassengerProfileCenter() {
                 <option value="outro">Outro</option>
               </select>
             </Field>
-
             <ReadOnlyRow icon={Mail} label="E-mail" value={displayEmail || "Não informado"} />
             <ReadOnlyRow icon={Shield} label="CPF" value={formatCpf(center?.profile.cpf ?? null)} />
             <p className="text-[10px] leading-5 text-zinc-600">
               E-mail e CPF não são alterados diretamente pelo aplicativo para proteger sua conta.
             </p>
-
-            <PrimaryAction onClick={() => void saveProfile()} loading={isSaving}>
-              Salvar alterações
-            </PrimaryAction>
+            <PrimaryAction onClick={() => void saveProfile()} loading={isSaving}>Salvar alterações</PrimaryAction>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={dialog === "preferences"}
-        onOpenChange={(open) => !open && setDialog(null)}
-      >
+      <Dialog open={dialog === "preferences"} onOpenChange={(open) => !open && setDialog(null)}>
         <DialogContent className="w-[calc(100vw-24px)] max-w-md rounded-3xl border-white/10 bg-zinc-950 p-0 text-white">
           <DialogHeaderBlock title="Preferências" onClose={() => setDialog(null)} />
           <div className="space-y-3 p-5">
@@ -590,48 +593,33 @@ export function PassengerProfileCenter() {
               title="Atualizações de corrida"
               description="Aceite, chegada, início, conclusão e cancelamentos"
               checked={preferencesDraft.rideUpdates}
-              onCheckedChange={(checked) =>
-                setPreferencesDraft((current) => ({ ...current, rideUpdates: checked }))
-              }
+              onCheckedChange={(checked) => setPreferencesDraft((current) => ({ ...current, rideUpdates: checked }))}
             />
             <PreferenceRow
               title="Segurança"
               description="Alertas importantes durante a corrida"
               checked={preferencesDraft.safetyAlerts}
-              onCheckedChange={(checked) =>
-                setPreferencesDraft((current) => ({ ...current, safetyAlerts: checked }))
-              }
+              onCheckedChange={(checked) => setPreferencesDraft((current) => ({ ...current, safetyAlerts: checked }))}
             />
             <PreferenceRow
               title="Pagamentos"
               description="Confirmações de Pix, multas e carteira"
               checked={preferencesDraft.paymentUpdates}
-              onCheckedChange={(checked) =>
-                setPreferencesDraft((current) => ({ ...current, paymentUpdates: checked }))
-              }
+              onCheckedChange={(checked) => setPreferencesDraft((current) => ({ ...current, paymentUpdates: checked }))}
             />
             <PreferenceRow
               title="Novidades e promoções"
               description="Comunicações comerciais opcionais"
               checked={preferencesDraft.promotions}
-              onCheckedChange={(checked) =>
-                setPreferencesDraft((current) => ({ ...current, promotions: checked }))
-              }
+              onCheckedChange={(checked) => setPreferencesDraft((current) => ({ ...current, promotions: checked }))}
             />
             <PreferenceRow
               title="Texto maior"
               description="Aumenta a leitura dos textos principais do aplicativo"
               checked={preferencesDraft.accessibilityLargeText}
-              onCheckedChange={(checked) =>
-                setPreferencesDraft((current) => ({
-                  ...current,
-                  accessibilityLargeText: checked,
-                }))
-              }
+              onCheckedChange={(checked) => setPreferencesDraft((current) => ({ ...current, accessibilityLargeText: checked }))}
             />
-            <PrimaryAction onClick={() => void savePreferences()} loading={isSaving}>
-              Salvar preferências
-            </PrimaryAction>
+            <PrimaryAction onClick={() => void savePreferences()} loading={isSaving}>Salvar preferências</PrimaryAction>
           </div>
         </DialogContent>
       </Dialog>
@@ -647,23 +635,17 @@ export function PassengerProfileCenter() {
                 </p>
                 <div className="space-y-3">
                   {(center?.emergencyContacts ?? []).map((contact) => (
-                    <article
-                      key={contact.id}
-                      className="rounded-2xl border border-white/8 bg-black/30 p-4"
-                    >
+                    <article key={contact.id} className="rounded-2xl border border-white/8 bg-black/30 p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="truncate text-sm font-black">{contact.name}</p>
                             {contact.isPrimary ? (
-                              <span className="rounded-full bg-apois-yellow/10 px-2 py-1 text-[9px] font-black text-apois-yellow">
-                                Principal
-                              </span>
+                              <span className="rounded-full bg-apois-yellow/10 px-2 py-1 text-[9px] font-black text-apois-yellow">Principal</span>
                             ) : null}
                           </div>
                           <p className="mt-1 text-xs text-zinc-500">
-                            {formatPhone(contact.phone)}
-                            {contact.relationship ? ` • ${contact.relationship}` : ""}
+                            {formatPhone(contact.phone)}{contact.relationship ? ` • ${contact.relationship}` : ""}
                           </p>
                         </div>
                         <div className="flex gap-2">
@@ -672,100 +654,56 @@ export function PassengerProfileCenter() {
                             aria-label={`Editar ${contact.name}`}
                             onClick={() => startEditingContact(contact)}
                             className="app-pressable flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-900 text-zinc-400"
-                          >
-                            <Pencil size={15} />
-                          </button>
+                          ><Pencil size={15} /></button>
                           <button
                             type="button"
                             aria-label={`Remover ${contact.name}`}
                             onClick={() => void deleteContact(contact)}
                             disabled={isSaving}
                             className="app-pressable flex h-9 w-9 items-center justify-center rounded-xl bg-red-500/10 text-red-400 disabled:opacity-50"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          ><Trash2 size={15} /></button>
                         </div>
                       </div>
                     </article>
                   ))}
                 </div>
-
                 {(center?.emergencyContacts.length ?? 0) < 3 ? (
                   <button
                     type="button"
                     onClick={() => startEditingContact()}
                     className="app-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-apois-yellow/30 bg-apois-yellow/5 text-xs font-black text-apois-yellow"
-                  >
-                    <Plus size={17} />
-                    Adicionar contato
-                  </button>
+                  ><Plus size={17} />Adicionar contato</button>
                 ) : null}
               </>
             ) : (
               <>
                 <Field label="Nome do contato">
-                  <input
-                    value={contactDraft.name}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, name: event.target.value }))
-                    }
-                    className="profile-input"
-                    maxLength={100}
-                  />
+                  <input value={contactDraft.name} onChange={(event) => setContactDraft((current) => ({ ...current, name: event.target.value }))} className="profile-input" maxLength={100} />
                 </Field>
                 <Field label="Telefone">
-                  <input
-                    value={contactDraft.phone}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({ ...current, phone: event.target.value }))
-                    }
-                    inputMode="tel"
-                    className="profile-input"
-                    maxLength={20}
-                  />
+                  <input value={contactDraft.phone} onChange={(event) => setContactDraft((current) => ({ ...current, phone: event.target.value }))} inputMode="tel" className="profile-input" maxLength={20} />
                 </Field>
                 <Field label="Relação com você">
-                  <input
-                    value={contactDraft.relationship}
-                    onChange={(event) =>
-                      setContactDraft((current) => ({
-                        ...current,
-                        relationship: event.target.value,
-                      }))
-                    }
-                    placeholder="Ex.: mãe, irmão, amigo"
-                    className="profile-input"
-                    maxLength={60}
-                  />
+                  <input value={contactDraft.relationship} onChange={(event) => setContactDraft((current) => ({ ...current, relationship: event.target.value }))} placeholder="Ex.: mãe, irmão, amigo" className="profile-input" maxLength={60} />
                 </Field>
                 <PreferenceRow
                   title="Contato principal"
                   description="Será exibido primeiro nos recursos de segurança"
                   checked={contactDraft.isPrimary}
-                  onCheckedChange={(checked) =>
-                    setContactDraft((current) => ({ ...current, isPrimary: checked }))
-                  }
+                  onCheckedChange={(checked) => setContactDraft((current) => ({ ...current, isPrimary: checked }))}
                 />
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      setContactDraft(emptyContactDraft);
-                      setIsEditingContact(false);
-                    }}
+                    onClick={() => { setContactDraft(emptyContactDraft); setIsEditingContact(false); }}
                     className="app-pressable min-h-12 rounded-2xl border border-white/10 text-xs font-black text-zinc-400"
-                  >
-                    Cancelar
-                  </button>
+                  >Cancelar</button>
                   <button
                     type="button"
                     onClick={() => void saveContact()}
                     disabled={isSaving}
                     className="app-pressable flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-xs font-black text-black disabled:opacity-60"
-                  >
-                    {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-                    Salvar
-                  </button>
+                  >{isSaving ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}Salvar</button>
                 </div>
               </>
             )}
@@ -782,9 +720,7 @@ export function PassengerProfileCenter() {
                 <Mail className="mt-0.5 shrink-0 text-apois-yellow" size={19} />
                 <div>
                   <p className="text-sm font-black">Alterar senha</p>
-                  <p className="mt-1 text-xs leading-5 text-zinc-500">
-                    As instruções serão enviadas para {displayEmail || "seu e-mail cadastrado"}.
-                  </p>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">As instruções serão enviadas para {displayEmail || "seu e-mail cadastrado"}.</p>
                 </div>
               </div>
               <button
@@ -792,29 +728,21 @@ export function PassengerProfileCenter() {
                 onClick={() => void sendPasswordReset()}
                 disabled={!displayEmail || isSaving}
                 className="app-pressable mt-4 min-h-11 w-full rounded-xl bg-white text-xs font-black text-black disabled:opacity-50"
-              >
-                Enviar instruções por e-mail
-              </button>
+              >Enviar instruções por e-mail</button>
             </section>
-
             <section className="rounded-2xl border border-white/8 bg-black/30 p-4 text-xs leading-5 text-zinc-500">
               <p className="font-black text-white">Proteção dos seus dados</p>
-              <p className="mt-2">
-                Corridas e registros financeiros necessários para segurança e obrigações legais não são alterados pelo perfil. Dados pessoais podem ser atualizados ou anonimizados na exclusão da conta.
-              </p>
+              <p className="mt-2">Corridas e registros financeiros necessários para segurança e obrigações legais não são alterados pelo perfil. Dados pessoais podem ser atualizados ou anonimizados na exclusão da conta.</p>
             </section>
-
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => void navigate({ to: "/termos" })} className="app-pressable min-h-11 rounded-xl border border-white/10 text-xs font-black text-zinc-300">Termos</button>
+              <button type="button" onClick={() => void navigate({ to: "/privacidade" })} className="app-pressable min-h-11 rounded-xl border border-white/10 text-xs font-black text-zinc-300">Privacidade</button>
+            </div>
             <button
               type="button"
-              onClick={() => {
-                setDeleteConfirmation("");
-                setDialog("delete");
-              }}
+              onClick={() => { setDeleteConfirmation(""); setDialog("delete"); }}
               className="app-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 text-xs font-black text-red-400"
-            >
-              <Trash2 size={16} />
-              Excluir minha conta
-            </button>
+            ><Trash2 size={16} />Excluir minha conta</button>
           </div>
         </DialogContent>
       </Dialog>
@@ -823,18 +751,11 @@ export function PassengerProfileCenter() {
         <DialogContent className="max-h-[92dvh] w-[calc(100vw-24px)] max-w-md overflow-y-auto rounded-3xl border-white/10 bg-zinc-950 p-0 text-white">
           <DialogHeaderBlock title="Ajuda e atendimento" onClose={() => setDialog(null)} />
           <div className="space-y-4 p-5">
-            <p className="text-xs leading-5 text-zinc-500">
-              Descreva o ocorrido. Você receberá um protocolo e uma confirmação na central de notificações.
-            </p>
+            <p className="text-xs leading-5 text-zinc-500">Descreva o ocorrido. Você receberá um protocolo e uma confirmação na central de notificações.</p>
             <Field label="Categoria">
               <select
                 value={supportDraft.category}
-                onChange={(event) =>
-                  setSupportDraft((current) => ({
-                    ...current,
-                    category: event.target.value as PassengerSupportCategory,
-                  }))
-                }
+                onChange={(event) => setSupportDraft((current) => ({ ...current, category: event.target.value as PassengerSupportCategory }))}
                 className="profile-input [color-scheme:dark]"
               >
                 <option value="ride">Corrida</option>
@@ -845,40 +766,15 @@ export function PassengerProfileCenter() {
               </select>
             </Field>
             <Field label="Assunto">
-              <input
-                value={supportDraft.subject}
-                onChange={(event) =>
-                  setSupportDraft((current) => ({ ...current, subject: event.target.value }))
-                }
-                className="profile-input"
-                maxLength={120}
-              />
+              <input value={supportDraft.subject} onChange={(event) => setSupportDraft((current) => ({ ...current, subject: event.target.value }))} className="profile-input" maxLength={120} />
             </Field>
             <Field label="Código da corrida (opcional)">
-              <input
-                value={supportDraft.rideId}
-                onChange={(event) =>
-                  setSupportDraft((current) => ({ ...current, rideId: event.target.value }))
-                }
-                placeholder="Cole o código mostrado no comprovante"
-                className="profile-input"
-                maxLength={60}
-              />
+              <input value={supportDraft.rideId} onChange={(event) => setSupportDraft((current) => ({ ...current, rideId: event.target.value }))} placeholder="Cole o código mostrado no recibo" className="profile-input" maxLength={60} />
             </Field>
             <Field label="Conte o que aconteceu">
-              <textarea
-                value={supportDraft.message}
-                onChange={(event) =>
-                  setSupportDraft((current) => ({ ...current, message: event.target.value }))
-                }
-                rows={5}
-                className="profile-input resize-none"
-                maxLength={2000}
-              />
+              <textarea value={supportDraft.message} onChange={(event) => setSupportDraft((current) => ({ ...current, message: event.target.value }))} rows={5} className="profile-input resize-none" maxLength={2000} />
             </Field>
-            <PrimaryAction onClick={() => void submitSupport()} loading={isSaving}>
-              Abrir atendimento
-            </PrimaryAction>
+            <PrimaryAction onClick={() => void submitSupport()} loading={isSaving}>Abrir atendimento</PrimaryAction>
           </div>
         </DialogContent>
       </Dialog>
@@ -887,26 +783,16 @@ export function PassengerProfileCenter() {
         <DialogContent className="w-[calc(100vw-24px)] max-w-md rounded-3xl border-red-500/20 bg-zinc-950 p-0 text-white">
           <DialogHeaderBlock title="Excluir conta" onClose={() => setDialog(null)} danger />
           <div className="space-y-4 p-5">
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-xs leading-5 text-red-100/80">
-              Esta ação encerra seu acesso e anonimiza seus dados pessoais. Uma corrida ativa precisa ser finalizada ou cancelada antes da exclusão.
-            </div>
+            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-xs leading-5 text-red-100/80">Esta ação encerra seu acesso e anonimiza seus dados pessoais. Uma corrida ativa precisa ser finalizada ou cancelada antes da exclusão.</div>
             <Field label='Digite "EXCLUIR" para confirmar'>
-              <input
-                value={deleteConfirmation}
-                onChange={(event) => setDeleteConfirmation(event.target.value.toUpperCase())}
-                autoComplete="off"
-                className="profile-input border-red-500/20 focus:border-red-500/60"
-              />
+              <input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value.toUpperCase())} autoComplete="off" className="profile-input border-red-500/20 focus:border-red-500/60" />
             </Field>
             <button
               type="button"
               onClick={() => void deleteAccount()}
               disabled={deleteConfirmation !== "EXCLUIR" || isSaving}
               className="app-pressable flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-red-500 text-sm font-black text-white disabled:bg-zinc-800 disabled:text-zinc-600"
-            >
-              {isSaving ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
-              Excluir definitivamente
-            </button>
+            >{isSaving ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}Excluir definitivamente</button>
           </div>
         </DialogContent>
       </Dialog>
@@ -917,34 +803,16 @@ export function PassengerProfileCenter() {
 function MenuSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="mb-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">
-        {title}
-      </h2>
+      <h2 className="mb-3 px-1 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">{title}</h2>
       <div className="space-y-2">{children}</div>
     </section>
   );
 }
 
-function MenuButton({
-  icon: Icon,
-  title,
-  description,
-  onClick,
-}: {
-  icon: typeof UserRound;
-  title: string;
-  description: string;
-  onClick: () => void;
-}) {
+function MenuButton({ icon: Icon, title, description, onClick }: { icon: typeof UserRound; title: string; description: string; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="app-pressable flex min-h-[72px] w-full items-center gap-4 rounded-2xl border border-white/8 bg-zinc-950 p-4 text-left"
-    >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-apois-yellow/10 text-apois-yellow">
-        <Icon size={20} />
-      </div>
+    <button type="button" onClick={onClick} className="app-pressable flex min-h-[72px] w-full items-center gap-4 rounded-2xl border border-white/8 bg-zinc-950 p-4 text-left">
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-apois-yellow/10 text-apois-yellow"><Icon size={20} /></div>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-black text-white">{title}</p>
         <p className="mt-1 truncate text-[11px] text-zinc-500">{description}</p>
@@ -954,29 +822,12 @@ function MenuButton({
   );
 }
 
-function DialogHeaderBlock({
-  title,
-  onClose,
-  danger = false,
-}: {
-  title: string;
-  onClose: () => void;
-  danger?: boolean;
-}) {
+function DialogHeaderBlock({ title, onClose, danger = false }: { title: string; onClose: () => void; danger?: boolean }) {
   return (
     <DialogHeader className="border-b border-white/8 p-5 text-left">
       <div className="flex items-center justify-between gap-4">
-        <DialogTitle className={danger ? "text-xl font-black text-red-400" : "text-xl font-black"}>
-          {title}
-        </DialogTitle>
-        <button
-          type="button"
-          aria-label="Fechar"
-          onClick={onClose}
-          className="app-pressable flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-900 text-zinc-400"
-        >
-          <X size={18} />
-        </button>
+        <DialogTitle className={danger ? "text-xl font-black text-red-400" : "text-xl font-black"}>{title}</DialogTitle>
+        <button type="button" aria-label="Fechar" onClick={onClose} className="app-pressable flex h-10 w-10 items-center justify-center rounded-2xl bg-zinc-900 text-zinc-400"><X size={18} /></button>
       </div>
     </DialogHeader>
   );
@@ -985,23 +836,13 @@ function DialogHeaderBlock({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.15em] text-zinc-600">
-        {label}
-      </span>
+      <span className="mb-2 block text-[10px] font-black uppercase tracking-[0.15em] text-zinc-600">{label}</span>
       {children}
     </label>
   );
 }
 
-function ReadOnlyRow({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Mail;
-  label: string;
-  value: string;
-}) {
+function ReadOnlyRow({ icon: Icon, label, value }: { icon: typeof Mail; label: string; value: string }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-black/30 p-4">
       <Icon className="shrink-0 text-zinc-600" size={18} />
@@ -1013,17 +854,7 @@ function ReadOnlyRow({
   );
 }
 
-function PreferenceRow({
-  title,
-  description,
-  checked,
-  onCheckedChange,
-}: {
-  title: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}) {
+function PreferenceRow({ title, description, checked, onCheckedChange }: { title: string; description: string; checked: boolean; onCheckedChange: (checked: boolean) => void }) {
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-white/8 bg-black/30 p-4">
       <div className="min-w-0 flex-1">
@@ -1035,22 +866,9 @@ function PreferenceRow({
   );
 }
 
-function PrimaryAction({
-  children,
-  onClick,
-  loading,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  loading: boolean;
-}) {
+function PrimaryAction({ children, onClick, loading }: { children: React.ReactNode; onClick: () => void; loading: boolean }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={loading}
-      className="app-pressable flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-sm font-black text-black disabled:bg-zinc-800 disabled:text-zinc-600"
-    >
+    <button type="button" onClick={onClick} disabled={loading} className="app-pressable flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-sm font-black text-black disabled:bg-zinc-800 disabled:text-zinc-600">
       {loading ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
       {children}
     </button>
