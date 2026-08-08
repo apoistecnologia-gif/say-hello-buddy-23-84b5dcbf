@@ -13,6 +13,7 @@ import { CancellationDialog } from "@/components/rides/active/CancellationDialog
 import { RideSafetyDialog } from "@/components/rides/active/RideSafetyDialog";
 import { RideRatingCard } from "@/components/rides/RideRatingCard";
 import { Button } from "@/components/ui/button";
+import { sharedRideService } from "@/services/rides/shared-ride-service";
 import {
   ChevronLeft,
   FileText,
@@ -95,41 +96,43 @@ function ActiveRidePage() {
   const handleShareRide = async (): Promise<void> => {
     if (!ride) return;
 
-    const trackingUrl = ride.share_token ? publicShareUrl(ride.share_token) : null;
-    const vehicle = [ride.driver_vehicle_model, ride.driver_vehicle_color]
-      .filter(Boolean)
-      .join(" • ");
-    const lines = [
-      "Acompanhe minha corrida pela APOIS.",
-      `Origem: ${ride.origin_name}`,
-      `Destino: ${ride.destination_name}`,
-      ride.driver_name ? `Motorista: ${ride.driver_name}` : null,
-      vehicle ? `Veículo: ${vehicle}` : null,
-      ride.driver_vehicle_plate ? `Placa: ${ride.driver_vehicle_plate}` : null,
-      trackingUrl ? `Acompanhamento: ${trackingUrl}` : null,
-    ].filter((line): line is string => Boolean(line));
-    const text = lines.join("\n");
-
     try {
+      const share = await sharedRideService.createOrRefresh(ride.id);
+      const trackingUrl = publicShareUrl(share.token);
+      if (!trackingUrl) {
+        toast.error("O endereço público de acompanhamento ainda não está configurado neste aplicativo.");
+        return;
+      }
+
+      const vehicle = [ride.driver_vehicle_model, ride.driver_vehicle_color]
+        .filter(Boolean)
+        .join(" • ");
+      const lines = [
+        "Acompanhe minha corrida pela APOIS.",
+        `Origem: ${ride.origin_name}`,
+        `Destino: ${ride.destination_name}`,
+        ride.driver_name ? `Motorista: ${ride.driver_name}` : null,
+        vehicle ? `Veículo: ${vehicle}` : null,
+        ride.driver_vehicle_plate ? `Placa: ${ride.driver_vehicle_plate}` : null,
+        `Acompanhamento: ${trackingUrl}`,
+      ].filter((line): line is string => Boolean(line));
+      const text = lines.join("\n");
+
       if (navigator.share) {
         await navigator.share({
           title: "Acompanhamento de corrida APOIS",
           text,
-          ...(trackingUrl ? { url: trackingUrl } : {}),
+          url: trackingUrl,
         });
         return;
       }
 
       if (!navigator.clipboard?.writeText) throw new Error("clipboard_unavailable");
       await navigator.clipboard.writeText(text);
-      toast.success(
-        trackingUrl
-          ? "Link de acompanhamento copiado."
-          : "Resumo da corrida copiado. O link será incluído após a publicação do endereço oficial.",
-      );
+      toast.success("Link protegido de acompanhamento copiado.");
     } catch (caughtError: unknown) {
       if (caughtError instanceof DOMException && caughtError.name === "AbortError") return;
-      toast.error("Não foi possível compartilhar esta corrida.");
+      toast.error("Não foi possível criar o acompanhamento protegido desta corrida.");
     }
   };
 
@@ -301,7 +304,9 @@ function ActiveRidePage() {
             {screenState === "completed" || screenState === "cancelled" ? (
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-4">
-                  <span className="text-xs font-black uppercase text-zinc-500">Valor total</span>
+                  <span className="text-xs font-black uppercase text-zinc-500">
+                    {screenState === "completed" ? "Valor da corrida" : "Valor estimado"}
+                  </span>
                   <span className="text-xl font-black text-white">
                     R$ {(ride.final_price ?? ride.estimated_price).toFixed(2).replace(".", ",")}
                   </span>
@@ -311,7 +316,7 @@ function ActiveRidePage() {
                   <RideRatingCard
                     rideId={ride.id}
                     driverName={ride.driver_name}
-                    currentRating={ride.passenger_rating ?? null}
+                    currentRating={ride.passenger_driver_rating ?? null}
                     onRated={() => loadRide(ride.id)}
                   />
                 ) : null}
@@ -393,6 +398,7 @@ function ActiveRidePage() {
       <RideSafetyDialog
         open={isSafetyDialogOpen}
         onOpenChange={setIsSafetyDialogOpen}
+        rideId={ride.id}
         driverName={ride.driver_name}
         driverPhone={ride.driver_phone}
         onShareRide={async () => {
