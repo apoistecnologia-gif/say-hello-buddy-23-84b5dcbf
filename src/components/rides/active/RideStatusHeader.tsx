@@ -89,6 +89,13 @@ export function RideStatusHeader({
           icon: <XCircle className="text-red-500" size={20} />,
           color: "bg-red-500/10 border-red-500/20",
         };
+      case "expired":
+        return {
+          title: "Nenhum motorista disponível",
+          subtitle: "A busca terminou sem encontrar um motorista elegível. Você pode voltar e solicitar novamente.",
+          icon: <Search className="text-zinc-400" size={20} />,
+          color: "bg-zinc-800/90 border-white/10",
+        };
       case "agendada":
         return {
           title: "Corrida agendada",
