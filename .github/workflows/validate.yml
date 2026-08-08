@@ -134,7 +134,23 @@ jobs:
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          if [ "${GITHUB_REF}" = "refs/heads/feat/apois-betterstack-observability" ]; then
+            ./gradlew assembleDebug -PAPOIS_OBSERVABILITY=true --no-daemon --stacktrace
+          else
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          fi
+
+      - name: Verify isolated observability package
+        if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability' }}
+        run: |
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          if command -v apkanalyzer >/dev/null 2>&1; then
+            APP_ID="$(apkanalyzer manifest application-id "$APK")"
+            echo "Application ID do APK de observabilidade: $APP_ID"
+            test "$APP_ID" = "com.apois.passageiro.observability"
+          else
+            echo "::warning::apkanalyzer não disponível; validação do applicationId será feita na instalação ADB."
+          fi
 
       - name: Explain missing homologation keys
         if: ${{ env.GOOGLE_MAPS_WEB_API_KEY == '' || env.GOOGLE_MAPS_ANDROID_API_KEY == '' }}
@@ -151,7 +167,7 @@ jobs:
         if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: APOIS-Passageiro-BetterStack-SmokeTest
+          name: APOIS-Passageiro-BetterStack-Isolado-v2
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 3
