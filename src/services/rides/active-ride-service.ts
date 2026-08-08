@@ -18,6 +18,7 @@ const TERMINAL_STATUSES: RideStatus[] = [
   "finalizada",
   "cancelada_passageiro",
   "cancelada_motorista",
+  "expired",
 ];
 
 const STATUS_ORDER: Record<RideStatus, number> = {
@@ -29,6 +30,7 @@ const STATUS_ORDER: Record<RideStatus, number> = {
   finalizada: 5,
   cancelada_passageiro: 5,
   cancelada_motorista: 5,
+  expired: 5,
 };
 
 type OptionalStringRideKey =
