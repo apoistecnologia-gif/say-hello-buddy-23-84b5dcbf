@@ -7,12 +7,12 @@ import type {
   RideStatus,
 } from "@/types/rides/active-ride";
 
-const ACTIVE_STATUSES: RideStatus[] = [
+const ACTIVE_STATUSES = [
   "procurar_motorista",
   "motorista_a_caminho",
   "motorista_chegou",
   "em_viagem",
-];
+] as const;
 
 const TERMINAL_STATUSES: RideStatus[] = [
   "finalizada",
