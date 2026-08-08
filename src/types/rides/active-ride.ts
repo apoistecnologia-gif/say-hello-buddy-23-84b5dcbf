@@ -95,7 +95,13 @@ export interface ActiveRide {
   updated_at: string;
 
   share_token?: string;
+  share_expires_at?: string;
+  share_revoked_at?: string;
+
+  /** Avaliação feita pelo motorista sobre o passageiro. */
   passenger_rating?: number;
+  /** Avaliação feita pelo passageiro sobre o motorista. */
+  passenger_driver_rating?: number;
 }
 
 export type RideScreenState =
