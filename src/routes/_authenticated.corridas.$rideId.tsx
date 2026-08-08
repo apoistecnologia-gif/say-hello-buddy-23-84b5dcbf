@@ -23,6 +23,11 @@ import { RideRatingCard } from "@/components/rides/RideRatingCard";
 import { useAuth } from "@/hooks/use-auth";
 import { useRepeatRide } from "@/hooks/rides/use-repeat-ride";
 import { rideHistoryService } from "@/services/rides/ride-history-service";
+import {
+  rideReceiptService,
+  type PassengerReceiptResult,
+  type PassengerRideReceipt,
+} from "@/services/rides/ride-receipt-service";
 import type { RideHistoryItem } from "@/types/rides/ride-history";
 import { cn, formatCurrency } from "@/lib/utils";
 
@@ -100,9 +105,33 @@ function paymentLabel(paymentMethod: string): string {
   return labels[paymentMethod] ?? paymentMethod;
 }
 
+function currencyFromCents(cents: number): string {
+  return formatCurrency(cents / 100);
+}
+
 async function copyText(text: string): Promise<void> {
   if (!navigator.clipboard?.writeText) throw new Error("clipboard_unavailable");
   await navigator.clipboard.writeText(text);
+}
+
+function buildReceiptText(ride: RideHistoryItem, receipt: PassengerRideReceipt): string {
+  return [
+    "APOIS — Recibo de corrida",
+    `Corrida: ${receipt.rideId}`,
+    `Data: ${formatDate(receipt.date)}`,
+    `Origem: ${receipt.origin}`,
+    `Destino: ${receipt.destination}`,
+    `Categoria: ${categoryLabel(ride.category)}`,
+    `Motorista: ${receipt.driverName ?? "Não informado"}`,
+    `Pagamento: ${paymentLabel(receipt.paymentMethod)}`,
+    `Valor bruto: ${currencyFromCents(receipt.grossAmountCents)}`,
+    `Desconto: ${currencyFromCents(receipt.discountAmountCents)}`,
+    `Taxa APOIS: ${currencyFromCents(receipt.platformFeeCents)}`,
+    `Taxa do provedor: ${currencyFromCents(receipt.providerFeeCents)}`,
+    `Total: ${currencyFromCents(receipt.totalAmountCents)}`,
+    `Pagamento: ${receipt.paymentStatus}`,
+    `Liquidação: ${receipt.settlementStatus}`,
+  ].join("\n");
 }
 
 function RideDetailsPage() {
@@ -111,16 +140,34 @@ function RideDetailsPage() {
   const { profile } = useAuth();
   const repeatRide = useRepeatRide();
   const [ride, setRide] = useState<RideHistoryItem | null>(null);
+  const [receiptResult, setReceiptResult] = useState<PassengerReceiptResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isReceiptLoading, setIsReceiptLoading] = useState(false);
   const [isRepeating, setIsRepeating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
 
   const loadRide = useCallback(async () => {
     if (!profile?.id) return;
     setIsLoading(true);
     setError(null);
+    setReceiptError(null);
+    setReceiptResult(null);
     try {
-      setRide(await rideHistoryService.getById(rideId, profile.id));
+      const loadedRide = await rideHistoryService.getById(rideId, profile.id);
+      setRide(loadedRide);
+
+      if (loadedRide.status === "finalizada") {
+        setIsReceiptLoading(true);
+        try {
+          setReceiptResult(await rideReceiptService.getPassengerReceipt(loadedRide.id));
+        } catch (receiptFailure: unknown) {
+          console.error("[RideDetailsPage] Receipt load failed", receiptFailure);
+          setReceiptError("Não foi possível carregar o recibo financeiro agora.");
+        } finally {
+          setIsReceiptLoading(false);
+        }
+      }
     } catch (caughtError: unknown) {
       console.error("[RideDetailsPage] Ride load failed", caughtError);
       setError("Não foi possível carregar os detalhes desta corrida.");
@@ -134,20 +181,9 @@ function RideDetailsPage() {
   }, [loadRide]);
 
   const receiptText = useMemo(() => {
-    if (!ride) return "";
-    const value = ride.finalPrice ?? ride.estimatedPrice;
-    return [
-      "APOIS — Comprovante de corrida",
-      `Corrida: ${ride.id}`,
-      `Data: ${formatDate(ride.completedAt ?? ride.cancelledAt ?? ride.createdAt)}`,
-      `Origem: ${ride.originName}`,
-      `Destino: ${ride.destinationName}`,
-      `Categoria: ${categoryLabel(ride.category)}`,
-      `Pagamento: ${paymentLabel(ride.paymentMethod)}`,
-      `Valor: ${formatCurrency(value)}`,
-      `Status: ${statusInfo(ride).label}`,
-    ].join("\n");
-  }, [ride]);
+    if (!ride || !receiptResult?.available) return "";
+    return buildReceiptText(ride, receiptResult.receipt);
+  }, [receiptResult, ride]);
 
   const handleRepeatRide = async (): Promise<void> => {
     if (!ride || isRepeating) return;
@@ -163,20 +199,23 @@ function RideDetailsPage() {
   };
 
   const shareReceipt = async (): Promise<void> => {
-    if (!ride || !receiptText) return;
+    if (!ride || !receiptText || !receiptResult?.available) {
+      toast.error("O recibo financeiro ainda não está disponível para compartilhar.");
+      return;
+    }
     try {
       if (navigator.share) {
         await navigator.share({
-          title: "Comprovante de corrida APOIS",
+          title: "Recibo de corrida APOIS",
           text: receiptText,
         });
         return;
       }
       await copyText(receiptText);
-      toast.success("Comprovante copiado.");
+      toast.success("Recibo copiado.");
     } catch (caughtError: unknown) {
       if (caughtError instanceof DOMException && caughtError.name === "AbortError") return;
-      toast.error("Não foi possível compartilhar o comprovante.");
+      toast.error("Não foi possível compartilhar o recibo.");
     }
   };
 
@@ -212,7 +251,7 @@ function RideDetailsPage() {
 
   const status = statusInfo(ride);
   const StatusIcon = status.icon;
-  const totalValue = ride.finalPrice ?? ride.estimatedPrice;
+  const fallbackRideValue = ride.finalPrice ?? ride.estimatedPrice;
   const finishedAt = ride.completedAt ?? ride.cancelledAt ?? ride.updatedAt;
   const isActive = [
     "procurar_motorista",
@@ -220,6 +259,7 @@ function RideDetailsPage() {
     "motorista_chegou",
     "em_viagem",
   ].includes(ride.status);
+  const receipt = receiptResult?.available ? receiptResult.receipt : null;
 
   return (
     <div className="app-screen min-h-[100dvh] bg-black text-white print:bg-white print:text-black">
@@ -236,7 +276,9 @@ function RideDetailsPage() {
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-apois-yellow">
             Detalhes da viagem
           </p>
-          <h1 className="text-xl font-black">Comprovante da corrida</h1>
+          <h1 className="text-xl font-black">
+            {ride.status === "finalizada" ? "Recibo da corrida" : "Detalhes da corrida"}
+          </h1>
         </div>
       </header>
 
@@ -246,7 +288,7 @@ function RideDetailsPage() {
             <div>
               <p className="text-2xl font-black tracking-[-0.05em] text-apois-yellow">APOIS</p>
               <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
-                Comprovante de corrida
+                {ride.status === "finalizada" ? "Recibo de corrida" : "Registro da corrida"}
               </p>
             </div>
             <div
@@ -339,7 +381,11 @@ function RideDetailsPage() {
               value={ride.durationMin !== null ? `${Math.round(ride.durationMin)} min` : "Não informada"}
             />
             <InfoCard icon={Car} label="Categoria" value={categoryLabel(ride.category)} />
-            <InfoCard icon={CreditCard} label="Pagamento" value={paymentLabel(ride.paymentMethod)} />
+            <InfoCard
+              icon={CreditCard}
+              label="Pagamento"
+              value={paymentLabel(receipt?.paymentMethod ?? ride.paymentMethod)}
+            />
           </div>
 
           {ride.driverName || ride.driverVehicleModel ? (
@@ -360,7 +406,9 @@ function RideDetailsPage() {
                       <Star size={12} fill="currentColor" />
                       {ride.driverRating.toFixed(1).replace(".", ",")}
                     </p>
-                  ) : null}
+                  ) : (
+                    <p className="mt-1 text-xs font-bold text-zinc-500">Novo</p>
+                  )}
                 </div>
               </div>
               {ride.driverVehicleModel || ride.driverVehiclePlate ? (
@@ -394,39 +442,75 @@ function RideDetailsPage() {
             </section>
           ) : null}
 
-          <div className="mt-6 flex items-end justify-between border-t border-white/8 pt-5 print:border-zinc-200">
-            <div>
+          {ride.status === "finalizada" ? (
+            <section className="mt-6 border-t border-white/8 pt-5 print:border-zinc-200">
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-600">
-                Valor total
+                Recibo financeiro
               </p>
-              <p className="mt-1 text-xs font-bold text-zinc-500">
-                {paymentLabel(ride.paymentMethod)}
+              {isReceiptLoading ? (
+                <p className="mt-3 text-sm font-bold text-zinc-500">Carregando liquidação da corrida...</p>
+              ) : receipt ? (
+                <div className="mt-4 space-y-3">
+                  <ReceiptRow label="Valor bruto" value={currencyFromCents(receipt.grossAmountCents)} />
+                  <ReceiptRow label="Desconto" value={currencyFromCents(receipt.discountAmountCents)} />
+                  <ReceiptRow label="Taxa APOIS" value={currencyFromCents(receipt.platformFeeCents)} />
+                  <ReceiptRow label="Taxa do provedor" value={currencyFromCents(receipt.providerFeeCents)} />
+                  <div className="flex items-end justify-between border-t border-white/8 pt-4 print:border-zinc-200">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-600">Total</p>
+                      <p className="mt-1 text-xs font-bold text-zinc-500">
+                        {paymentLabel(receipt.paymentMethod)} · {receipt.paymentStatus}
+                      </p>
+                    </div>
+                    <p className="text-3xl font-black tracking-[-0.05em] text-white print:text-black">
+                      {currencyFromCents(receipt.totalAmountCents)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 rounded-2xl border border-amber-400/15 bg-amber-400/8 p-4">
+                  <p className="text-sm font-black text-amber-200">Recibo financeiro ainda não disponível</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-100/60">
+                    {receiptError ?? "A liquidação desta corrida ainda não foi registrada no financeiro canônico."}
+                  </p>
+                </div>
+              )}
+            </section>
+          ) : (
+            <div className="mt-6 flex items-end justify-between border-t border-white/8 pt-5 print:border-zinc-200">
+              <div>
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-600">
+                  {ride.status === "cancelada_passageiro" || ride.status === "cancelada_motorista" || ride.status === "expired"
+                    ? "Valor de referência"
+                    : "Valor estimado"}
+                </p>
+                <p className="mt-1 text-xs font-bold text-zinc-500">Não é um recibo financeiro</p>
+              </div>
+              <p className="text-3xl font-black tracking-[-0.05em] text-white print:text-black">
+                {formatCurrency(fallbackRideValue)}
               </p>
             </div>
-            <p className="text-3xl font-black tracking-[-0.05em] text-white print:text-black">
-              {formatCurrency(totalValue)}
-            </p>
-          </div>
+          )}
 
-          {ride.passengerRating !== null ? (
+          {ride.passengerDriverRating !== null ? (
             <div className="mt-5 flex items-center justify-between rounded-2xl bg-apois-yellow/10 px-4 py-3">
               <span className="text-xs font-black text-zinc-300 print:text-zinc-700">
-                Sua avaliação
+                Sua avaliação do motorista
               </span>
               <span className="flex items-center gap-1 text-sm font-black text-apois-yellow">
                 <Star size={15} fill="currentColor" />
-                {ride.passengerRating.toFixed(0)} de 5
+                {ride.passengerDriverRating.toFixed(0)} de 5
               </span>
             </div>
           ) : null}
         </section>
 
-        {ride.status === "finalizada" && ride.passengerRating === null ? (
+        {ride.status === "finalizada" && ride.passengerDriverRating === null ? (
           <div className="mx-auto mt-5 max-w-xl print:hidden">
             <RideRatingCard
               rideId={ride.id}
               driverName={ride.driverName}
-              currentRating={ride.passengerRating}
+              currentRating={ride.passengerDriverRating}
               onRated={() => loadRide()}
             />
           </div>
@@ -457,26 +541,38 @@ function RideDetailsPage() {
               {isRepeating ? "Preparando corrida..." : "Repetir corrida completa"}
             </button>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => void shareReceipt()}
-              className="app-pressable flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-zinc-900 text-xs font-black"
-            >
-              <Share2 size={16} />
-              Compartilhar
-            </button>
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="app-pressable flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-zinc-900 text-xs font-black"
-            >
-              <Printer size={16} />
-              Imprimir / PDF
-            </button>
-          </div>
+
+          {receipt ? (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => void shareReceipt()}
+                className="app-pressable flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-zinc-900 text-xs font-black"
+              >
+                <Share2 size={16} />
+                Compartilhar recibo
+              </button>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="app-pressable flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-zinc-900 text-xs font-black"
+              >
+                <Printer size={16} />
+                Imprimir / PDF
+              </button>
+            </div>
+          ) : null}
         </div>
       </main>
+    </div>
+  );
+}
+
+function ReceiptRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-xs">
+      <span className="font-bold text-zinc-500">{label}</span>
+      <span className="font-black text-zinc-200 print:text-zinc-800">{value}</span>
     </div>
   );
 }
