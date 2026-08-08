@@ -1,0 +1,58 @@
+name: APOIS Corridas — Passenger Phase 6
+
+on:
+  push:
+    branches:
+      - fix/apois-corridas-consolidacao
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apois-passenger-phase6-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  passenger-phase6:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Phase 6 contract tests
+        run: bun test tests/passenger/phase6-contract.test.ts
+
+      - name: TypeScript
+        run: bun run typecheck
+
+      - name: ESLint
+        run: bun run lint
+
+      - name: Production build
+        run: bun run build
+
+      - name: Capacitor passenger build
+        run: bun run build:capacitor
+
+      - name: Phase 6 no-dead-placeholder gate
+        run: |
+          set -euo pipefail
+          grep -F 'sharedRideService.createOrRefresh(ride.id)' 'src/routes/_authenticated.corrida.$rideId.tsx'
+          grep -F 'passenger_driver_rating' src/services/rides/active-ride-service.ts
+          grep -F 'passenger_trigger_sos' src/services/rides/ride-safety-service.ts
+          grep -F 'get_passenger_ride_receipt' src/services/rides/ride-receipt-service.ts
+          grep -F 'uploadAvatar(file: File)' src/services/profile/passenger-profile-service.ts
+          grep -F 'apoispassageiro://auth/redefinir-senha' src/lib/auth/password-recovery.ts
+          echo 'APOIS_PASSENGER_PHASE6_VALIDATION_OK'
