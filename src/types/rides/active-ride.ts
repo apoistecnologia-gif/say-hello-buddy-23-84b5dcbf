@@ -6,7 +6,8 @@ export type RideStatus =
   | "em_viagem"
   | "finalizada"
   | "cancelada_passageiro"
-  | "cancelada_motorista";
+  | "cancelada_motorista"
+  | "expired";
 
 export interface RideDriverLocation {
   lat: number;
