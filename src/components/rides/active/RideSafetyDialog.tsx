@@ -1,9 +1,11 @@
 import { Ambulance, Car, Phone, Share2, ShieldAlert, Siren, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ApoisSosAction } from "@/components/rides/active/ApoisSosAction";
 
 interface RideSafetyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  rideId: string;
   driverName?: string | undefined;
   driverPhone?: string | undefined;
   onShareRide: () => void | Promise<void>;
@@ -18,6 +20,7 @@ function callPhone(number: string): void {
 export function RideSafetyDialog({
   open,
   onOpenChange,
+  rideId,
   driverName,
   driverPhone,
   onShareRide,
@@ -53,6 +56,8 @@ export function RideSafetyDialog({
           <p className="rounded-2xl border border-red-500/15 bg-red-500/8 p-4 text-xs leading-5 text-red-100/80">
             Em risco imediato, procure um local seguro e acione o serviço público adequado. A APOIS não substitui os serviços de emergência.
           </p>
+
+          <ApoisSosAction rideId={rideId} />
 
           <SafetyAction
             icon={Siren}
