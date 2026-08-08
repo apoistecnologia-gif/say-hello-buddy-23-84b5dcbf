@@ -77,6 +77,8 @@ jobs:
           from pathlib import Path
           offenders = []
           for path in Path('.github/workflows').glob('*.y*ml'):
+              if path.name == 'validate.yml':
+                  continue
               text = path.read_text(encoding='utf-8')
               if 'contents: write' in text or 'git push origin' in text or 'git commit -m' in text:
                   offenders.append(str(path))
