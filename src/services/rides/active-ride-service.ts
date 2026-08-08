@@ -50,6 +50,8 @@ type OptionalStringRideKey =
   | "started_at"
   | "completed_at"
   | "share_token"
+  | "share_expires_at"
+  | "share_revoked_at"
   | "queued_after_ride_id"
   | "queued_at";
 
@@ -62,7 +64,8 @@ type OptionalNumberRideKey =
   | "driver_longitude"
   | "driver_heading"
   | "cancellation_fee"
-  | "passenger_rating";
+  | "passenger_rating"
+  | "passenger_driver_rating";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -301,6 +304,8 @@ class ActiveRideService {
       ["started_at", "started_at"],
       ["completed_at", "completed_at"],
       ["share_token", "share_token"],
+      ["share_expires_at", "share_expires_at"],
+      ["share_revoked_at", "share_revoked_at"],
       ["queued_after_ride_id", "queued_after_ride_id"],
       ["queued_at", "queued_at"],
     ];
@@ -320,6 +325,7 @@ class ActiveRideService {
       ["driver_heading", "driver_heading"],
       ["cancellation_fee", "cancellation_fee"],
       ["passenger_rating", "passenger_rating"],
+      ["passenger_driver_rating", "passenger_driver_rating"],
     ];
 
     for (const [targetKey, sourceKey] of optionalNumbers) {
@@ -343,11 +349,16 @@ class ActiveRideService {
         (["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status) ||
           (status === "procurar_motorista" && Boolean(ride.queued_after_ride_id))),
       canOpenSafety: ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
-      canRate: status === "finalizada" && ride.passenger_rating === undefined,
+      canRate: status === "finalizada" && ride.passenger_driver_rating === undefined,
       canRequestAgain: isTerminal,
       canReturnHome: isTerminal,
       canViewReceipt: status === "finalizada",
-      canShareRide: Boolean(ride.share_token) && !isTerminal,
+      canShareRide: [
+        "procurar_motorista",
+        "motorista_a_caminho",
+        "motorista_chegou",
+        "em_viagem",
+      ].includes(status),
     };
   }
 }
