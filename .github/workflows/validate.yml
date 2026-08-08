@@ -61,6 +61,30 @@ jobs:
           grep -F 'Motorista reservado' src/components/rides/active/RideStatusHeader.tsx
           grep -F 'Sua corrida já está reservada.' 'src/routes/_authenticated.corrida.$rideId.tsx'
 
+      - name: Validate no-driver terminal contract
+        run: |
+          grep -F '| "expired";' src/types/rides/active-ride.ts
+          grep -F '"expired",' src/services/rides/active-ride-service.ts
+          grep -F 'expired: 5' src/services/rides/active-ride-service.ts
+          grep -F 'updatedRide.status === "expired"' src/hooks/rides/use-active-ride.tsx
+          grep -F 'data.status !== "expired"' src/hooks/rides/use-active-ride.tsx
+          grep -F 'case "expired":' src/components/rides/active/RideStatusHeader.tsx
+          grep -F 'Nenhum motorista disponível' src/components/rides/active/RideStatusHeader.tsx
+
+      - name: Reject source-mutating validation workflows
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          offenders = []
+          for path in Path('.github/workflows').glob('*.y*ml'):
+              text = path.read_text(encoding='utf-8')
+              if 'contents: write' in text or 'git push origin' in text or 'git commit -m' in text:
+                  offenders.append(str(path))
+          if offenders:
+              raise SystemExit('Workflows que alteram fonte não são permitidos: ' + ', '.join(offenders))
+          print('CI somente valida: nenhum workflow altera/pusha fonte.')
+          PY
+
       - name: Validate PDF passenger checklist
         run: |
           grep -F 'height="62dvh"' src/routes/_authenticated.inicio.tsx
