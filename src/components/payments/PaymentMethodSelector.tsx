@@ -121,10 +121,14 @@ export function PaymentMethodList({
             const Icon = PAYMENT_ICONS[method.code] || Wallet;
             const isSelected = selectedMethod === method.code;
             const isWallet = method.code === "wallet";
-            const isDisabled =
-              !method.isActive ||
-              !method.enabled ||
-              (isWallet && (!wallet || wallet.status !== "active"));
+            const providerDisabled = method.isActive && method.enabled !== true && !isWallet;
+            const walletUnavailable = isWallet && (!wallet || wallet.status !== "active");
+            const isDisabled = !method.isActive || method.enabled !== true || walletUnavailable;
+            const availabilityMessage = providerDisabled
+              ? "Indisponível até a APOIS configurar o provedor eletrônico desta forma de pagamento."
+              : walletUnavailable
+                ? "Carteira indisponível para uso nesta conta no momento."
+                : method.description;
 
             return (
               <button
@@ -140,7 +144,7 @@ export function PaymentMethodList({
                   isSelected
                     ? "border-apois-yellow bg-zinc-800"
                     : "border-transparent bg-zinc-900/50",
-                  isDisabled && "cursor-not-allowed opacity-40 grayscale",
+                  isDisabled && "cursor-not-allowed opacity-55",
                 )}
               >
                 <div className="flex min-w-0 items-center gap-4">
@@ -153,11 +157,18 @@ export function PaymentMethodList({
                     <Icon size={24} />
                   </div>
                   <div className="min-w-0 text-left">
-                    <h4 className="truncate text-sm font-bold text-white">
-                      {method.name || method.label}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="truncate text-sm font-bold text-white">
+                        {method.name || method.label}
+                      </h4>
+                      {isDisabled ? (
+                        <span className="shrink-0 rounded-full bg-zinc-800 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-zinc-400">
+                          Indisponível
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="mt-0.5 text-[11px] font-medium leading-4 text-zinc-500">
-                      {method.description}
+                      {availabilityMessage}
                     </p>
                     {isWallet && wallet ? (
                       <p className="mt-0.5 text-[11px] font-bold text-emerald-500">
