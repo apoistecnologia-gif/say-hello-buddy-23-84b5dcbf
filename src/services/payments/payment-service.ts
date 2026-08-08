@@ -13,6 +13,22 @@ const PAYMENT_METHOD_CODES: PaymentMethodCode[] = [
   "wallet",
 ];
 
+interface RpcErrorLike {
+  code?: string;
+  message: string;
+}
+
+interface UntypedRpcClient {
+  rpc: (
+    functionName: string,
+    args?: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: RpcErrorLike | null }>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
   const normalized = code === "credit_card" ? "credit" : code === "debit_card" ? "debit" : code;
   return PAYMENT_METHOD_CODES.includes(normalized as PaymentMethodCode)
@@ -20,39 +36,58 @@ function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
     : null;
 }
 
+function readOptionalString(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function normalizePaymentMethod(value: unknown): PaymentMethod | null {
+  if (!isRecord(value)) return null;
+
+  const rawCode = typeof value["code"] === "string" ? value["code"] : "";
+  const code = normalizePaymentMethodCode(rawCode);
+  const id = typeof value["id"] === "string" ? value["id"] : "";
+  const name = typeof value["name"] === "string" ? value["name"] : "";
+  if (!code || !id || !name.trim()) return null;
+
+  const sortOrder = Number(value["sort_order"]);
+  return {
+    id,
+    code,
+    name,
+    label: name,
+    description: readOptionalString(value, "description"),
+    icon: readOptionalString(value, "icon"),
+    isActive: true,
+    enabled: value["enabled"] === true,
+    sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
+    requiresBalance: value["requires_balance"] === true,
+  };
+}
+
 class PaymentService {
   async getPaymentMethods(): Promise<PaymentMethod[]> {
-    const { data, error } = await supabase
-      .from("payment_methods")
-      .select("*")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    const rpcClient = supabase as unknown as UntypedRpcClient;
+    const { data, error } = await rpcClient.rpc("get_passenger_payment_methods");
 
     if (error) {
-      console.error("[PaymentService] Failed to fetch payment methods", error);
+      console.error("[PaymentService] Failed to fetch canonical payment methods", {
+        code: error.code,
+        message: error.message,
+      });
       throw new Error("payment_methods_unavailable");
     }
 
-    return (data ?? []).flatMap((method) => {
-      const code = normalizePaymentMethodCode(method.code);
-      if (!code) return [];
+    if (!isRecord(data) || data["ok"] !== true || !Array.isArray(data["methods"])) {
+      throw new Error("payment_methods_invalid_response");
+    }
 
-      const isActive = method.is_active === true;
-      return [
-        {
-          id: method.id,
-          code,
-          name: method.name,
-          label: method.name,
-          description: method.description,
-          icon: method.icon,
-          isActive,
-          enabled: isActive,
-          sortOrder: method.sort_order ?? 0,
-          requiresBalance: method.requires_balance === true,
-        } satisfies PaymentMethod,
-      ];
-    });
+    return data["methods"]
+      .flatMap((method) => {
+        const normalized = normalizePaymentMethod(method);
+        return normalized ? [normalized] : [];
+      })
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
   }
 
   async getCancellationFees(userId: string): Promise<CancellationFee[]> {
