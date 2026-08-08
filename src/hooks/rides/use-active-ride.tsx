@@ -84,7 +84,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setScreenState("completed");
       setIsRealtimeConnected(false);
       void activeRideService.unsubscribe();
-    } else if (updatedRide.status.startsWith("cancelada")) {
+    } else if (updatedRide.status.startsWith("cancelada") || updatedRide.status === "expired") {
       realtimeConnectedRef.current = false;
       setScreenState("cancelled");
       setIsRealtimeConnected(false);
@@ -109,7 +109,11 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         currentRideIdRef.current = rideId;
         handleUpdate(data);
 
-        if (data.status !== "finalizada" && !data.status.startsWith("cancelada")) {
+        if (
+          data.status !== "finalizada" &&
+          data.status !== "expired" &&
+          !data.status.startsWith("cancelada")
+        ) {
           activeRideService.subscribeToRide(
             rideId,
             handleUpdate,
