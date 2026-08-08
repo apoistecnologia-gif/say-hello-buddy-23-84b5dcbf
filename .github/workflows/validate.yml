@@ -137,6 +137,28 @@ jobs:
           fi
           echo "Better Stack token disponível para o build isolado de observabilidade."
 
+      - name: Validate Better Stack frontend token format
+        if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability-v2' }}
+        run: |
+          case "$BETTERSTACK_APP_TOKEN" in
+            *"<script"*|*"</script"*|*"betterstack.net"*|*"http://"*|*"https://"*)
+              echo "::error::VITE_BETTERSTACK_TOKEN contém um snippet/URL. Cadastre somente o token do Frontend."
+              exit 1
+              ;;
+          esac
+
+          if printf '%s' "$BETTERSTACK_APP_TOKEN" | grep -q '[[:space:]]'; then
+            echo "::error::VITE_BETTERSTACK_TOKEN contém espaços ou quebras de linha. Cadastre somente o token do Frontend."
+            exit 1
+          fi
+
+          if ! printf '%s' "$BETTERSTACK_APP_TOKEN" | grep -Eq '^[A-Za-z0-9_-]{16,128}$'; then
+            echo "::error::VITE_BETTERSTACK_TOKEN não tem o formato esperado para o token do Frontend."
+            exit 1
+          fi
+
+          echo "Formato do token Better Stack validado sem expor o valor."
+
       - name: Build web
         run: |
           export VITE_GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_WEB_API_KEY:-ci_validation_placeholder}"
@@ -151,8 +173,8 @@ jobs:
         if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability-v2' }}
         run: |
           grep -R -q 'betterstack.net/b.js' dist
-          grep -R -q 'APOIS_BETTERSTACK_SMOKE_TEST_V3' dist
-          echo "Loader Better Stack e smoke test encontrados no build web."
+          grep -R -q 'APOIS_BETTERSTACK_SMOKE_TEST_V4' dist
+          echo "Loader Better Stack e smoke test V4 encontrados no build web."
 
       - name: Sync Capacitor Android
         run: |
@@ -197,7 +219,7 @@ jobs:
         if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability-v2' && env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: APOIS-Passageiro-BetterStack-Isolado-v3
+          name: APOIS-Passageiro-BetterStack-Isolado-v4
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 3
