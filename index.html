@@ -19,6 +19,108 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="APOIS Passageiro" />
     <meta name="twitter:description" content="Sua jornada oficial começa aqui." />
+
+    <!--
+      APOIS observability (Better Stack)
+      Disabled by default. The isolated CI build injects VITE_BETTERSTACK_TOKEN.
+      No Better Stack token is stored in this repository.
+    -->
+    <script>
+      (() => {
+        const token = "%VITE_BETTERSTACK_TOKEN%";
+        const smokeTest = "%VITE_BETTERSTACK_SMOKE_TEST%";
+
+        if (!token || token.includes("VITE_BETTERSTACK_TOKEN")) {
+          return;
+        }
+
+        const sanitizeUrl = (value) => {
+          if (typeof value !== "string") return value;
+
+          try {
+            const url = new URL(value, window.location.origin);
+            url.search = "";
+            url.hash = "";
+            return url.toString();
+          } catch {
+            return "[redacted-url]";
+          }
+        };
+
+        !(function (b, e, t, r) {
+          b[t] =
+            b[t] ||
+            function (...args) {
+              (b[t].q = b[t].q || []).push(args);
+            };
+          b[t].l = +new Date();
+          const script = e.createElement("script");
+          script.async = true;
+          script.crossOrigin = "anonymous";
+          script.src = `https://betterstack.net/b.js?t=${encodeURIComponent(r)}`;
+
+          if (smokeTest === "1") {
+            script.addEventListener("load", () => {
+              window.setTimeout(() => {
+                const marker = "apois_betterstack_smoke_v3";
+
+                try {
+                  if (window.localStorage.getItem(marker) === "sent") return;
+                  window.localStorage.setItem(marker, "sent");
+                } catch {
+                  // If storage is unavailable, still emit the isolated smoke-test error.
+                }
+
+                throw new Error("APOIS_BETTERSTACK_SMOKE_TEST_V3");
+              }, 750);
+            });
+          }
+
+          (e.head || e.getElementsByTagName("head")[0]).appendChild(script);
+        })(window, document, "betterstack", token);
+
+        window.betterstack("config", {
+          crossDomainCookie: false,
+          sentry: {
+            sendDefaultPii: false,
+            beforeSend(event) {
+              if (event && typeof event === "object") {
+                delete event.user;
+
+                if (event.request && typeof event.request === "object") {
+                  delete event.request.cookies;
+                  delete event.request.headers;
+                  delete event.request.data;
+
+                  if (event.request.url) {
+                    event.request.url = sanitizeUrl(event.request.url);
+                  }
+                }
+
+                if (Array.isArray(event.breadcrumbs)) {
+                  event.breadcrumbs = event.breadcrumbs.map((breadcrumb) => {
+                    if (!breadcrumb || typeof breadcrumb !== "object") return breadcrumb;
+                    if (!breadcrumb.data || typeof breadcrumb.data !== "object") return breadcrumb;
+
+                    const data = { ...breadcrumb.data };
+                    if (data.url) data.url = sanitizeUrl(data.url);
+                    if (data.from) data.from = sanitizeUrl(data.from);
+                    if (data.to) data.to = sanitizeUrl(data.to);
+                    return { ...breadcrumb, data };
+                  });
+                }
+              }
+
+              return event;
+            },
+          },
+        });
+        window.betterstack("init", {
+          environment: "homologation-observability",
+          autoPageview: false,
+        });
+      })();
+    </script>
   </head>
   <body class="bg-black">
     <div id="root">
