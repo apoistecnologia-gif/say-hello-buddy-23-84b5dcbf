@@ -165,7 +165,6 @@ jobs:
           export VITE_PUBLIC_APP_URL="https://passageiro.apois.example"
           if [ "${GITHUB_REF}" = "refs/heads/feat/apois-betterstack-observability-v2" ]; then
             export VITE_BETTERSTACK_TOKEN="${BETTERSTACK_APP_TOKEN}"
-            export VITE_BETTERSTACK_SMOKE_TEST="1"
           fi
           bun run build
 
@@ -173,8 +172,11 @@ jobs:
         if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability-v2' }}
         run: |
           grep -R -q 'betterstack.net/b.js' dist
-          grep -R -q 'APOIS_BETTERSTACK_SMOKE_TEST_V4' dist
-          echo "Loader Better Stack e smoke test V4 encontrados no build web."
+          if grep -R -q 'APOIS_BETTERSTACK_SMOKE_TEST' dist; then
+            echo "::error::Smoke test Better Stack ainda está presente no build."
+            exit 1
+          fi
+          echo "Loader Better Stack encontrado e smoke test removido do build web."
 
       - name: Sync Capacitor Android
         run: |
@@ -219,7 +221,7 @@ jobs:
         if: ${{ github.ref == 'refs/heads/feat/apois-betterstack-observability-v2' && env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: APOIS-Passageiro-BetterStack-Isolado-v4
+          name: APOIS-Passageiro-BetterStack-Observability
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 3
