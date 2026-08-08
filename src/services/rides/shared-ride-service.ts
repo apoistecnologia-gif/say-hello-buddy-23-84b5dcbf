@@ -41,6 +41,11 @@ export interface SharedRideSnapshot {
   updatedAt: string;
 }
 
+export interface PassengerRideShare {
+  token: string;
+  expiresAt: string;
+}
+
 const ALLOWED_STATUSES = new Set<SharedRideStatus>([
   "procurar_motorista",
   "motorista_a_caminho",
@@ -100,6 +105,50 @@ function normalizeSnapshot(value: unknown): SharedRideSnapshot {
 }
 
 class SharedRideService {
+  async createOrRefresh(rideId: string, ttlMinutes = 240): Promise<PassengerRideShare> {
+    const normalizedRideId = rideId.trim();
+    if (!normalizedRideId) throw new Error("ride_id_required");
+
+    const rpcClient = supabase as unknown as UntypedRpcClient;
+    const { data, error } = await rpcClient.rpc("passenger_create_or_refresh_share", {
+      _ride_id: normalizedRideId,
+      _ttl_minutes: Math.max(15, Math.min(Math.floor(ttlMinutes), 1440)),
+    });
+
+    if (error) {
+      console.error("[SharedRideService] Could not create ride share", {
+        code: error.code,
+        message: error.message,
+      });
+      throw new Error("shared_ride_create_failed");
+    }
+
+    if (!isRecord(data) || data["ok"] !== true) throw new Error("shared_ride_create_failed");
+    const token = readString(data, "share_token");
+    const expiresAt = readString(data, "share_expires_at");
+    return { token, expiresAt };
+  }
+
+  async revoke(rideId: string): Promise<void> {
+    const normalizedRideId = rideId.trim();
+    if (!normalizedRideId) throw new Error("ride_id_required");
+
+    const rpcClient = supabase as unknown as UntypedRpcClient;
+    const { data, error } = await rpcClient.rpc("passenger_revoke_share", {
+      _ride_id: normalizedRideId,
+    });
+
+    if (error || !isRecord(data) || data["ok"] !== true) {
+      if (error) {
+        console.error("[SharedRideService] Could not revoke ride share", {
+          code: error.code,
+          message: error.message,
+        });
+      }
+      throw new Error("shared_ride_revoke_failed");
+    }
+  }
+
   async getByToken(token: string): Promise<SharedRideSnapshot> {
     const normalizedToken = token.trim();
     if (normalizedToken.length < 16 || normalizedToken.length > 80) {
