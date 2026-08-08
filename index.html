@@ -62,7 +62,7 @@
           if (smokeTest === "1") {
             script.addEventListener("load", () => {
               window.setTimeout(() => {
-                const marker = "apois_betterstack_smoke_v3";
+                const marker = "apois_betterstack_smoke_v4";
 
                 try {
                   if (window.localStorage.getItem(marker) === "sent") return;
@@ -71,7 +71,7 @@
                   // If storage is unavailable, still emit the isolated smoke-test error.
                 }
 
-                throw new Error("APOIS_BETTERSTACK_SMOKE_TEST_V3");
+                throw new Error("APOIS_BETTERSTACK_SMOKE_TEST_V4");
               }, 750);
             });
           }
