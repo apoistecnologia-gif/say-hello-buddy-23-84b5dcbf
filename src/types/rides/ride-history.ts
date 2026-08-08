@@ -25,7 +25,10 @@ export interface RideHistoryItem {
   driverVehiclePlate: string | null;
   cancellationReason: string | null;
   cancellationFee: number | null;
+  /** Avaliação feita pelo motorista sobre o passageiro. */
   passengerRating: number | null;
+  /** Avaliação feita pelo passageiro sobre o motorista. */
+  passengerDriverRating: number | null;
   createdAt: string;
   acceptedAt: string | null;
   startedAt: string | null;
