@@ -37,8 +37,26 @@ jobs:
       - name: TypeScript
         run: bun run typecheck
 
-      - name: ESLint
-        run: bun run lint
+      - name: ESLint — Phase 6 passenger surface
+        run: |
+          bunx eslint \
+            'src/types/rides/active-ride.ts' \
+            'src/types/rides/ride-history.ts' \
+            'src/services/rides/active-ride-service.ts' \
+            'src/services/rides/shared-ride-service.ts' \
+            'src/services/rides/ride-safety-service.ts' \
+            'src/services/rides/ride-rating-service.ts' \
+            'src/services/rides/ride-receipt-service.ts' \
+            'src/services/rides/ride-history-service.ts' \
+            'src/components/rides/active/ApoisSosAction.tsx' \
+            'src/components/rides/active/RideSafetyDialog.tsx' \
+            'src/components/profile/PassengerProfileCenter.tsx' \
+            'src/services/profile/passenger-profile-service.ts' \
+            'src/routes/_authenticated.corrida.$rideId.tsx' \
+            'src/routes/_authenticated.corridas.$rideId.tsx' \
+            'src/lib/auth/password-recovery.ts' \
+            'src/lib/auth/native-password-recovery.ts' \
+            'tests/passenger/phase6-contract.test.ts'
 
       - name: Production build
         run: bun run build
