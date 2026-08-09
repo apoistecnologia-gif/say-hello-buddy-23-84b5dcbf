@@ -1,0 +1,77 @@
+name: APOIS Phase 9 — Passenger Release Input Gate
+
+on:
+  push:
+    branches:
+      - tooling/apois-phase9-release-input-gate
+    paths:
+      - ".github/workflows/apois-phase9-release-input-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  release-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact Passenger Phase 9 source
+        uses: actions/checkout@v4
+        with:
+          ref: c63db45fadc580ce605f22f2e56791bd6b48772a
+
+      - name: Verify exact source HEAD
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c63db45fadc580ce605f22f2e56791bd6b48772a"
+          node tests/mobile/passenger-phase9-contract.mjs
+
+      - name: Check release inputs without exposing values
+        env:
+          WEB_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
+          ANDROID_MAPS_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+          PUBLIC_URL: ${{ vars.APOIS_PASSENGER_PUBLIC_URL }}
+          KEYSTORE_B64: ${{ secrets.APOIS_UPLOAD_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.APOIS_UPLOAD_KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.APOIS_UPLOAD_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.APOIS_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=0
+          check() {
+            local name="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "MISSING:$name"
+              missing=1
+            else
+              echo "PRESENT:$name"
+            fi
+          }
+          check GOOGLE_MAPS_WEB_API_KEY "$WEB_MAPS_KEY"
+          check GOOGLE_MAPS_ANDROID_API_KEY "$ANDROID_MAPS_KEY"
+          check APOIS_PASSENGER_PUBLIC_URL "$PUBLIC_URL"
+          check APOIS_UPLOAD_KEYSTORE_BASE64 "$KEYSTORE_B64"
+          check APOIS_UPLOAD_KEY_ALIAS "$KEY_ALIAS"
+          check APOIS_UPLOAD_STORE_PASSWORD "$STORE_PASSWORD"
+          check APOIS_UPLOAD_KEY_PASSWORD "$KEY_PASSWORD"
+          if [ -n "$PUBLIC_URL" ]; then
+            PUBLIC_URL="$PUBLIC_URL" node --input-type=module <<'NODE'
+          const raw = String(process.env.PUBLIC_URL ?? '').trim();
+          let url;
+          try { url = new URL(raw); } catch { throw new Error('APOIS_PASSENGER_PUBLIC_URL must be a valid absolute URL'); }
+          if (url.protocol !== 'https:') throw new Error('APOIS_PASSENGER_PUBLIC_URL must use https');
+          const host = url.hostname.toLowerCase();
+          if (host.endsWith('.example') || host === 'example' || host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+            throw new Error(`APOIS_PASSENGER_PUBLIC_URL is not a production public host: ${host}`);
+          }
+          console.log('APOIS_PASSENGER_PUBLIC_URL_VALID');
+          NODE
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo 'APOIS_PASSENGER_PHASE9_EXTERNAL_INPUTS_INCOMPLETE'
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/apois-upload.jks"
+          chmod 600 "$RUNNER_TEMP/apois-upload.jks"
+          keytool -list -keystore "$RUNNER_TEMP/apois-upload.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          echo 'APOIS_PASSENGER_PHASE9_EXTERNAL_INPUTS_OK'
