@@ -245,16 +245,15 @@ export const initializePush = async (authUserId: string): Promise<PushState> => 
   initializing = (async () => {
     try {
       const PushNotifications = await loadPlugin();
-      await ensureAndroidChannel();
-      if (!isCurrentLifecycle(version)) return state;
 
-      await attachListeners(version);
-      if (!isCurrentLifecycle(version)) return state;
-
+      // A autorização precisa acontecer antes de canal/listeners/registro.
+      // Assim, uma falha posterior de configuração do FCM não impede o
+      // Android 13+ de exibir o diálogo nativo de notificações.
       let permission = await PushNotifications.checkPermissions();
       if (!isCurrentLifecycle(version)) return state;
 
       if (permission.receive === "prompt" || permission.receive === "prompt-with-rationale") {
+        setState({ status: "prompt", lastError: null });
         permission = await PushNotifications.requestPermissions();
       }
       if (!isCurrentLifecycle(version)) return state;
@@ -268,6 +267,12 @@ export const initializePush = async (authUserId: string): Promise<PushState> => 
         setState({ status: "prompt", lastError: null });
         return state;
       }
+
+      await ensureAndroidChannel();
+      if (!isCurrentLifecycle(version)) return state;
+
+      await attachListeners(version);
+      if (!isCurrentLifecycle(version)) return state;
 
       await PushNotifications.register();
       if (!isCurrentLifecycle(version)) return state;
