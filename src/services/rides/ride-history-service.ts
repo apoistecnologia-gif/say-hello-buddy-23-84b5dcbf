@@ -14,6 +14,18 @@ const allowedStatuses = new Set<RideHistoryStatus>([
   "expired",
 ]);
 
+interface RpcErrorLike {
+  code?: string;
+  message: string;
+}
+
+interface UntypedRpcClient {
+  rpc: (
+    functionName: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: RpcErrorLike | null }>;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -165,16 +177,34 @@ class RideHistoryService {
   }
 
   async getById(rideId: string, passengerId: string): Promise<RideHistoryItem> {
-    const { data, error } = await supabase
-      .from("rides")
-      .select("*")
-      .eq("id", rideId)
-      .eq("passenger_id", passengerId)
-      .maybeSingle();
+    const normalizedRideId = rideId.trim();
+    if (!normalizedRideId || !passengerId.trim()) throw new Error("ride_not_found");
 
-    if (error) throw error;
-    if (!data) throw new Error("ride_not_found");
-    return normalizeRide(data);
+    const rpcClient = supabase as unknown as UntypedRpcClient;
+    const { data, error } = await rpcClient.rpc("get_passenger_ride_receipt", {
+      _ride_id: normalizedRideId,
+    });
+
+    if (error) {
+      console.error("[RideHistoryService] Server receipt lookup failed", {
+        code: error.code,
+        message: error.message,
+        rideId: normalizedRideId,
+      });
+      throw new Error(
+        error.message.toLowerCase().includes("ride_not_found")
+          ? "ride_not_found"
+          : "receipt_unavailable",
+      );
+    }
+
+    if (!isRecord(data) || data["ok"] !== true || data["source"] !== "server") {
+      throw new Error("receipt_unavailable");
+    }
+
+    const ride = normalizeRide(data["ride"]);
+    if (ride.passengerId !== passengerId) throw new Error("ride_not_found");
+    return ride;
   }
 }
 

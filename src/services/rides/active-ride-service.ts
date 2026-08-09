@@ -14,6 +14,12 @@ const ACTIVE_STATUSES = [
   "em_viagem",
 ] as const;
 
+const SHAREABLE_STATUSES: RideStatus[] = [
+  "motorista_a_caminho",
+  "motorista_chegou",
+  "em_viagem",
+];
+
 const TERMINAL_STATUSES: RideStatus[] = [
   "finalizada",
   "cancelada_passageiro",
@@ -63,6 +69,18 @@ type OptionalNumberRideKey =
   | "driver_heading"
   | "cancellation_fee"
   | "passenger_rating";
+
+interface RpcErrorLike {
+  code?: string;
+  message: string;
+}
+
+interface UntypedRpcClient {
+  rpc: (
+    functionName: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: RpcErrorLike | null }>;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -174,6 +192,35 @@ class ActiveRideService {
     return ActiveRideService.instance;
   }
 
+  private async ensureShareToken(ride: ActiveRide): Promise<ActiveRide> {
+    if (ride.share_token || !SHAREABLE_STATUSES.includes(ride.status)) return ride;
+
+    try {
+      const rpcClient = supabase as unknown as UntypedRpcClient;
+      const { data, error } = await rpcClient.rpc("create_passenger_share_token", {
+        _ride_id: ride.id,
+      });
+      if (error) {
+        console.warn("[ActiveRideService] Share token RPC unavailable", {
+          code: error.code,
+          message: error.message,
+          rideId: ride.id,
+        });
+        return ride;
+      }
+      if (!isRecord(data) || data["ok"] !== true || typeof data["share_token"] !== "string") {
+        return ride;
+      }
+      return { ...ride, share_token: data["share_token"] };
+    } catch (error) {
+      console.warn("[ActiveRideService] Could not ensure share token", {
+        rideId: ride.id,
+        message: error instanceof Error ? error.message : "unknown_error",
+      });
+      return ride;
+    }
+  }
+
   public async getRideById(rideId: string, passengerId: string): Promise<ActiveRide> {
     const { data, error } = await supabase
       .from("rides")
@@ -184,7 +231,7 @@ class ActiveRideService {
 
     if (error) throw error;
     if (!data) throw new Error("not_found");
-    return this.normalizeRide(data);
+    return this.ensureShareToken(this.normalizeRide(data));
   }
 
   public async getActiveRide(passengerId: string): Promise<ActiveRide | null> {
@@ -198,7 +245,7 @@ class ActiveRideService {
       .maybeSingle();
 
     if (error) throw error;
-    return data ? this.normalizeRide(data) : null;
+    return data ? this.ensureShareToken(this.normalizeRide(data)) : null;
   }
 
   public subscribeToRide(

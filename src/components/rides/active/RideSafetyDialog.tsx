@@ -1,5 +1,9 @@
+import { useState } from "react";
 import { Ambulance, Car, Phone, Share2, ShieldAlert, Siren, X } from "lucide-react";
+import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useActiveRide } from "@/hooks/rides/use-active-ride";
+import { passengerSafetyService } from "@/services/safety/passenger-safety-service";
 
 interface RideSafetyDialogProps {
   open: boolean;
@@ -22,6 +26,29 @@ export function RideSafetyDialog({
   driverPhone,
   onShareRide,
 }: RideSafetyDialogProps) {
+  const { ride } = useActiveRide();
+  const [isSendingSos, setIsSendingSos] = useState(false);
+
+  const triggerSos = async (): Promise<void> => {
+    if (!ride || isSendingSos) return;
+    setIsSendingSos(true);
+    try {
+      await passengerSafetyService.triggerSos(ride.id, "critical");
+      toast.success("SOS registrado na Central APOIS.", {
+        description: "Em perigo imediato, acione também a Polícia pelo 190.",
+        duration: 8000,
+      });
+    } catch (caughtError: unknown) {
+      toast.error(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Não foi possível registrar o SOS na Central APOIS.",
+      );
+    } finally {
+      setIsSendingSos(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92dvh] w-[calc(100vw-32px)] max-w-md overflow-y-auto rounded-[30px] border-red-500/20 bg-zinc-950 p-0 text-white">
@@ -53,6 +80,15 @@ export function RideSafetyDialog({
           <p className="rounded-2xl border border-red-500/15 bg-red-500/8 p-4 text-xs leading-5 text-red-100/80">
             Em risco imediato, procure um local seguro e acione o serviço público adequado. A APOIS não substitui os serviços de emergência.
           </p>
+
+          <SafetyAction
+            icon={ShieldAlert}
+            title={isSendingSos ? "Registrando SOS..." : "SOS APOIS — acionar central"}
+            description="Registra esta corrida e sua localização atual como alerta operacional de segurança."
+            tone="danger"
+            disabled={!ride || isSendingSos}
+            onClick={() => void triggerSos()}
+          />
 
           <SafetyAction
             icon={Siren}
@@ -106,18 +142,21 @@ function SafetyAction({
   description,
   onClick,
   tone = "neutral",
+  disabled = false,
 }: {
   icon: typeof Siren;
   title: string;
   description: string;
   onClick: () => void;
   tone?: "neutral" | "danger";
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`app-pressable flex min-h-20 w-full items-center gap-4 rounded-2xl border p-4 text-left ${
+      disabled={disabled}
+      className={`app-pressable flex min-h-20 w-full items-center gap-4 rounded-2xl border p-4 text-left disabled:cursor-not-allowed disabled:opacity-60 ${
         tone === "danger"
           ? "border-red-500/20 bg-red-500/8"
           : "border-white/8 bg-white/[0.03]"
