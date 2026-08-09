@@ -10,6 +10,7 @@ const capacitor = read("capacitor.config.ts");
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const strings = read("android/app/src/main/res/values/strings.xml");
 const gradle = read("android/app/build.gradle");
+const pushService = read("src/services/push/push-service.ts");
 const recovery = read("src/lib/auth/native-password-recovery.ts");
 const recoveryRequest = read("src/routes/_public.recuperar-senha.tsx");
 const resetRoute = read("src/routes/_public.redefinir-senha.tsx");
@@ -28,6 +29,8 @@ includes(manifest, 'android:pathPrefix="/redefinir-senha"', "Passenger recovery 
 includes(manifest, 'com.google.firebase.messaging.default_notification_channel_id', "Firebase default channel metadata");
 includes(manifest, 'com.google.android.geo.API_KEY', "Native Google Maps key placeholder");
 includes(strings, '<string name="default_notification_channel_id">apois_rides</string>', "Passenger ride channel");
+includes(pushService, 'RIDES_CHANNEL_ID = "apois_rides"', "Passenger canonical push channel id");
+includes(pushService, "PushNotifications.createChannel", "Passenger Android push channel creation");
 
 includes(recovery, "appUrlOpen", "Native recovery listener");
 includes(recovery, "exchangeCodeForSession", "PKCE recovery exchange");
