@@ -14,6 +14,12 @@ type RequestBody = {
   intermediates?: Point[];
 };
 
+type GoogleRouteStep = {
+  distanceMeters?: number;
+  endLocation?: { latLng?: { latitude?: number; longitude?: number } };
+  navigationInstruction?: { maneuver?: string; instructions?: string };
+};
+
 function json(req: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -61,8 +67,6 @@ Deno.serve(async (req) => {
       return json(req, { error: "invalid_json" }, 400);
     }
 
-    // Current passenger clients use `intermediates`; older/native-compatible
-    // callers may still use `stops`. Accept both until the contract is unified.
     const stops = Array.isArray(body.stops)
       ? body.stops
       : Array.isArray(body.intermediates)
@@ -97,7 +101,14 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "X-Goog-Api-Key": mapsKey,
-        "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline",
+        "X-Goog-FieldMask": [
+          "routes.distanceMeters",
+          "routes.duration",
+          "routes.polyline.encodedPolyline",
+          "routes.legs.steps.distanceMeters",
+          "routes.legs.steps.endLocation.latLng",
+          "routes.legs.steps.navigationInstruction",
+        ].join(","),
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -143,6 +154,7 @@ Deno.serve(async (req) => {
         distanceMeters?: number;
         duration?: string;
         polyline?: { encodedPolyline?: string };
+        legs?: Array<{ steps?: GoogleRouteStep[] }>;
       }>;
     };
     const route = payload.routes?.[0];
@@ -154,6 +166,23 @@ Deno.serve(async (req) => {
       return json(req, { error: "route_not_found" }, 404);
     }
 
+    const steps = (route?.legs ?? [])
+      .flatMap((leg) => leg.steps ?? [])
+      .map((step) => {
+        const lat = Number(step.endLocation?.latLng?.latitude);
+        const lng = Number(step.endLocation?.latLng?.longitude);
+        const instruction = String(step.navigationInstruction?.instructions ?? "").trim();
+        const maneuver = String(step.navigationInstruction?.maneuver ?? "").trim() || null;
+        return {
+          lat,
+          lng,
+          distanceMeters: Number(step.distanceMeters ?? 0),
+          instruction,
+          maneuver,
+        };
+      })
+      .filter((step) => Number.isFinite(step.lat) && Number.isFinite(step.lng) && step.instruction.length > 0);
+
     return json(req, {
       ok: true,
       distanceMeters,
@@ -161,6 +190,7 @@ Deno.serve(async (req) => {
       durationSeconds: seconds,
       durationMinutes: Math.max(1, Math.ceil(seconds / 60)),
       encodedPolyline,
+      steps,
       provider: "google",
     });
   } catch (error) {
