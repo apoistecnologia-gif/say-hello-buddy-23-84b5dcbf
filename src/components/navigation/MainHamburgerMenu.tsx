@@ -1,4 +1,4 @@
-import { Bell, CreditCard, FileText, History, Home, Menu, User, X } from "lucide-react";
+import { Bell, CreditCard, FileText, History, Home, Menu, ShieldCheck, User, X } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -9,11 +9,12 @@ const items = [
   { label: "Carteira", description: "Saldo e pendências", icon: CreditCard, path: "/carteira" },
   { label: "Avisos", description: "Notificações da APOIS", icon: Bell, path: "/notificacoes" },
   { label: "Perfil", description: "Conta, segurança e suporte", icon: User, path: "/perfil" },
+  { label: "Termos de Uso", description: "Regras vigentes do APOIS", icon: FileText, path: "/termos" },
   {
-    label: "Documentos legais",
-    description: "Termos de Uso e Privacidade",
-    icon: FileText,
-    path: "/documentos-legais",
+    label: "Política de Privacidade",
+    description: "Tratamento e proteção dos seus dados",
+    icon: ShieldCheck,
+    path: "/privacidade",
   },
 ] as const;
 
