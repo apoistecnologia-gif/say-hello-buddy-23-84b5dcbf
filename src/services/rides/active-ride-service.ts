@@ -56,6 +56,8 @@ type OptionalStringRideKey =
   | "started_at"
   | "completed_at"
   | "share_token"
+  | "share_expires_at"
+  | "share_revoked_at"
   | "queued_after_ride_id"
   | "queued_at";
 
@@ -69,18 +71,6 @@ type OptionalNumberRideKey =
   | "driver_heading"
   | "cancellation_fee"
   | "passenger_rating";
-
-interface RpcErrorLike {
-  code?: string;
-  message: string;
-}
-
-interface UntypedRpcClient {
-  rpc: (
-    functionName: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: RpcErrorLike | null }>;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -192,35 +182,6 @@ class ActiveRideService {
     return ActiveRideService.instance;
   }
 
-  private async ensureShareToken(ride: ActiveRide): Promise<ActiveRide> {
-    if (ride.share_token || !SHAREABLE_STATUSES.includes(ride.status)) return ride;
-
-    try {
-      const rpcClient = supabase as unknown as UntypedRpcClient;
-      const { data, error } = await rpcClient.rpc("create_passenger_share_token", {
-        _ride_id: ride.id,
-      });
-      if (error) {
-        console.warn("[ActiveRideService] Share token RPC unavailable", {
-          code: error.code,
-          message: error.message,
-          rideId: ride.id,
-        });
-        return ride;
-      }
-      if (!isRecord(data) || data["ok"] !== true || typeof data["share_token"] !== "string") {
-        return ride;
-      }
-      return { ...ride, share_token: data["share_token"] };
-    } catch (error) {
-      console.warn("[ActiveRideService] Could not ensure share token", {
-        rideId: ride.id,
-        message: error instanceof Error ? error.message : "unknown_error",
-      });
-      return ride;
-    }
-  }
-
   public async getRideById(rideId: string, passengerId: string): Promise<ActiveRide> {
     const { data, error } = await supabase
       .from("rides")
@@ -231,7 +192,7 @@ class ActiveRideService {
 
     if (error) throw error;
     if (!data) throw new Error("not_found");
-    return this.ensureShareToken(this.normalizeRide(data));
+    return this.normalizeRide(data);
   }
 
   public async getActiveRide(passengerId: string): Promise<ActiveRide | null> {
@@ -245,7 +206,7 @@ class ActiveRideService {
       .maybeSingle();
 
     if (error) throw error;
-    return data ? this.ensureShareToken(this.normalizeRide(data)) : null;
+    return data ? this.normalizeRide(data) : null;
   }
 
   public subscribeToRide(
@@ -348,6 +309,8 @@ class ActiveRideService {
       ["started_at", "started_at"],
       ["completed_at", "completed_at"],
       ["share_token", "share_token"],
+      ["share_expires_at", "share_expires_at"],
+      ["share_revoked_at", "share_revoked_at"],
       ["queued_after_ride_id", "queued_after_ride_id"],
       ["queued_at", "queued_at"],
     ];
@@ -389,12 +352,12 @@ class ActiveRideService {
         Boolean(ride.driver_id) &&
         (["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status) ||
           (status === "procurar_motorista" && Boolean(ride.queued_after_ride_id))),
-      canOpenSafety: ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
+      canOpenSafety: SHAREABLE_STATUSES.includes(status),
       canRate: status === "finalizada" && ride.passenger_rating === undefined,
       canRequestAgain: isTerminal,
       canReturnHome: isTerminal,
       canViewReceipt: status === "finalizada",
-      canShareRide: Boolean(ride.share_token) && !isTerminal,
+      canShareRide: SHAREABLE_STATUSES.includes(status),
     };
   }
 }
