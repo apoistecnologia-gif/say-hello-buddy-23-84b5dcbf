@@ -13,6 +13,7 @@ import { CancellationDialog } from "@/components/rides/active/CancellationDialog
 import { RideSafetyDialog } from "@/components/rides/active/RideSafetyDialog";
 import { RideRatingCard } from "@/components/rides/RideRatingCard";
 import { Button } from "@/components/ui/button";
+import { passengerShareService } from "@/services/safety/passenger-share-service";
 import {
   ChevronLeft,
   FileText,
@@ -62,6 +63,7 @@ function ActiveRidePage() {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isSafetyDialogOpen, setIsSafetyDialogOpen] = useState(false);
   const [showReconnectWarning, setShowReconnectWarning] = useState(false);
+  const [isSharingRide, setIsSharingRide] = useState(false);
 
   useEffect(() => {
     if (rideId) void loadRide(rideId);
@@ -93,43 +95,58 @@ function ActiveRidePage() {
   };
 
   const handleShareRide = async (): Promise<void> => {
-    if (!ride) return;
+    if (!ride || isSharingRide) return;
 
-    const trackingUrl = ride.share_token ? publicShareUrl(ride.share_token) : null;
-    const vehicle = [ride.driver_vehicle_model, ride.driver_vehicle_color]
-      .filter(Boolean)
-      .join(" • ");
-    const lines = [
-      "Acompanhe minha corrida pela APOIS.",
-      `Origem: ${ride.origin_name}`,
-      `Destino: ${ride.destination_name}`,
-      ride.driver_name ? `Motorista: ${ride.driver_name}` : null,
-      vehicle ? `Veículo: ${vehicle}` : null,
-      ride.driver_vehicle_plate ? `Placa: ${ride.driver_vehicle_plate}` : null,
-      trackingUrl ? `Acompanhamento: ${trackingUrl}` : null,
-    ].filter((line): line is string => Boolean(line));
-    const text = lines.join("\n");
+    // A página pública precisa ter um endereço real. Em builds nativos não
+    // inventamos localhost nem um domínio inexistente.
+    if (!publicShareUrl("preview")) {
+      toast.error("Acompanhamento público ainda não está configurado neste build.");
+      return;
+    }
 
+    setIsSharingRide(true);
     try {
+      // O token é criado/reutilizado no backend somente quando o passageiro
+      // efetivamente solicita o compartilhamento. Nunca usamos ride_id público.
+      const session = await passengerShareService.create(ride.id);
+      const trackingUrl = publicShareUrl(session.token);
+      if (!trackingUrl) throw new Error("public_share_url_unavailable");
+
+      const vehicle = [ride.driver_vehicle_model, ride.driver_vehicle_color]
+        .filter(Boolean)
+        .join(" • ");
+      const lines = [
+        "Acompanhe minha corrida pela APOIS.",
+        `Origem: ${ride.origin_name}`,
+        `Destino: ${ride.destination_name}`,
+        ride.driver_name ? `Motorista: ${ride.driver_name}` : null,
+        vehicle ? `Veículo: ${vehicle}` : null,
+        ride.driver_vehicle_plate ? `Placa: ${ride.driver_vehicle_plate}` : null,
+        `Acompanhamento: ${trackingUrl}`,
+      ].filter((line): line is string => Boolean(line));
+      const text = lines.join("\n");
+
       if (navigator.share) {
         await navigator.share({
           title: "Acompanhamento de corrida APOIS",
           text,
-          ...(trackingUrl ? { url: trackingUrl } : {}),
+          url: trackingUrl,
         });
         return;
       }
 
       if (!navigator.clipboard?.writeText) throw new Error("clipboard_unavailable");
       await navigator.clipboard.writeText(text);
-      toast.success(
-        trackingUrl
-          ? "Link de acompanhamento copiado."
-          : "Resumo da corrida copiado. O link será incluído após a publicação do endereço oficial.",
-      );
+      toast.success("Link protegido de acompanhamento copiado.");
     } catch (caughtError: unknown) {
       if (caughtError instanceof DOMException && caughtError.name === "AbortError") return;
-      toast.error("Não foi possível compartilhar esta corrida.");
+      toast.error(
+        caughtError instanceof Error && !caughtError.message.startsWith("public_share_url")
+          ? caughtError.message
+          : "Não foi possível compartilhar esta corrida.",
+      );
+    } finally {
+      setIsSharingRide(false);
     }
   };
 
@@ -200,9 +217,14 @@ function ActiveRidePage() {
               type="button"
               aria-label="Compartilhar corrida"
               onClick={() => void handleShareRide()}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 backdrop-blur-md transition-transform active:scale-95"
+              disabled={isSharingRide}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 backdrop-blur-md transition-transform active:scale-95 disabled:opacity-50"
             >
-              <Share2 className="text-white" size={18} />
+              {isSharingRide ? (
+                <RefreshCw className="animate-spin text-white" size={18} />
+              ) : (
+                <Share2 className="text-white" size={18} />
+              )}
             </button>
           ) : null}
           {actionAvailability?.canOpenSafety ? (
