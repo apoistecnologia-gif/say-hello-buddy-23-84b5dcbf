@@ -19,7 +19,10 @@ interface PassengerMapProps {
 type MapStatus = "loading" | "ready" | "configuration-error" | "api-error";
 type Coordinate = { lat: number; lng: number };
 
-const DEFAULT_CENTER = { lat: -9.3891, lng: -40.5031 };
+// Centro neutro do Brasil usado somente enquanto ainda não existe uma
+// coordenada real do aparelho. Nunca deve ser tratado como origem do usuário.
+const NEUTRAL_CENTER = { lat: -14.235, lng: -51.9253 };
+const NEUTRAL_ZOOM = 4;
 const DRIVER_ANIMATION_MS = 900;
 const CAMERA_UPDATE_INTERVAL_MS = 1800;
 
@@ -143,8 +146,8 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       if (!mapElementRef.current) return;
 
       mapRef.current = new mapsLibrary.Map(mapElementRef.current, {
-        center: origin ?? DEFAULT_CENTER,
-        zoom: origin ? 16 : 13,
+        center: origin ?? NEUTRAL_CENTER,
+        zoom: origin ? 16 : NEUTRAL_ZOOM,
         disableDefaultUI: true,
         clickableIcons: false,
         gestureHandling: isStatic ? "none" : "greedy",
@@ -208,8 +211,8 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
 
     if (selectionMode) {
       if (!cameraInitializedRef.current) {
-        mapRef.current.setCenter(origin ?? DEFAULT_CENTER);
-        mapRef.current.setZoom(origin ? 16 : 13);
+        mapRef.current.setCenter(origin ?? NEUTRAL_CENTER);
+        mapRef.current.setZoom(origin ? 16 : NEUTRAL_ZOOM);
         cameraInitializedRef.current = true;
         emitMapCenter();
       }
@@ -288,8 +291,8 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       mapRef.current.setCenter(origin);
       mapRef.current.setZoom(16);
     } else {
-      mapRef.current.setCenter(DEFAULT_CENTER);
-      mapRef.current.setZoom(13);
+      mapRef.current.setCenter(NEUTRAL_CENTER);
+      mapRef.current.setZoom(NEUTRAL_ZOOM);
     }
 
     cameraInitializedRef.current = true;
