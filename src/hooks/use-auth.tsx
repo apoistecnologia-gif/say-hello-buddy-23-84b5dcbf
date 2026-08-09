@@ -18,6 +18,7 @@ export interface AuthProfile {
   email: string | null;
   phone: string | null;
   avatar_url: string | null;
+  avatar_storage_path: string | null;
   city: string | null;
   average_rating: number | null;
   completed_rides: number | null;
@@ -40,8 +41,56 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const PROFILE_RETRY_DELAYS_MS = [0, 350, 900];
+const PROFILE_PHOTO_MARKERS = [
+  "/storage/v1/object/sign/profile-photos/",
+  "/storage/v1/object/public/profile-photos/",
+  "/storage/v1/object/authenticated/profile-photos/",
+];
 
 const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+const extractAvatarStoragePath = (value: string | null): string | null => {
+  const source = value?.trim();
+  if (!source) return null;
+  if (/^(data:|blob:)/i.test(source)) return null;
+  if (!/^https?:/i.test(source)) return source.replace(/^\/+/, "");
+
+  try {
+    const url = new URL(source);
+    for (const marker of PROFILE_PHOTO_MARKERS) {
+      const markerIndex = url.pathname.indexOf(marker);
+      if (markerIndex < 0) continue;
+      const encodedPath = url.pathname.slice(markerIndex + marker.length);
+      if (!encodedPath) return null;
+      return decodeURIComponent(encodedPath).replace(/^\/+/, "");
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+const resolveAvatarDisplayUrl = async (value: string | null): Promise<string | null> => {
+  const source = value?.trim();
+  if (!source) return null;
+
+  const storagePath = extractAvatarStoragePath(source);
+  if (!storagePath) return source;
+
+  const { data, error } = await supabase.storage
+    .from("profile-photos")
+    .createSignedUrl(storagePath, 60 * 60);
+
+  if (error || !data?.signedUrl) {
+    console.warn("[AuthProvider] Could not sign private profile avatar", {
+      message: error?.message ?? "signed_url_missing",
+    });
+    return null;
+  }
+
+  return data.signedUrl;
+};
 
 const normalizeProfile = (value: unknown): AuthProfile | null => {
   if (!value || typeof value !== "object") return null;
@@ -64,6 +113,7 @@ const normalizeProfile = (value: unknown): AuthProfile | null => {
   const blockedAt = readNullableString("blocked_at");
   const suspendedAt = readNullableString("suspended_at");
   const blockedReason = readNullableString("block_reason");
+  const avatarSource = readNullableString("avatar_url");
 
   return {
     id,
@@ -72,7 +122,8 @@ const normalizeProfile = (value: unknown): AuthProfile | null => {
     full_name: name,
     email: readNullableString("email"),
     phone: readNullableString("phone"),
-    avatar_url: readNullableString("avatar_url"),
+    avatar_url: avatarSource,
+    avatar_storage_path: extractAvatarStoragePath(avatarSource),
     city: readNullableString("city"),
     average_rating: readNullableNumber("average_rating"),
     completed_rides: readNullableNumber("completed_rides"),
@@ -144,6 +195,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (!profileError && data) {
         const normalizedProfile = normalizeProfile(data);
+        if (!normalizedProfile) return null;
+
+        normalizedProfile.avatar_url = await resolveAvatarDisplayUrl(normalizedProfile.avatar_url);
+        if (requestId !== activeProfileRequest.current) return null;
+
         setProfile(normalizedProfile);
         return normalizedProfile;
       }
