@@ -12,6 +12,15 @@ def googleMapsApiKey = localProperties.getProperty('GOOGLE_MAPS_API_KEY') ?: "MI
 def apoisBrandSource = rootProject.file('../src/assets/logo.jpg')
 def apoisBrandTargetDir = file('src/main/res/drawable-nodpi')
 def apoisBrandTarget = new File(apoisBrandTargetDir, 'apois_brand_logo.jpg')
+def apoisVersionCode = (project.findProperty('APOIS_VERSION_CODE') ?: System.getenv('APOIS_VERSION_CODE') ?: '1').toString().toInteger()
+def apoisVersionName = (project.findProperty('APOIS_VERSION_NAME') ?: System.getenv('APOIS_VERSION_NAME') ?: '1.0').toString()
+def uploadStoreFilePath = project.findProperty('APOIS_UPLOAD_KEYSTORE_PATH') ?: System.getenv('APOIS_UPLOAD_KEYSTORE_PATH')
+def uploadKeyAlias = project.findProperty('APOIS_UPLOAD_KEY_ALIAS') ?: System.getenv('APOIS_UPLOAD_KEY_ALIAS')
+def uploadStorePassword = project.findProperty('APOIS_UPLOAD_STORE_PASSWORD') ?: System.getenv('APOIS_UPLOAD_STORE_PASSWORD')
+def uploadKeyPassword = project.findProperty('APOIS_UPLOAD_KEY_PASSWORD') ?: System.getenv('APOIS_UPLOAD_KEY_PASSWORD')
+def uploadSigningReady = [uploadStoreFilePath, uploadKeyAlias, uploadStorePassword, uploadKeyPassword].every {
+    it != null && !it.toString().trim().isEmpty()
+}
 
 tasks.register('prepareApoisBranding') {
     inputs.file(apoisBrandSource)
@@ -34,12 +43,24 @@ tasks.register('prepareApoisBranding') {
 android {
     namespace = "com.apois.passageiro"
     compileSdk = rootProject.ext.compileSdkVersion
+
+    signingConfigs {
+        if (uploadSigningReady) {
+            release {
+                storeFile file(uploadStoreFilePath.toString())
+                storePassword uploadStorePassword.toString()
+                keyAlias uploadKeyAlias.toString()
+                keyPassword uploadKeyPassword.toString()
+            }
+        }
+    }
+
     defaultConfig {
         applicationId "com.apois.passageiro"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode apoisVersionCode
+        versionName apoisVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         manifestPlaceholders = [GOOGLE_MAPS_API_KEY: googleMapsApiKey]
@@ -54,6 +75,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (uploadSigningReady) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 
