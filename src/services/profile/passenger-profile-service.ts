@@ -148,6 +148,31 @@ function parseCenter(value: unknown): PassengerProfileCenter {
   };
 }
 
+async function resolveAvatarUrl(center: PassengerProfileCenter): Promise<PassengerProfileCenter> {
+  const avatarPath = center.profile.avatarUrl?.trim();
+  if (!avatarPath || /^(https?:|data:|blob:)/i.test(avatarPath)) return center;
+
+  const { data, error } = await supabase.storage
+    .from("profile-photos")
+    .createSignedUrl(avatarPath, 60 * 60);
+
+  if (error || !data?.signedUrl) {
+    console.warn("[PassengerProfileService] Could not sign private avatar path", {
+      code: error?.name,
+      message: error?.message,
+    });
+    return {
+      ...center,
+      profile: { ...center.profile, avatarUrl: null },
+    };
+  }
+
+  return {
+    ...center,
+    profile: { ...center.profile, avatarUrl: data.signedUrl },
+  };
+}
+
 function functionErrorMessage(error: unknown, data: unknown, fallback: string): string {
   if (isRecord(data) && typeof data["message"] === "string" && data["message"].trim()) {
     return data["message"];
@@ -164,7 +189,7 @@ class PassengerProfileService {
     if (error) {
       throw new Error(functionErrorMessage(error, data, "Não foi possível carregar seu perfil."));
     }
-    return parseCenter(data);
+    return resolveAvatarUrl(parseCenter(data));
   }
 
   load(): Promise<PassengerProfileCenter> {
