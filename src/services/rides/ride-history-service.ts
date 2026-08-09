@@ -1,6 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { ActiveRideIntermediate } from "@/types/rides/active-ride";
-import type { RideHistoryItem, RideHistoryStatus } from "@/types/rides/ride-history";
+import type {
+  RideHistoryItem,
+  RideHistoryStatus,
+  RideSettlementReceipt,
+} from "@/types/rides/ride-history";
 
 const allowedStatuses = new Set<RideHistoryStatus>([
   "agendada",
@@ -112,6 +116,52 @@ function readIntermediates(value: unknown): ActiveRideIntermediate[] {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 }
 
+function normalizeSettlement(value: unknown): RideSettlementReceipt | null {
+  if (!isRecord(value)) return null;
+
+  const rideId = readString(value, "ride_id");
+  const createdAt = readString(value, "created_at");
+  const updatedAt = readString(value, "updated_at", createdAt);
+  const grossAmount = readNullableNumber(value, "gross_amount");
+  const passengerCharge = readNullableNumber(value, "passenger_charge");
+  const paymentMethod = readString(value, "payment_method");
+  const paymentStatus = readString(value, "payment_status");
+  const status = readString(value, "status");
+
+  if (
+    !rideId ||
+    !createdAt ||
+    grossAmount === null ||
+    passengerCharge === null ||
+    !paymentMethod ||
+    !paymentStatus ||
+    !status
+  ) {
+    throw new Error("invalid_ride_settlement");
+  }
+
+  return {
+    rideId,
+    currency: readString(value, "currency", "BRL"),
+    grossAmount,
+    discountAmount: readNullableNumber(value, "discount_amount"),
+    passengerCharge,
+    platformFee: readNullableNumber(value, "platform_fee"),
+    driverEarning: readNullableNumber(value, "driver_earning"),
+    paymentProviderFee: readNullableNumber(value, "payment_provider_fee"),
+    cashAmount: readNullableNumber(value, "cash_amount"),
+    walletAmount: readNullableNumber(value, "wallet_amount"),
+    refundedAmount: readNullableNumber(value, "refunded_amount"),
+    paymentMethod,
+    paymentProvider: readNullableString(value, "payment_provider"),
+    paymentStatus,
+    status,
+    settledAt: readNullableString(value, "settled_at"),
+    createdAt,
+    updatedAt,
+  };
+}
+
 function normalizeRide(value: unknown): RideHistoryItem {
   if (!isRecord(value)) throw new Error("invalid_ride_history_item");
 
@@ -147,6 +197,7 @@ function normalizeRide(value: unknown): RideHistoryItem {
     cancellationReason: readNullableString(value, "cancellation_reason"),
     cancellationFee: readNullableNumber(value, "cancellation_fee"),
     passengerRating: readNullableNumber(value, "passenger_rating"),
+    settlement: null,
     createdAt,
     acceptedAt: readNullableString(value, "accepted_at"),
     startedAt: readNullableString(value, "started_at"),
@@ -204,7 +255,11 @@ class RideHistoryService {
 
     const ride = normalizeRide(data["ride"]);
     if (ride.passengerId !== passengerId) throw new Error("ride_not_found");
-    return ride;
+
+    return {
+      ...ride,
+      settlement: normalizeSettlement(data["settlement"]),
+    };
   }
 }
 
