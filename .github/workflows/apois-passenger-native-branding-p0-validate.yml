@@ -1,0 +1,89 @@
+name: APOIS Corridas — Passenger Native Branding P0 Validate
+
+on:
+  push:
+    branches:
+      - tooling/apois-passageiro-native-branding-p0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apois-passenger-native-branding-p0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
+      GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Phase 9 Passenger contract
+        run: node tests/mobile/passenger-phase9-contract.mjs
+
+      - name: Build validation web bundle
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_MAPS_WEB_API_KEY"
+          export VITE_GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_WEB_API_KEY"
+          export VITE_PUBLIC_APP_URL="https://validation.apois.invalid"
+          bun run build
+
+      - name: Sync Capacitor Android
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_MAPS_ANDROID_API_KEY"
+          printf 'GOOGLE_MAPS_API_KEY=%s\n' "$GOOGLE_MAPS_ANDROID_API_KEY" > android/local.properties
+          bunx cap sync android
+          node tests/mobile/passenger-phase9-contract.mjs
+
+      - name: Assemble debug APK
+        working-directory: android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Inspect packaged native resources
+        run: |
+          set -euo pipefail
+          APK='android/app/build/outputs/apk/debug/app-debug.apk'
+          rm -rf "$RUNNER_TEMP/apk-unpacked"
+          mkdir -p "$RUNNER_TEMP/apk-unpacked"
+          unzip -q "$APK" -d "$RUNNER_TEMP/apk-unpacked"
+          test -f "$RUNNER_TEMP/apk-unpacked/res/drawable-mdpi-v4/apois_brand_logo.png"
+          if find "$RUNNER_TEMP/apk-unpacked/res" -type f \( -name 'ic_launcher.png' -o -name 'ic_launcher_round.png' -o -name 'ic_launcher_foreground.png' -o -name 'splash.png' \) | grep -q .; then
+            echo 'Stale bitmap launcher/splash resources remain in packaged APK:'
+            find "$RUNNER_TEMP/apk-unpacked/res" -type f \( -name 'ic_launcher.png' -o -name 'ic_launcher_round.png' -o -name 'ic_launcher_foreground.png' -o -name 'splash.png' \) -print
+            exit 1
+          fi
+          echo 'APOIS_PASSENGER_NATIVE_BRANDING_PACKAGE_OK'
+
+      - name: Upload debug APK for visual hard gate
+        uses: actions/upload-artifact@v4
+        with:
+          name: APOIS-Passenger-Native-Branding-P0-Debug
+          if-no-files-found: error
+          retention-days: 3
+          path: android/app/build/outputs/apk/debug/app-debug.apk
