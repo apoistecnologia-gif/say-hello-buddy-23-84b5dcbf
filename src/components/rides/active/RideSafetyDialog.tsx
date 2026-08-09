@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { Ambulance, Car, Phone, Share2, ShieldAlert, Siren, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Ambulance, Car, Phone, Share2, ShieldAlert, Siren, Unlink, X } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useActiveRide } from "@/hooks/rides/use-active-ride";
 import { passengerSafetyService } from "@/services/safety/passenger-safety-service";
+import { passengerShareService } from "@/services/safety/passenger-share-service";
 
 interface RideSafetyDialogProps {
   open: boolean;
@@ -26,8 +27,16 @@ export function RideSafetyDialog({
   driverPhone,
   onShareRide,
 }: RideSafetyDialogProps) {
-  const { ride } = useActiveRide();
+  const { ride, refreshRide } = useActiveRide();
   const [isSendingSos, setIsSendingSos] = useState(false);
+  const [isRevokingShare, setIsRevokingShare] = useState(false);
+
+  const hasActiveShare = useMemo(() => {
+    if (!ride?.share_token || ride.share_revoked_at) return false;
+    if (!ride.share_expires_at) return true;
+    const expiresAt = Date.parse(ride.share_expires_at);
+    return Number.isFinite(expiresAt) && expiresAt > Date.now();
+  }, [ride?.share_expires_at, ride?.share_revoked_at, ride?.share_token]);
 
   const triggerSos = async (): Promise<void> => {
     if (!ride || isSendingSos) return;
@@ -46,6 +55,26 @@ export function RideSafetyDialog({
       );
     } finally {
       setIsSendingSos(false);
+    }
+  };
+
+  const revokeShare = async (): Promise<void> => {
+    if (!ride || !hasActiveShare || isRevokingShare) return;
+    setIsRevokingShare(true);
+    try {
+      await passengerShareService.revoke(ride.id);
+      await refreshRide();
+      toast.success("Compartilhamento encerrado.", {
+        description: "O link anterior não pode mais acompanhar esta corrida.",
+      });
+    } catch (caughtError: unknown) {
+      toast.error(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Não foi possível encerrar o compartilhamento.",
+      );
+    } finally {
+      setIsRevokingShare(false);
     }
   };
 
@@ -109,9 +138,19 @@ export function RideSafetyDialog({
           <SafetyAction
             icon={Share2}
             title="Compartilhar acompanhamento"
-            description="Envie o link protegido desta corrida para alguém de confiança."
+            description="Crie e envie um link protegido e temporário desta corrida para alguém de confiança."
             onClick={() => void onShareRide()}
           />
+
+          {hasActiveShare ? (
+            <SafetyAction
+              icon={Unlink}
+              title={isRevokingShare ? "Encerrando compartilhamento..." : "Encerrar compartilhamento"}
+              description="Revoga imediatamente o link de acompanhamento que está ativo."
+              disabled={isRevokingShare}
+              onClick={() => void revokeShare()}
+            />
+          ) : null}
 
           {driverPhone ? (
             <SafetyAction
