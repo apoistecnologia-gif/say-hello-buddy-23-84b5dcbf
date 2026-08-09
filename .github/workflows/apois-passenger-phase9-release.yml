@@ -1,25 +1,6 @@
 name: APOIS Corridas — Passenger Phase 9 Release
 
 on:
-  push:
-    branches:
-      - feat/apois-passageiro-completo
-    paths:
-      - ".github/workflows/apois-passenger-phase9-release.yml"
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "android/**"
-      - "capacitor.config.ts"
-      - "src/lib/auth/**"
-      - "src/services/push/**"
-      - "src/routes/_public.recuperar-senha.tsx"
-      - "src/routes/_public.redefinir-senha.tsx"
-      - "src/routes/_public.termos.tsx"
-      - "src/routes/_public.privacidade.tsx"
-      - "tests/mobile/passenger-phase9-contract.mjs"
-      - ".github/workflows/apois-passenger-phase9-release.yml"
   workflow_dispatch:
 
 permissions:
