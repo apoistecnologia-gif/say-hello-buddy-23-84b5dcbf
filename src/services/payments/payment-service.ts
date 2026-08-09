@@ -27,7 +27,7 @@ function settingEnabled(value: unknown): boolean {
   if (value === true || value === "true") return true;
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     const record = value as Record<string, unknown>;
-    return record.enabled === true;
+    return record["enabled"] === true;
   }
   return false;
 }
