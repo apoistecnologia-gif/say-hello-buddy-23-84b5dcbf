@@ -3,6 +3,27 @@ import type { ActiveRideIntermediate, RideStatus } from "@/types/rides/active-ri
 export type RideHistoryStatus = RideStatus | "expired";
 export type RideHistoryFilter = "all" | "completed" | "cancelled";
 
+export interface RideSettlementReceipt {
+  rideId: string;
+  currency: string;
+  grossAmount: number;
+  discountAmount: number | null;
+  passengerCharge: number;
+  platformFee: number | null;
+  driverEarning: number | null;
+  paymentProviderFee: number | null;
+  cashAmount: number | null;
+  walletAmount: number | null;
+  refundedAmount: number | null;
+  paymentMethod: string;
+  paymentProvider: string | null;
+  paymentStatus: string;
+  status: string;
+  settledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface RideHistoryItem {
   id: string;
   passengerId: string;
@@ -26,6 +47,7 @@ export interface RideHistoryItem {
   cancellationReason: string | null;
   cancellationFee: number | null;
   passengerRating: number | null;
+  settlement: RideSettlementReceipt | null;
   createdAt: string;
   acceptedAt: string | null;
   startedAt: string | null;
