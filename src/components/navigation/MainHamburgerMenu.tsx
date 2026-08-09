@@ -1,4 +1,4 @@
-import { Bell, CreditCard, History, Home, Menu, User, X } from "lucide-react";
+import { Bell, CreditCard, FileText, History, Home, Menu, User, X } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,12 @@ const items = [
   { label: "Carteira", description: "Saldo e pendências", icon: CreditCard, path: "/carteira" },
   { label: "Avisos", description: "Notificações da APOIS", icon: Bell, path: "/notificacoes" },
   { label: "Perfil", description: "Conta, segurança e suporte", icon: User, path: "/perfil" },
+  {
+    label: "Documentos legais",
+    description: "Termos de Uso e Privacidade",
+    icon: FileText,
+    path: "/documentos-legais",
+  },
 ] as const;
 
 const journeyRoutes = ["/buscar-destino", "/revisar-solicitacao"];
