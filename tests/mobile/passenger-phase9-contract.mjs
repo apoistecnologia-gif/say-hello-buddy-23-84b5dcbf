@@ -10,6 +10,7 @@ const capacitor = read("capacitor.config.ts");
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const strings = read("android/app/src/main/res/values/strings.xml");
 const gradle = read("android/app/build.gradle");
+const workflow = read(".github/workflows/apois-passenger-phase9-release.yml");
 const pushService = read("src/services/push/push-service.ts");
 const recovery = read("src/lib/auth/native-password-recovery.ts");
 const recoveryRequest = read("src/routes/_public.recuperar-senha.tsx");
@@ -48,5 +49,18 @@ includes(gradle, "APOIS_UPLOAD_KEY_ALIAS", "External upload alias");
 includes(gradle, "APOIS_UPLOAD_STORE_PASSWORD", "External upload store password");
 includes(gradle, "APOIS_UPLOAD_KEY_PASSWORD", "External upload key password");
 excludes(gradle.toLowerCase(), ".jks\"", "Hardcoded JKS path");
+
+includes(workflow, "vars.APOIS_PASSENGER_PUBLIC_URL", "Passenger public URL repository variable");
+includes(workflow, 'export VITE_PUBLIC_APP_URL="$APOIS_PASSENGER_PUBLIC_URL"', "Passenger build uses validated public URL");
+excludes(workflow, "passageiro.apois.example", "Fake passenger public URL");
+excludes(workflow, "https://passageiro.apois.example", "Reserved .example release URL");
+includes(workflow, "secrets.APOIS_UPLOAD_KEYSTORE_BASE64", "Release workflow upload keystore secret");
+includes(workflow, "secrets.APOIS_UPLOAD_KEY_ALIAS", "Release workflow upload alias secret");
+includes(workflow, "secrets.APOIS_UPLOAD_STORE_PASSWORD", "Release workflow store password secret");
+includes(workflow, "secrets.APOIS_UPLOAD_KEY_PASSWORD", "Release workflow key password secret");
+includes(workflow, "base64 --decode", "Release workflow restores external keystore");
+includes(workflow, "keytool -list", "Release workflow validates upload key");
+includes(workflow, "jarsigner -verify", "Release workflow verifies AAB signature");
+includes(workflow, "APOIS_PASSENGER_SIGNED_AAB_OK", "Signed AAB release gate");
 
 console.log("APOIS_PASSENGER_PHASE9_RELEASE_CONTRACT_OK");
