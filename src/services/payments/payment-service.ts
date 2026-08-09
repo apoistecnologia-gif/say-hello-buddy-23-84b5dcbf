@@ -13,6 +13,9 @@ const PAYMENT_METHOD_CODES: PaymentMethodCode[] = [
   "wallet",
 ];
 
+const ELECTRONIC_RIDE_METHODS = new Set<PaymentMethodCode>(["pix", "credit", "debit"]);
+const ELECTRONIC_RIDE_GATE_KEY = "finance.ride_electronic_payments_enabled";
+
 function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
   const normalized = code === "credit_card" ? "credit" : code === "debit_card" ? "debit" : code;
   return PAYMENT_METHOD_CODES.includes(normalized as PaymentMethodCode)
@@ -20,13 +23,46 @@ function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
     : null;
 }
 
+function settingEnabled(value: unknown): boolean {
+  if (value === true || value === "true") return true;
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    return record.enabled === true;
+  }
+  return false;
+}
+
 class PaymentService {
-  async getPaymentMethods(): Promise<PaymentMethod[]> {
+  private async electronicRidePaymentsEnabled(): Promise<boolean> {
     const { data, error } = await supabase
-      .from("payment_methods")
-      .select("*")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+      .from("app_settings")
+      .select("value")
+      .eq("key", ELECTRONIC_RIDE_GATE_KEY)
+      .maybeSingle();
+
+    if (error) {
+      // Fail-closed: sem confirmação explícita do backend, o Passageiro não
+      // recebe uma forma eletrônica que ainda não possui checkout/webhook de
+      // corrida homologado.
+      console.warn("[PaymentService] Electronic ride payment gate unavailable", {
+        code: error.code,
+        message: error.message,
+      });
+      return false;
+    }
+
+    return settingEnabled(data?.value);
+  }
+
+  async getPaymentMethods(): Promise<PaymentMethod[]> {
+    const [{ data, error }, electronicEnabled] = await Promise.all([
+      supabase
+        .from("payment_methods")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
+      this.electronicRidePaymentsEnabled(),
+    ]);
 
     if (error) {
       console.error("[PaymentService] Failed to fetch payment methods", error);
@@ -38,16 +74,22 @@ class PaymentService {
       if (!code) return [];
 
       const isActive = method.is_active === true;
+      const providerReady = !ELECTRONIC_RIDE_METHODS.has(code) || electronicEnabled;
+      const enabled = isActive && providerReady;
+
       return [
         {
           id: method.id,
           code,
           name: method.name,
           label: method.name,
-          description: method.description,
+          description:
+            !providerReady && ELECTRONIC_RIDE_METHODS.has(code)
+              ? "Indisponível até a confirmação do provedor de pagamento da corrida."
+              : method.description,
           icon: method.icon,
           isActive,
-          enabled: isActive,
+          enabled,
           sortOrder: method.sort_order ?? 0,
           requiresBalance: method.requires_balance === true,
         } satisfies PaymentMethod,
