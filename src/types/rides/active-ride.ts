@@ -95,6 +95,8 @@ export interface ActiveRide {
   updated_at: string;
 
   share_token?: string;
+  share_expires_at?: string;
+  share_revoked_at?: string;
   passenger_rating?: number;
 }
 
