@@ -100,6 +100,18 @@ function paymentLabel(paymentMethod: string): string {
   return labels[paymentMethod] ?? paymentMethod;
 }
 
+function paymentStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: "Aguardando confirmação do pagamento",
+    confirmed: "Pagamento confirmado",
+    failed: "Pagamento não confirmado",
+    refunded: "Pagamento reembolsado",
+    cash_pending: "Aguardando confirmação do pagamento em dinheiro",
+    cash_confirmed: "Pagamento em dinheiro confirmado",
+  };
+  return labels[status] ?? "Situação do pagamento indisponível";
+}
+
 async function copyText(text: string): Promise<void> {
   if (!navigator.clipboard?.writeText) throw new Error("clipboard_unavailable");
   await navigator.clipboard.writeText(text);
@@ -135,18 +147,35 @@ function RideDetailsPage() {
 
   const receiptText = useMemo(() => {
     if (!ride) return "";
-    const value = ride.finalPrice ?? ride.estimatedPrice;
-    return [
+    const settlement = ride.settlement;
+    const value = settlement?.passengerCharge ?? ride.finalPrice ?? ride.estimatedPrice;
+    const lines = [
       "APOIS — Comprovante de corrida",
       `Corrida: ${ride.id}`,
       `Data: ${formatDate(ride.completedAt ?? ride.cancelledAt ?? ride.createdAt)}`,
       `Origem: ${ride.originName}`,
       `Destino: ${ride.destinationName}`,
       `Categoria: ${categoryLabel(ride.category)}`,
-      `Pagamento: ${paymentLabel(ride.paymentMethod)}`,
-      `Valor: ${formatCurrency(value)}`,
-      `Status: ${statusInfo(ride).label}`,
-    ].join("\n");
+      `Pagamento: ${paymentLabel(settlement?.paymentMethod ?? ride.paymentMethod)}`,
+    ];
+
+    if (settlement) {
+      lines.push(`Situação do pagamento: ${paymentStatusLabel(settlement.paymentStatus)}`);
+      lines.push(`Valor bruto: ${formatCurrency(settlement.grossAmount)}`);
+      if (settlement.discountAmount !== null) {
+        lines.push(`Desconto: ${formatCurrency(settlement.discountAmount)}`);
+      }
+      if (settlement.platformFee !== null) {
+        lines.push(`Taxa APOIS: ${formatCurrency(settlement.platformFee)}`);
+      }
+      if (settlement.paymentProviderFee !== null) {
+        lines.push(`Taxa do provedor: ${formatCurrency(settlement.paymentProviderFee)}`);
+      }
+    }
+
+    lines.push(`Total: ${formatCurrency(value)}`);
+    lines.push(`Status: ${statusInfo(ride).label}`);
+    return lines.join("\n");
   }, [ride]);
 
   const handleRepeatRide = async (): Promise<void> => {
@@ -212,7 +241,8 @@ function RideDetailsPage() {
 
   const status = statusInfo(ride);
   const StatusIcon = status.icon;
-  const totalValue = ride.finalPrice ?? ride.estimatedPrice;
+  const settlement = ride.settlement;
+  const totalValue = settlement?.passengerCharge ?? ride.finalPrice ?? ride.estimatedPrice;
   const finishedAt = ride.completedAt ?? ride.cancelledAt ?? ride.updatedAt;
   const isActive = [
     "procurar_motorista",
@@ -339,7 +369,11 @@ function RideDetailsPage() {
               value={ride.durationMin !== null ? `${Math.round(ride.durationMin)} min` : "Não informada"}
             />
             <InfoCard icon={Car} label="Categoria" value={categoryLabel(ride.category)} />
-            <InfoCard icon={CreditCard} label="Pagamento" value={paymentLabel(ride.paymentMethod)} />
+            <InfoCard
+              icon={CreditCard}
+              label="Pagamento"
+              value={paymentLabel(settlement?.paymentMethod ?? ride.paymentMethod)}
+            />
           </div>
 
           {ride.driverName || ride.driverVehicleModel ? (
@@ -394,13 +428,79 @@ function RideDetailsPage() {
             </section>
           ) : null}
 
+          {ride.status === "finalizada" ? (
+            <section className="mt-6 rounded-2xl border border-white/8 bg-white/[0.03] p-4 print:border-zinc-200">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                    Liquidação da corrida
+                  </p>
+                  <p className="mt-1 text-xs font-black text-zinc-200 print:text-zinc-800">
+                    {settlement
+                      ? paymentStatusLabel(settlement.paymentStatus)
+                      : "Liquidação ainda indisponível"}
+                  </p>
+                </div>
+                <CreditCard className="text-apois-yellow" size={20} />
+              </div>
+
+              {settlement ? (
+                <div className="mt-4 space-y-2 border-t border-white/8 pt-4 text-xs print:border-zinc-200">
+                  <ReceiptLine label="Valor bruto" value={formatCurrency(settlement.grossAmount)} />
+                  <ReceiptLine
+                    label="Desconto"
+                    value={
+                      settlement.discountAmount === null
+                        ? "Não discriminado"
+                        : formatCurrency(settlement.discountAmount)
+                    }
+                  />
+                  <ReceiptLine
+                    label="Taxa APOIS"
+                    value={
+                      settlement.platformFee === null
+                        ? "Não consolidada"
+                        : formatCurrency(settlement.platformFee)
+                    }
+                  />
+                  {settlement.paymentProviderFee !== null ? (
+                    <ReceiptLine
+                      label="Taxa do provedor"
+                      value={formatCurrency(settlement.paymentProviderFee)}
+                    />
+                  ) : null}
+                  {settlement.refundedAmount !== null && settlement.refundedAmount > 0 ? (
+                    <ReceiptLine
+                      label="Valor reembolsado"
+                      value={formatCurrency(settlement.refundedAmount)}
+                    />
+                  ) : null}
+                  <ReceiptLine
+                    label="Total do passageiro"
+                    value={formatCurrency(settlement.passengerCharge)}
+                    strong
+                  />
+                  {settlement.paymentStatus === "pending" ? (
+                    <p className="pt-2 text-[11px] font-bold leading-5 text-apois-yellow print:text-zinc-700">
+                      Pagamento eletrônico ainda não confirmado pelo gateway. O comprovante não marca a corrida como paga antes da confirmação do backend.
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-3 text-[11px] font-bold leading-5 text-zinc-500">
+                  O backend ainda não retornou o settlement desta corrida. Nenhum valor financeiro adicional foi presumido pelo aplicativo.
+                </p>
+              )}
+            </section>
+          ) : null}
+
           <div className="mt-6 flex items-end justify-between border-t border-white/8 pt-5 print:border-zinc-200">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-600">
                 Valor total
               </p>
               <p className="mt-1 text-xs font-bold text-zinc-500">
-                {paymentLabel(ride.paymentMethod)}
+                {paymentLabel(settlement?.paymentMethod ?? ride.paymentMethod)}
               </p>
             </div>
             <p className="text-3xl font-black tracking-[-0.05em] text-white print:text-black">
@@ -477,6 +577,25 @@ function RideDetailsPage() {
           </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+function ReceiptLine({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <span className="font-bold text-zinc-500">{label}</span>
+      <span className={cn("text-right text-zinc-200 print:text-zinc-800", strong && "font-black text-white print:text-black")}>
+        {value}
+      </span>
     </div>
   );
 }
