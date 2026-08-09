@@ -35,8 +35,9 @@ export function PassengerAvatarControl() {
     }
 
     const previousPath =
-      typeof profile?.avatar_url === "string" && profile.avatar_url.startsWith(`${user.id}/`)
-        ? profile.avatar_url
+      typeof profile?.avatar_storage_path === "string" &&
+      profile.avatar_storage_path.startsWith(`${user.id}/`)
+        ? profile.avatar_storage_path
         : null;
     const nextPath = `${user.id}/avatar-${Date.now()}.${extensionFor(file)}`;
 
