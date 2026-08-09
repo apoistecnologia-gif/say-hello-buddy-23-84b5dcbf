@@ -1,5 +1,5 @@
 import { ArrowLeft, Building2, CalendarDays, Mail } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { AppBrand } from "@/components/app/AppBrand";
 import { PublicAuthShell } from "@/components/app/PublicAuthShell";
 import type { LegalSection } from "@/lib/legal/legal-documents";
@@ -25,17 +25,31 @@ export function PublicLegalDocument({
   sections,
   alternate,
 }: PublicLegalDocumentProps) {
+  const navigate = useNavigate();
+
+  const handleBack = (): void => {
+    // Termos e Privacidade são usados tanto no cadastro quanto por usuários já
+    // autenticados. Respeitar o histórico evita mandar quem veio do Perfil para
+    // o cadastro. Em abertura direta, o cadastro continua sendo o fallback.
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    void navigate({ to: "/cadastro", replace: true });
+  };
+
   return (
     <PublicAuthShell contentClassName="py-5 sm:py-8">
       <article className="w-full pb-8 text-white">
         <header className="flex items-center justify-between gap-4">
-          <Link
-            to="/cadastro"
-            aria-label="Voltar para o cadastro"
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label="Voltar"
             className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-zinc-300"
           >
             <ArrowLeft aria-hidden="true" size={20} />
-          </Link>
+          </button>
           <AppBrand compact />
           <div className="h-11 w-11 shrink-0" aria-hidden="true" />
         </header>
