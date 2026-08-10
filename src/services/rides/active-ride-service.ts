@@ -20,6 +20,8 @@ const SHAREABLE_STATUSES: RideStatus[] = [
   "em_viagem",
 ];
 
+const PIN_VISIBLE_STATUSES: RideStatus[] = ["motorista_a_caminho", "motorista_chegou"];
+
 const TERMINAL_STATUSES: RideStatus[] = [
   "finalizada",
   "cancelada_passageiro",
@@ -71,6 +73,14 @@ type OptionalNumberRideKey =
   | "driver_heading"
   | "cancellation_fee"
   | "passenger_rating";
+
+type RpcError = { message?: string };
+type RpcClient = {
+  rpc: (
+    functionName: string,
+    args?: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: RpcError | null }>;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -182,6 +192,35 @@ class ActiveRideService {
     return ActiveRideService.instance;
   }
 
+  private async hydratePassengerSecurityCode(ride: ActiveRide): Promise<ActiveRide> {
+    if (!PIN_VISIBLE_STATUSES.includes(ride.status)) {
+      if (ride.security_code === undefined) return ride;
+      const { security_code: _securityCode, ...withoutCode } = ride;
+      return withoutCode as ActiveRide;
+    }
+
+    try {
+      const rpcClient = supabase as unknown as RpcClient;
+      const { data, error } = await rpcClient.rpc("get_passenger_ride_security_code", {
+        _ride_id: ride.id,
+      });
+
+      if (error) {
+        console.warn("[ActiveRide] Protected PIN lookup failed", error.message ?? "unknown");
+        return ride;
+      }
+
+      if (!isRecord(data) || data["ok"] !== true) return ride;
+      const code = data["security_code"];
+      if (typeof code !== "string" || !/^\d{4}$/.test(code)) return ride;
+
+      return { ...ride, security_code: code };
+    } catch (error) {
+      console.warn("[ActiveRide] Protected PIN lookup unavailable", error);
+      return ride;
+    }
+  }
+
   public async getRideById(rideId: string, passengerId: string): Promise<ActiveRide> {
     const { data, error } = await supabase
       .from("rides")
@@ -192,7 +231,7 @@ class ActiveRideService {
 
     if (error) throw error;
     if (!data) throw new Error("not_found");
-    return this.normalizeRide(data);
+    return this.hydratePassengerSecurityCode(this.normalizeRide(data));
   }
 
   public async getActiveRide(passengerId: string): Promise<ActiveRide | null> {
@@ -206,7 +245,7 @@ class ActiveRideService {
       .maybeSingle();
 
     if (error) throw error;
-    return data ? this.normalizeRide(data) : null;
+    return data ? this.hydratePassengerSecurityCode(this.normalizeRide(data)) : null;
   }
 
   public subscribeToRide(
