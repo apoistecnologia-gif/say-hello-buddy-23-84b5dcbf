@@ -89,9 +89,13 @@ Deno.serve(async (req) => {
   }
 
   const priority = category === "safety" ? "high" : "normal";
+  const ticketId = crypto.randomUUID();
+  const protocol = `APOIS-${ticketId.replace(/-/g, "").slice(0, 16).toUpperCase()}`;
   const { data: ticket, error: ticketError } = await admin
     .from("passenger_support_tickets")
     .insert({
+      id: ticketId,
+      protocol,
       passenger_id: profile.id,
       category,
       subject,
@@ -100,7 +104,7 @@ Deno.serve(async (req) => {
       priority,
       status: "open",
     })
-    .select("id,created_at,status")
+    .select("id,protocol,created_at,status")
     .single();
 
   if (ticketError || !ticket) {
@@ -111,10 +115,11 @@ Deno.serve(async (req) => {
   await admin.from("notifications").insert({
     user_id: profile.id,
     title: "Atendimento registrado",
-    body: `Seu protocolo ${ticket.id.slice(0, 8).toUpperCase()} foi aberto e será analisado.`,
+    body: `Seu protocolo ${ticket.protocol} foi aberto e será analisado.`,
     data: {
       category: "support",
       ticket_id: ticket.id,
+      protocol: ticket.protocol,
       url: "/perfil",
     },
   });
@@ -124,7 +129,7 @@ Deno.serve(async (req) => {
       ok: true,
       ticket: {
         id: ticket.id,
-        protocol: ticket.id.slice(0, 8).toUpperCase(),
+        protocol: ticket.protocol,
         status: ticket.status,
         createdAt: ticket.created_at,
       },
