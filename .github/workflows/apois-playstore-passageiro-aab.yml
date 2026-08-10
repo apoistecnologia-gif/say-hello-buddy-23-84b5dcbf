@@ -65,13 +65,7 @@ jobs:
           test -n "$GOOGLE_MAPS_WEB_API_KEY" || { echo 'Missing GOOGLE_MAPS_WEB_API_KEY'; exit 1; }
           test -n "$GOOGLE_MAPS_ANDROID_API_KEY" || { echo 'Missing GOOGLE_MAPS_ANDROID_API_KEY'; exit 1; }
           if [ -n "$APOIS_PASSENGER_PUBLIC_URL" ]; then
-            node --input-type=module <<'NODE'
-            const raw = String(process.env.APOIS_PASSENGER_PUBLIC_URL ?? '').trim();
-            const url = new URL(raw);
-            if (url.protocol !== 'https:') throw new Error('APOIS_PASSENGER_PUBLIC_URL must use https');
-            if (['localhost','127.0.0.1','0.0.0.0'].includes(url.hostname.toLowerCase())) throw new Error('Public URL cannot be local');
-            console.log('APOIS_PASSENGER_PUBLIC_URL_OK');
-            NODE
+            node --input-type=module -e 'const raw=String(process.env.APOIS_PASSENGER_PUBLIC_URL??"").trim(); const url=new URL(raw); if(url.protocol!=="https:") throw new Error("APOIS_PASSENGER_PUBLIC_URL must use https"); if(["localhost","127.0.0.1","0.0.0.0"].includes(url.hostname.toLowerCase())) throw new Error("Public URL cannot be local"); console.log("APOIS_PASSENGER_PUBLIC_URL_OK")'
           else
             echo 'APOIS_PASSENGER_PUBLIC_URL not configured; native password recovery uses the apoispassageiro:// scheme.'
           fi
