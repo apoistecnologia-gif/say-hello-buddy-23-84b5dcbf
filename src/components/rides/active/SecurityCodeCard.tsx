@@ -13,54 +13,50 @@ export function SecurityCodeCard({ code }: SecurityCodeCardProps) {
 
   return (
     <section
-      className="overflow-hidden rounded-[24px] border border-apois-yellow/25 bg-zinc-950 shadow-[0_18px_48px_-28px_rgba(0,0,0,0.95)] animate-in fade-in zoom-in duration-300"
+      className="overflow-hidden rounded-[20px] border border-apois-yellow/25 bg-zinc-950 shadow-[0_16px_40px_-28px_rgba(0,0,0,0.95)] animate-in fade-in zoom-in duration-300"
       aria-label="Código PIN da corrida"
     >
-      <div className="flex items-start gap-3 border-b border-white/5 bg-apois-yellow/[0.06] px-4 py-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-apois-yellow/20 bg-apois-yellow/10">
-          <ShieldCheck className="text-apois-yellow" size={20} strokeWidth={2.2} />
+      <div className="flex items-start gap-2.5 border-b border-white/5 bg-apois-yellow/[0.06] px-3.5 py-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-apois-yellow/20 bg-apois-yellow/10">
+          <ShieldCheck className="text-apois-yellow" size={18} strokeWidth={2.2} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-apois-yellow">
-            Código PIN da corrida
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-apois-yellow">
+            PIN da corrida
           </p>
-          <h3 className="mt-1 text-[15px] font-black leading-tight text-white">
-            Compartilhe com o motorista para iniciar
+          <h3 className="mt-0.5 text-[13px] font-black leading-4 text-white">
+            Informe ao motorista no embarque
           </h3>
-          <p className="mt-1 text-[11px] font-medium leading-relaxed text-zinc-400">
-            Informe o código somente quando estiver com o motorista e confirmar o veículo.
+          <p className="mt-0.5 line-clamp-2 text-[10px] font-medium leading-4 text-zinc-400">
+            Confirme o veículo antes de compartilhar o código.
           </p>
         </div>
       </div>
 
-      <div className="px-4 py-5">
+      <div className="px-3.5 py-3">
         <div
-          className="grid grid-cols-4 gap-2.5"
+          className="grid grid-cols-4 gap-2"
           aria-label={`PIN ${normalizedCode.split("").join(" ")}`}
         >
           {normalizedCode.split("").map((digit, index) => (
             <div
               key={`${index}-${digit}`}
               aria-hidden="true"
-              className="flex h-[68px] items-center justify-center rounded-2xl border border-apois-yellow/25 bg-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.025),0_10px_28px_-18px_rgba(0,0,0,1)]"
+              className="flex h-12 items-center justify-center rounded-xl border border-apois-yellow/25 bg-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.025),0_8px_22px_-18px_rgba(0,0,0,1)]"
             >
-              <span className="text-[32px] font-black tabular-nums leading-none text-apois-yellow">
+              <span className="text-[26px] font-black tabular-nums leading-none text-apois-yellow">
                 {digit}
               </span>
             </div>
           ))}
         </div>
 
-        <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-white/5 bg-black/70 px-3.5 py-3">
-          <LockKeyhole className="mt-0.5 shrink-0 text-apois-yellow" size={16} strokeWidth={2} />
-          <p className="text-[11px] font-medium leading-relaxed text-zinc-400">
-            Por segurança, não envie este PIN por mensagem e não informe antes do embarque.
+        <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-white/5 bg-black/70 px-3 py-2">
+          <LockKeyhole className="mt-0.5 shrink-0 text-apois-yellow" size={14} strokeWidth={2} />
+          <p className="text-[9px] font-medium leading-4 text-zinc-400">
+            Não envie o PIN por mensagem. A corrida só inicia após a confirmação no app do motorista.
           </p>
         </div>
-
-        <p className="mt-3 text-center text-[11px] font-bold leading-relaxed text-white">
-          A corrida só inicia depois que o motorista confirmar este PIN no aplicativo dele.
-        </p>
       </div>
     </section>
   );

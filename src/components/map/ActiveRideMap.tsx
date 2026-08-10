@@ -6,6 +6,7 @@ import type { ActiveRide } from "@/types/rides/active-ride";
 
 type MapStatus = "loading" | "ready" | "configuration-error" | "api-error";
 type Coordinate = { lat: number; lng: number };
+type StaticStop = { lat: number; lng: number; order?: number; label?: string };
 
 interface ActiveRideMapProps {
   ride: ActiveRide;
@@ -41,8 +42,35 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
   const staticMarkersRef = useRef<any[]>([]);
   const driverMarkerRef = useRef<any>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const firstDriverViewportRef = useRef(false);
   const [status, setStatus] = useState<MapStatus>("loading");
   const [reloadKey, setReloadKey] = useState(0);
+
+  const origin = useMemo<Coordinate>(
+    () => ({ lat: ride.origin.lat, lng: ride.origin.lng }),
+    [ride.origin.lat, ride.origin.lng],
+  );
+  const destination = useMemo<Coordinate>(
+    () => ({ lat: ride.destination.lat, lng: ride.destination.lng }),
+    [ride.destination.lat, ride.destination.lng],
+  );
+
+  const stopsSignature = JSON.stringify(
+    (ride.intermediates ?? []).map((stop) => ({
+      lat: stop.lat,
+      lng: stop.lng,
+      order: stop.order ?? 0,
+      label: stop.label ?? "",
+    })),
+  );
+  const orderedStops = useMemo<StaticStop[]>(() => {
+    try {
+      const parsed = JSON.parse(stopsSignature) as StaticStop[];
+      return parsed.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    } catch {
+      return [];
+    }
+  }, [stopsSignature]);
 
   const driverLocation = useMemo<Coordinate | null>(() => {
     if (ride.queued_after_ride_id) return null;
@@ -74,13 +102,11 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
     }
 
     return [
-      ride.origin,
-      ...(ride.intermediates ?? [])
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-        .map(({ lat, lng }) => ({ lat, lng })),
-      ride.destination,
+      origin,
+      ...orderedStops.map(({ lat, lng }) => ({ lat, lng })),
+      destination,
     ].filter(validCoordinate);
-  }, [ride.destination, ride.encoded_polyline, ride.id, ride.intermediates, ride.origin]);
+  }, [destination, origin, orderedStops, ride.encoded_polyline, ride.id]);
 
   const initialize = useCallback(async () => {
     if (!mapElementRef.current) return;
@@ -91,7 +117,7 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
       if (!mapElementRef.current) return;
 
       mapRef.current = new mapsLibrary.Map(mapElementRef.current, {
-        center: ride.origin,
+        center: origin,
         zoom: 15,
         disableDefaultUI: true,
         clickableIcons: false,
@@ -104,6 +130,7 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
         styles: DARK_MAP_STYLES,
       });
 
+      firstDriverViewportRef.current = false;
       resizeObserverRef.current?.disconnect();
       resizeObserverRef.current = new ResizeObserver(() => {
         const maps = (window as any).google?.maps;
@@ -123,7 +150,7 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
           : "api-error",
       );
     }
-  }, [reloadKey, ride.id, ride.origin]);
+  }, [reloadKey, origin, ride.id]);
 
   useEffect(() => {
     void initialize();
@@ -133,10 +160,14 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
       routePolylineRef.current?.setMap(null);
       staticMarkersRef.current.forEach((marker) => marker.setMap(null));
       driverMarkerRef.current?.setMap(null);
+      driverMarkerRef.current = null;
       mapRef.current = null;
     };
   }, [initialize]);
 
+  // Geometria estática da corrida. Este efeito NÃO depende da localização do
+  // motorista; assim, cada atualização Realtime move somente o marcador e não
+  // recria polyline/markers nem refaz fitBounds (causa do mapa "pulando").
   useEffect(() => {
     if (status !== "ready" || !mapRef.current) return;
     const maps = (window as any).google?.maps;
@@ -187,40 +218,39 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
       staticMarkersRef.current.push(marker);
     };
 
-    addMarker(ride.origin, "Embarque", "#29C96F");
-    (ride.intermediates ?? [])
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-      .forEach((stop, index) => {
-        const position = { lat: stop.lat, lng: stop.lng };
-        if (!validCoordinate(position)) return;
-        const marker = new maps.Marker({
-          map: mapRef.current,
-          position,
-          title: stop.label || `Parada ${index + 1}`,
-          label: {
-            text: String(index + 1),
-            color: "#000000",
-            fontWeight: "800",
-          },
-          zIndex: 21,
-        });
-        staticMarkersRef.current.push(marker);
-        bounds.extend(position);
+    addMarker(origin, "Embarque", "#29C96F");
+    orderedStops.forEach((stop, index) => {
+      const position = { lat: stop.lat, lng: stop.lng };
+      if (!validCoordinate(position)) return;
+      const marker = new maps.Marker({
+        map: mapRef.current,
+        position,
+        title: stop.label || `Parada ${index + 1}`,
+        label: {
+          text: String(index + 1),
+          color: "#000000",
+          fontWeight: "800",
+        },
+        zIndex: 21,
       });
-    addMarker(ride.destination, "Destino", "#FFB800", "square");
-
-    if (driverLocation) bounds.extend(driverLocation);
+      staticMarkersRef.current.push(marker);
+      bounds.extend(position);
+    });
+    addMarker(destination, "Destino", "#FFB800", "square");
 
     if (!bounds.isEmpty()) {
       mapRef.current.fitBounds(bounds, {
-        top: 150,
-        right: 45,
-        bottom: 340,
-        left: 45,
+        top: 132,
+        right: 36,
+        bottom: 265,
+        left: 36,
       });
     }
-  }, [driverLocation, ride.destination, ride.intermediates, ride.origin, routePoints, status]);
+  }, [destination, orderedStops, origin, routePoints, status]);
 
+  // Tracking vivo: o mesmo Marker é reaproveitado. Não existe posição
+  // simulada/interpolada; cada setPosition recebe somente coordenada real
+  // persistida no snapshot autorizado da própria corrida do passageiro.
   useEffect(() => {
     if (status !== "ready" || !mapRef.current) return;
     const maps = (window as any).google?.maps;
@@ -229,6 +259,7 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
     if (!driverLocation) {
       driverMarkerRef.current?.setMap(null);
       driverMarkerRef.current = null;
+      firstDriverViewportRef.current = false;
       return;
     }
 
@@ -259,7 +290,26 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
       driverMarkerRef.current.setIcon(icon);
       driverMarkerRef.current.setPosition(driverLocation);
     }
-  }, [driverLocation, ride.driver_heading, status]);
+
+    // Apenas na primeira coordenada real: se o motorista estiver fora da área
+    // atualmente visível, enquadra embarque + motorista uma única vez. Depois
+    // disso o mapa nunca é recentralizado por updates de GPS.
+    if (!firstDriverViewportRef.current) {
+      firstDriverViewportRef.current = true;
+      const currentBounds = mapRef.current.getBounds?.();
+      if (currentBounds && !currentBounds.contains(driverLocation)) {
+        const approachBounds = new maps.LatLngBounds();
+        approachBounds.extend(origin);
+        approachBounds.extend(driverLocation);
+        mapRef.current.fitBounds(approachBounds, {
+          top: 132,
+          right: 36,
+          bottom: 265,
+          left: 36,
+        });
+      }
+    }
+  }, [driverLocation, origin, ride.driver_heading, status]);
 
   const retry = () => {
     googleMapsLoader.reset();

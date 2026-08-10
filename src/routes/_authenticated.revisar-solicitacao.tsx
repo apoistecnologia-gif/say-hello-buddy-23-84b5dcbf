@@ -113,8 +113,6 @@ function RideRequestReviewPage() {
   } = useCancellationPolicy();
   const confirmationInFlightRef = useRef(false);
 
-  // O PDF exige que esta tela não fique se mexendo/atualizando sozinha.
-  // Congelamos a rota já revisada até o usuário sair desta página.
   useEffect(() => {
     freezeRoute();
     return () => unfreezeRoute();
@@ -192,28 +190,28 @@ function RideRequestReviewPage() {
     <div className="app-screen min-h-0 bg-apois-black text-white">
       <ScreenHeader
         title="Revisar solicitação"
-        subtitle="Confira tudo antes de pedir"
+        subtitle="Confira antes de pedir"
         onBack={handleBack}
       />
 
-      <div className="app-scroll flex-1 space-y-5 px-5 py-5">
-        <section className="app-surface rounded-3xl p-5" aria-label="Trajeto da corrida">
-          <div className="flex gap-4">
-            <div className="flex w-4 shrink-0 flex-col items-center py-1">
-              <div className="h-3 w-3 rounded-full bg-apois-success shadow-[0_0_9px_rgba(41,201,111,0.45)]" />
-              <div className="my-1 w-px flex-1 bg-zinc-700" />
+      <div className="app-scroll flex-1 space-y-3 px-4 py-3">
+        <section className="app-surface rounded-2xl p-3.5" aria-label="Trajeto da corrida">
+          <div className="flex gap-3">
+            <div className="flex w-3.5 shrink-0 flex-col items-center py-0.5">
+              <div className="h-2.5 w-2.5 rounded-full bg-apois-success shadow-[0_0_8px_rgba(41,201,111,0.4)]" />
+              <div className="my-0.5 w-px flex-1 bg-zinc-700" />
               {orderedStops.map((stop) => (
                 <div key={stop.id} className="contents">
-                  <div className="flex h-4 w-4 items-center justify-center rounded-full border border-apois-yellow/50 bg-zinc-900 text-[8px] font-black text-apois-yellow">
+                  <div className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-apois-yellow/50 bg-zinc-900 text-[7px] font-black text-apois-yellow">
                     {stop.order + 1}
                   </div>
-                  <div className="my-1 w-px flex-1 bg-zinc-700" />
+                  <div className="my-0.5 w-px flex-1 bg-zinc-700" />
                 </div>
               ))}
-              <div className="h-3 w-3 rounded-sm bg-apois-yellow shadow-[0_0_9px_rgba(255,184,0,0.4)]" />
+              <div className="h-2.5 w-2.5 rounded-sm bg-apois-yellow shadow-[0_0_8px_rgba(255,184,0,0.35)]" />
             </div>
 
-            <div className="min-w-0 flex-1 space-y-5">
+            <div className="min-w-0 flex-1 space-y-2.5">
               <AddressBlock
                 label="Embarque"
                 value={
@@ -241,7 +239,7 @@ function RideRequestReviewPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-3">
+        <section className="grid grid-cols-4 gap-2 max-[390px]:grid-cols-2">
           <SummaryCard label="Categoria" value={selectedCategory?.label || "Não selecionada"} highlight />
           <SummaryCard label="Pagamento" value={paymentLabel} />
           <SummaryCard
@@ -249,97 +247,97 @@ function RideRequestReviewPage() {
             value={route ? `${(route.distanceMeters / 1000).toFixed(1)} km` : "--"}
           />
           <SummaryCard
-            label="Tempo estimado"
+            label="Tempo"
             value={route ? `${Math.max(1, Math.ceil(route.durationSeconds / 60))} min` : "--"}
           />
         </section>
 
         {serviceSummary.length > 0 ? (
-          <section className="app-surface rounded-3xl p-5">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+          <section className="app-surface rounded-2xl p-3.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-500">
               Detalhes do serviço
             </p>
-            <div className="mt-4 grid grid-cols-2 gap-4">
+            <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2">
               {serviceSummary.map(([label, value]) => (
                 <div key={label} className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-600">{label}</p>
-                  <p className="mt-1 truncate text-xs font-black text-zinc-200">{value}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-zinc-600">{label}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-black text-zinc-200">{value}</p>
                 </div>
               ))}
             </div>
           </section>
         ) : null}
 
-        <section className="app-surface rounded-3xl p-5">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+        <section className="app-surface rounded-2xl p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-500">
                 Estimativa total
               </p>
-              <p className="mt-1 text-3xl font-black tracking-tight text-white">
+              <p className="mt-0.5 text-2xl font-black leading-none tracking-tight text-white">
                 {formatCurrency(checkout.finalTotal)}
               </p>
             </div>
-            <div className="rounded-xl border border-apois-yellow/15 bg-apois-yellow/8 px-3 py-2 text-right">
-              <p className="text-[10px] font-black uppercase text-apois-yellow">Valor validado</p>
-              <p className="mt-0.5 text-[10px] text-zinc-500">pelo servidor ao confirmar</p>
+            <div className="shrink-0 rounded-xl border border-apois-yellow/15 bg-apois-yellow/8 px-2.5 py-1.5 text-right">
+              <p className="text-[9px] font-black uppercase text-apois-yellow">Validado</p>
+              <p className="mt-0.5 text-[8px] text-zinc-500">pelo servidor</p>
             </div>
           </div>
 
-          <div className="mt-4 flex items-start gap-3 rounded-2xl border border-white/7 bg-black/30 p-3">
-            <Info className="mt-0.5 shrink-0 text-zinc-500" size={16} />
-            <p className="text-[11px] leading-5 text-zinc-400">
-              A estimativa considera a rota, as paradas e os detalhes informados. Alterações durante o serviço só poderão ajustar o valor quando forem previstas nas regras da categoria.
+          <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-white/7 bg-black/30 px-2.5 py-2">
+            <Info className="mt-0.5 shrink-0 text-zinc-500" size={14} />
+            <p className="line-clamp-2 text-[9px] leading-4 text-zinc-400">
+              A estimativa considera rota, paradas e detalhes informados. O valor é validado pelo servidor ao solicitar.
             </p>
           </div>
         </section>
 
         <section
           className={cn(
-            "rounded-3xl border p-5",
+            "rounded-2xl border p-3.5",
             policyError
               ? "border-apois-danger/25 bg-apois-danger/10"
               : "border-apois-success/20 bg-apois-success/8",
           )}
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-2.5">
             {isPolicyLoading ? (
-              <Loader2 className="mt-0.5 shrink-0 animate-spin text-apois-yellow" size={21} />
+              <Loader2 className="mt-0.5 shrink-0 animate-spin text-apois-yellow" size={18} />
             ) : policyError ? (
-              <AlertTriangle className="mt-0.5 shrink-0 text-apois-danger" size={21} />
+              <AlertTriangle className="mt-0.5 shrink-0 text-apois-danger" size={18} />
             ) : (
-              <ShieldCheck className="mt-0.5 shrink-0 text-apois-success" size={21} />
+              <ShieldCheck className="mt-0.5 shrink-0 text-apois-success" size={18} />
             )}
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-black text-white">Regra de cancelamento</h2>
+              <h2 className="text-[12px] font-black leading-4 text-white">Regra de cancelamento</h2>
               {isPolicyLoading ? (
-                <p className="mt-1 text-xs leading-5 text-zinc-400">Carregando a regra vigente...</p>
+                <p className="mt-0.5 text-[10px] leading-4 text-zinc-400">Carregando regra vigente...</p>
               ) : policyError ? (
                 <>
-                  <p className="mt-1 text-xs leading-5 text-red-300">
-                    A regra vigente não pôde ser carregada. A solicitação permanece bloqueada para evitar cobrança sem aviso.
+                  <p className="mt-0.5 text-[10px] leading-4 text-red-300">
+                    A regra vigente não pôde ser carregada. A solicitação fica bloqueada para evitar cobrança sem aviso.
                   </p>
                   <button
                     type="button"
                     onClick={() => void refreshPolicy()}
-                    className="app-pressable mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl border border-apois-danger/25 bg-black/20 px-4 text-xs font-black text-white"
+                    className="app-pressable mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-apois-danger/25 bg-black/20 px-3 text-[10px] font-black text-white"
                   >
-                    <RefreshCw size={15} />
+                    <RefreshCw size={13} />
                     Carregar novamente
                   </button>
                 </>
               ) : policy.enabled && policy.amount > 0 ? (
-                <p className="mt-1 text-xs leading-5 text-zinc-300">
-                  Cancelamento sem multa durante os primeiros <strong>{formatFreeWindow(policy.freeSeconds)}</strong>. Depois desse período, a multa atual é de <strong>{formatCurrency(policy.amount)}</strong>.
+                <p className="mt-0.5 text-[10px] leading-4 text-zinc-300">
+                  Sem multa por <strong>{formatFreeWindow(policy.freeSeconds)}</strong>; depois, <strong>{formatCurrency(policy.amount)}</strong>.
                   {policy.blockAfterDriverArrival
-                    ? " Após o motorista chegar ao embarque, o cancelamento fica bloqueado."
+                    ? " Após a chegada do motorista, o cancelamento fica bloqueado."
                     : ""}
                 </p>
               ) : (
-                <p className="mt-1 text-xs leading-5 text-zinc-300">
-                  A cobrança de multa está desativada no momento.
+                <p className="mt-0.5 text-[10px] leading-4 text-zinc-300">
+                  A multa está desativada no momento.
                   {policy.blockAfterDriverArrival
-                    ? " Após o motorista chegar ao embarque, o cancelamento fica bloqueado."
+                    ? " Após a chegada do motorista, o cancelamento fica bloqueado."
                     : ""}
                 </p>
               )}
@@ -348,18 +346,18 @@ function RideRequestReviewPage() {
         </section>
 
         {walletState === "blocked" ? (
-          <section className="flex items-start gap-4 rounded-3xl border border-apois-danger/25 bg-apois-danger/10 p-5">
-            <ShieldAlert className="shrink-0 text-apois-danger" size={24} />
+          <section className="flex items-start gap-3 rounded-2xl border border-apois-danger/25 bg-apois-danger/10 p-3.5">
+            <ShieldAlert className="shrink-0 text-apois-danger" size={20} />
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-black uppercase tracking-tight text-red-300">Carteira bloqueada</h2>
-              <p className="mt-1 text-xs leading-5 text-red-300/80">
+              <h2 className="text-[11px] font-black uppercase tracking-tight text-red-300">Pendência financeira</h2>
+              <p className="mt-0.5 text-[10px] leading-4 text-red-300/80">
                 {wallet?.blockedReason ||
-                  "Existe uma pendência na sua carteira. Regularize para solicitar uma corrida."}
+                  "Existe uma multa de cancelamento pendente. Quite a pendência antes de solicitar outra corrida."}
               </p>
               <button
                 type="button"
                 onClick={() => void navigate({ to: "/carteira" })}
-                className="app-pressable mt-3 min-h-10 rounded-xl bg-white px-4 text-xs font-black text-black"
+                className="app-pressable mt-2 min-h-8 rounded-lg bg-white px-3 text-[10px] font-black text-black"
               >
                 Abrir carteira
               </button>
@@ -368,12 +366,12 @@ function RideRequestReviewPage() {
         ) : null}
 
         {!checkout.readiness ? (
-          <section className="rounded-3xl border border-apois-yellow/20 bg-apois-yellow/8 p-4">
-            <div className="flex items-start gap-3">
-              <Clock3 className="mt-0.5 shrink-0 text-apois-yellow" size={20} />
+          <section className="rounded-2xl border border-apois-yellow/20 bg-apois-yellow/8 p-3">
+            <div className="flex items-start gap-2.5">
+              <Clock3 className="mt-0.5 shrink-0 text-apois-yellow" size={18} />
               <div>
-                <p className="text-sm font-black text-white">Ainda faltam informações</p>
-                <ul className="mt-2 space-y-1 text-xs text-zinc-400">
+                <p className="text-[11px] font-black text-white">Ainda faltam informações</p>
+                <ul className="mt-1 space-y-0.5 text-[10px] text-zinc-400">
                   {checkout.missingRequirements.map((requirement) => (
                     <li key={requirement}>• {requirement}</li>
                   ))}
@@ -384,14 +382,14 @@ function RideRequestReviewPage() {
         ) : null}
 
         {request.error ? (
-          <section className="flex items-center gap-3 rounded-2xl border border-apois-danger/20 bg-apois-danger/10 p-4">
-            <AlertTriangle className="shrink-0 text-apois-danger" size={20} />
-            <p className="text-xs font-medium leading-5 text-red-300">{request.error}</p>
+          <section className="flex items-center gap-2.5 rounded-xl border border-apois-danger/20 bg-apois-danger/10 p-3">
+            <AlertTriangle className="shrink-0 text-apois-danger" size={18} />
+            <p className="text-[10px] font-medium leading-4 text-red-300">{request.error}</p>
           </section>
         ) : null}
       </div>
 
-      <footer className="app-safe-bottom shrink-0 border-t border-white/7 bg-apois-black/94 px-5 pb-4 pt-4 backdrop-blur-xl">
+      <footer className="app-safe-bottom shrink-0 border-t border-white/7 bg-apois-black/96 px-4 pb-2.5 pt-2.5 backdrop-blur-xl">
         <button
           type="button"
           onClick={
@@ -401,7 +399,7 @@ function RideRequestReviewPage() {
           }
           disabled={walletState !== "blocked" && !canSubmit}
           className={cn(
-            "app-pressable flex min-h-16 w-full items-center justify-center gap-2 rounded-2xl text-lg font-black",
+            "app-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-xl text-base font-black",
             walletState === "blocked"
               ? "bg-white text-black"
               : canSubmit
@@ -411,15 +409,15 @@ function RideRequestReviewPage() {
         >
           {request.isSubmitting ? (
             <>
-              <Loader2 className="animate-spin" size={23} />
+              <Loader2 className="animate-spin" size={19} />
               Validando e solicitando...
             </>
           ) : walletState === "blocked" ? (
-            "Regularizar carteira"
+            "Regularizar pendência"
           ) : (
             <>
               Solicitar corrida
-              <ChevronRight size={23} strokeWidth={3} />
+              <ChevronRight size={19} strokeWidth={3} />
             </>
           )}
         </button>
@@ -431,8 +429,8 @@ function RideRequestReviewPage() {
 function AddressBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">{label}</p>
-      <p className="mt-1 line-clamp-2 text-sm font-bold leading-5 text-white">{value}</p>
+      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">{label}</p>
+      <p className="mt-0.5 line-clamp-1 text-[12px] font-bold leading-4 text-white">{value}</p>
     </div>
   );
 }
@@ -447,12 +445,12 @@ function SummaryCard({
   highlight?: boolean;
 }) {
   return (
-    <div className="app-surface min-w-0 rounded-2xl p-4">
-      <div className="flex items-center gap-1.5 text-zinc-500">
-        <MapPin size={11} />
-        <p className="truncate text-[9px] font-black uppercase tracking-[0.14em]">{label}</p>
+    <div className="app-surface min-w-0 rounded-xl px-2.5 py-2.5">
+      <div className="flex items-center gap-1 text-zinc-500">
+        <MapPin size={9} />
+        <p className="truncate text-[8px] font-black uppercase tracking-[0.1em]">{label}</p>
       </div>
-      <p className={cn("mt-2 truncate text-sm font-black", highlight ? "text-apois-yellow" : "text-white")}>
+      <p className={cn("mt-1 truncate text-[11px] font-black", highlight ? "text-apois-yellow" : "text-white")}>
         {value}
       </p>
     </div>

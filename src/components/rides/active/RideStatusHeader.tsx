@@ -37,16 +37,16 @@ export function RideStatusHeader({
         if (isQueuedRide) {
           return {
             title: "Motorista reservado",
-            subtitle: "Ele está concluindo uma corrida próxima. Assim que finalizar, seguirá para o seu embarque.",
-            icon: <Navigation className="text-apois-yellow" size={20} />,
-            color: "bg-apois-yellow/10 border-apois-yellow/20",
+            subtitle: "Ele está concluindo uma corrida próxima. Depois seguirá para o seu embarque.",
+            icon: <Navigation className="text-apois-yellow" size={18} />,
+            color: "border-apois-yellow/25 bg-black/88",
           };
         }
         return {
           title: "Procurando motorista",
-          subtitle: "A solicitação está sendo enviada aos motoristas disponíveis.",
-          icon: <Search className="animate-pulse text-apois-yellow" size={20} />,
-          color: "bg-apois-yellow/10 border-apois-yellow/20",
+          subtitle: "Enviando a solicitação aos motoristas disponíveis.",
+          icon: <Search className="animate-pulse text-apois-yellow" size={18} />,
+          color: "border-apois-yellow/25 bg-black/88",
         };
       case "motorista_a_caminho":
         return {
@@ -55,30 +55,30 @@ export function RideStatusHeader({
             : "Motorista a caminho",
           subtitle: hasRealDistance
             ? `Aproximadamente ${formatDistance(driverDistanceMeters)} do embarque`
-            : "A localização do motorista será atualizada no mapa.",
-          icon: <Navigation className="text-blue-500" size={20} />,
-          color: "bg-blue-500/10 border-blue-500/20",
+            : "A localização real do motorista aparece no mapa.",
+          icon: <Navigation className="text-apois-yellow" size={18} />,
+          color: "border-apois-yellow/25 bg-black/90",
         };
       case "motorista_chegou":
         return {
           title: "O motorista chegou",
-          subtitle: "Confira o veículo e informe o PIN somente após embarcar.",
-          icon: <MapPin className="text-green-500" size={20} />,
-          color: "bg-green-500/10 border-green-500/20",
+          subtitle: "Confira o veículo e informe o PIN somente no embarque.",
+          icon: <MapPin className="text-green-400" size={18} />,
+          color: "border-green-500/25 bg-black/90",
         };
       case "em_viagem":
         return {
           title: "Em viagem",
-          subtitle: "Acompanhe a atualização do trajeto no mapa.",
-          icon: <Navigation className="text-apois-yellow" size={20} />,
-          color: "bg-zinc-800 border-white/5",
+          subtitle: "Acompanhe o trajeto no mapa.",
+          icon: <Navigation className="text-apois-yellow" size={18} />,
+          color: "border-apois-yellow/20 bg-black/90",
         };
       case "finalizada":
         return {
           title: "Viagem concluída",
           subtitle: "Confira o valor final e avalie o motorista.",
-          icon: <CheckCircle2 className="text-green-500" size={20} />,
-          color: "bg-green-500/10 border-green-500/20",
+          icon: <CheckCircle2 className="text-green-400" size={18} />,
+          color: "border-green-500/25 bg-black/90",
         };
       case "cancelada_passageiro":
       case "cancelada_motorista":
@@ -86,22 +86,22 @@ export function RideStatusHeader({
           title: "Viagem cancelada",
           subtitle:
             status === "cancelada_motorista" ? "Cancelada pelo motorista" : "Cancelada por você",
-          icon: <XCircle className="text-red-500" size={20} />,
-          color: "bg-red-500/10 border-red-500/20",
+          icon: <XCircle className="text-red-400" size={18} />,
+          color: "border-red-500/25 bg-black/90",
         };
       case "expired":
         return {
           title: "Nenhum motorista disponível",
-          subtitle: "A busca terminou sem encontrar um motorista elegível. Você pode voltar e solicitar novamente.",
-          icon: <Search className="text-zinc-400" size={20} />,
-          color: "bg-zinc-800/90 border-white/10",
+          subtitle: "A busca terminou. Você pode voltar e solicitar novamente.",
+          icon: <Search className="text-zinc-400" size={18} />,
+          color: "border-white/10 bg-black/90",
         };
       case "agendada":
         return {
           title: "Corrida agendada",
           subtitle: "A busca por motorista começará no horário programado.",
-          icon: <MapPin className="text-apois-yellow" size={20} />,
-          color: "bg-apois-yellow/10 border-apois-yellow/20",
+          icon: <MapPin className="text-apois-yellow" size={18} />,
+          color: "border-apois-yellow/25 bg-black/88",
         };
     }
   };
@@ -111,20 +111,20 @@ export function RideStatusHeader({
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-2xl border px-4 py-3.5 transition-all duration-500",
+        "flex min-w-0 items-start gap-2.5 overflow-hidden rounded-2xl border px-3 py-2.5 shadow-[0_12px_32px_-22px_rgba(0,0,0,1)] backdrop-blur-xl transition-all duration-500",
         config.color,
       )}
     >
-      <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-black/20">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/5 bg-zinc-900/90">
         {config.icon}
       </div>
       <div className="min-w-0 flex-1 py-0.5">
-        <h3 className="text-base font-black leading-5 text-white">{config.title}</h3>
-        <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-4 text-zinc-400">
+        <h3 className="truncate text-[14px] font-black leading-4 text-white">{config.title}</h3>
+        <p className="mt-0.5 line-clamp-2 break-words text-[10px] font-medium leading-[14px] text-zinc-400">
           {config.subtitle}
         </p>
       </div>
-      {isRefreshing ? <div className="mt-2 h-2 w-2 shrink-0 animate-ping rounded-full bg-apois-yellow" /> : null}
+      {isRefreshing ? <div className="mt-1.5 h-2 w-2 shrink-0 animate-ping rounded-full bg-apois-yellow" /> : null}
     </div>
   );
 }
