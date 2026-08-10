@@ -27,6 +27,7 @@ interface ActiveRideContextType {
 }
 
 const POLLING_INTERVAL_MS = 12_000;
+const PIN_VISIBLE_STATUSES: RideStatus[] = ["motorista_a_caminho", "motorista_chegou"];
 
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "unknown";
@@ -75,7 +76,19 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const handleUpdate = useCallback((updatedRide: ActiveRide) => {
     if (currentRideIdRef.current && updatedRide.id !== currentRideIdRef.current) return;
 
-    setRide(updatedRide);
+    // The PIN is deliberately no longer stored in the realtime-readable rides row.
+    // Preserve the protected passenger RPC value while the ride is in a PIN-visible
+    // state, and discard it immediately when the ride starts or terminates.
+    setRide((currentRide) => {
+      if (!PIN_VISIBLE_STATUSES.includes(updatedRide.status)) {
+        if (updatedRide.security_code === undefined) return updatedRide;
+        const { security_code: _securityCode, ...withoutCode } = updatedRide;
+        return withoutCode as ActiveRide;
+      }
+
+      const securityCode = updatedRide.security_code ?? currentRide?.security_code;
+      return securityCode ? { ...updatedRide, security_code: securityCode } : updatedRide;
+    });
     setLastUpdateAt(new Date());
     setError(null);
 
