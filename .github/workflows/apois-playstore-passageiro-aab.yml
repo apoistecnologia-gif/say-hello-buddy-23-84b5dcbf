@@ -21,9 +21,6 @@ jobs:
       GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
       GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
       APOIS_PASSENGER_PUBLIC_URL: ${{ vars.APOIS_PASSENGER_PUBLIC_URL }}
-      APOIS_UPLOAD_KEY_ALIAS: ${{ secrets.APOIS_UPLOAD_KEY_ALIAS }}
-      APOIS_UPLOAD_STORE_PASSWORD: ${{ secrets.APOIS_UPLOAD_STORE_PASSWORD }}
-      APOIS_UPLOAD_KEY_PASSWORD: ${{ secrets.APOIS_UPLOAD_KEY_PASSWORD }}
 
     steps:
       - name: Checkout release branch
@@ -47,20 +44,6 @@ jobs:
       - name: Validate Passenger release contract
         run: node tests/mobile/passenger-phase9-contract.mjs
 
-      - name: Require Play upload signing key
-        env:
-          APOIS_UPLOAD_KEYSTORE_BASE64: ${{ secrets.APOIS_UPLOAD_KEYSTORE_BASE64 }}
-        run: |
-          set -euo pipefail
-          test -n "$APOIS_UPLOAD_KEYSTORE_BASE64" || { echo 'Missing APOIS_UPLOAD_KEYSTORE_BASE64'; exit 1; }
-          test -n "$APOIS_UPLOAD_KEY_ALIAS" || { echo 'Missing APOIS_UPLOAD_KEY_ALIAS'; exit 1; }
-          test -n "$APOIS_UPLOAD_STORE_PASSWORD" || { echo 'Missing APOIS_UPLOAD_STORE_PASSWORD'; exit 1; }
-          test -n "$APOIS_UPLOAD_KEY_PASSWORD" || { echo 'Missing APOIS_UPLOAD_KEY_PASSWORD'; exit 1; }
-          printf '%s' "$APOIS_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/apois-upload.jks"
-          chmod 600 "$RUNNER_TEMP/apois-upload.jks"
-          keytool -list -keystore "$RUNNER_TEMP/apois-upload.jks" -storepass "$APOIS_UPLOAD_STORE_PASSWORD" -alias "$APOIS_UPLOAD_KEY_ALIAS" >/dev/null
-          printf 'APOIS_UPLOAD_KEYSTORE_PATH=%s\n' "$RUNNER_TEMP/apois-upload.jks" >> "$GITHUB_ENV"
-
       - name: Validate Play Store package and target API
         run: |
           set -euo pipefail
@@ -76,25 +59,28 @@ jobs:
           console.log('APOIS_PASSAGEIRO_PACKAGE_AND_FIREBASE_OK');
           NODE
 
-      - name: Validate production client keys and URL
+      - name: Validate production Maps keys
         run: |
           set -euo pipefail
           test -n "$GOOGLE_MAPS_WEB_API_KEY" || { echo 'Missing GOOGLE_MAPS_WEB_API_KEY'; exit 1; }
           test -n "$GOOGLE_MAPS_ANDROID_API_KEY" || { echo 'Missing GOOGLE_MAPS_ANDROID_API_KEY'; exit 1; }
-          test -n "$APOIS_PASSENGER_PUBLIC_URL" || { echo 'Missing APOIS_PASSENGER_PUBLIC_URL'; exit 1; }
-          node --input-type=module <<'NODE'
-          const raw = String(process.env.APOIS_PASSENGER_PUBLIC_URL ?? '').trim();
-          const url = new URL(raw);
-          if (url.protocol !== 'https:') throw new Error('APOIS_PASSENGER_PUBLIC_URL must use https');
-          if (['localhost','127.0.0.1','0.0.0.0'].includes(url.hostname.toLowerCase())) throw new Error('Public URL cannot be local');
-          console.log('APOIS_PASSENGER_PUBLIC_URL_OK');
-          NODE
+          if [ -n "$APOIS_PASSENGER_PUBLIC_URL" ]; then
+            node --input-type=module <<'NODE'
+            const raw = String(process.env.APOIS_PASSENGER_PUBLIC_URL ?? '').trim();
+            const url = new URL(raw);
+            if (url.protocol !== 'https:') throw new Error('APOIS_PASSENGER_PUBLIC_URL must use https');
+            if (['localhost','127.0.0.1','0.0.0.0'].includes(url.hostname.toLowerCase())) throw new Error('Public URL cannot be local');
+            console.log('APOIS_PASSENGER_PUBLIC_URL_OK');
+            NODE
+          else
+            echo 'APOIS_PASSENGER_PUBLIC_URL not configured; native password recovery uses the apoispassageiro:// scheme.'
+          fi
 
       - name: Build web bundle
         run: |
           set -euo pipefail
           export VITE_GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_WEB_API_KEY"
-          export VITE_PUBLIC_APP_URL="$APOIS_PASSENGER_PUBLIC_URL"
+          if [ -n "$APOIS_PASSENGER_PUBLIC_URL" ]; then export VITE_PUBLIC_APP_URL="$APOIS_PASSENGER_PUBLIC_URL"; fi
           bun run build
 
       - name: Sync Capacitor Android
@@ -117,7 +103,7 @@ jobs:
           echo "APOIS_VERSION_CODE=$((1000000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
           echo "APOIS_VERSION_NAME=1.0.0" >> "$GITHUB_ENV"
 
-      - name: Build signed Play Store AAB
+      - name: Build unsigned Play Store AAB
         working-directory: android
         run: |
           set -euo pipefail
@@ -125,25 +111,18 @@ jobs:
           ./gradlew bundleRelease --no-daemon --stacktrace
           test -s app/build/outputs/bundle/release/app-release.aab
 
-      - name: Verify AAB signature
-        run: |
-          set -euo pipefail
-          AAB='android/app/build/outputs/bundle/release/app-release.aab'
-          jarsigner -verify -verbose -certs "$AAB" > "$RUNNER_TEMP/apois-passageiro-aab-signature.txt"
-          grep -q 'jar verified.' "$RUNNER_TEMP/apois-passageiro-aab-signature.txt"
-          sha256sum "$AAB" | tee "$RUNNER_TEMP/APOIS-Passageiro-PlayStore.sha256"
-
-      - name: Stage Play Store artifact
+      - name: Stage unsigned AAB for external signing
         run: |
           set -euo pipefail
           mkdir -p playstore-output
-          cp android/app/build/outputs/bundle/release/app-release.aab playstore-output/APOIS-Passageiro-v1.0.0.aab
-          cp "$RUNNER_TEMP/APOIS-Passageiro-PlayStore.sha256" playstore-output/APOIS-Passageiro-v1.0.0.sha256
+          AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          cp "$AAB" playstore-output/APOIS-Passageiro-v1.0.0-unsigned.aab
+          sha256sum "$AAB" > playstore-output/APOIS-Passageiro-v1.0.0-unsigned.sha256
 
-      - name: Upload Play Store AAB
+      - name: Upload unsigned AAB
         uses: actions/upload-artifact@v4
         with:
-          name: APOIS-Passageiro-PlayStore-AAB-${{ github.run_number }}
+          name: APOIS-Passageiro-PlayStore-Unsigned-AAB-${{ github.run_number }}
           if-no-files-found: error
           retention-days: 30
           path: playstore-output/
