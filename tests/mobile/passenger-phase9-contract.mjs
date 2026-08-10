@@ -57,7 +57,7 @@ includes(launcherForeground, '@drawable/apois_brand_logo', "Launcher foreground 
 includes(launchScreen, '@color/apois_black', "Pre-Android 12 splash black background");
 includes(launchScreen, '@drawable/apois_launcher_foreground', "Pre-Android 12 splash APOIS brand");
 includes(splashV31, 'windowSplashScreenBackground">#000000', "Android 12 splash black background");
-includes(splashV31, 'windowSplashScreenAnimatedIcon">@drawable/apois_launcher_foreground', "Android 12 splash APOIS brand");
+includes(splashV31, 'windowSplashScreenAnimatedIcon">@drawable/apois_splash_icon', "Android 12 splash APOIS dedicated icon");
 includes(colors, '<color name="apois_black">#000000</color>', "APOIS native black");
 includes(colors, '<color name="apois_gold">#FFB800</color>', "APOIS native gold");
 includes(notificationIcon, 'android:fillColor="#FFFFFFFF"', "Notification icon white-mask fill");
