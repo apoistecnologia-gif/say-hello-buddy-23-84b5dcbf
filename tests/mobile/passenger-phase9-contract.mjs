@@ -122,10 +122,11 @@ includes(workflow, "vars.APOIS_PASSENGER_PUBLIC_URL", "Passenger public URL repo
 includes(workflow, 'export VITE_PUBLIC_APP_URL="$APOIS_PASSENGER_PUBLIC_URL"', "Passenger build uses validated public URL");
 excludes(workflow, "passageiro.apois.example", "Fake passenger public URL");
 excludes(workflow, "https://passageiro.apois.example", "Reserved .example release URL");
-includes(workflow, "secrets.APOIS_UPLOAD_KEYSTORE_BASE64", "Release workflow upload keystore secret");
-includes(workflow, "secrets.APOIS_UPLOAD_KEY_ALIAS", "Release workflow upload alias secret");
-includes(workflow, "secrets.APOIS_UPLOAD_STORE_PASSWORD", "Release workflow store password secret");
-includes(workflow, "secrets.APOIS_UPLOAD_KEY_PASSWORD", "Release workflow key password secret");
+includes(workflow, "secrets.ANDROID_KEYSTORE_BASE64", "Release workflow upload keystore secret");
+includes(workflow, "secrets.ANDROID_KEYSTORE_PASSWORD", "Release workflow existing keystore password secret");
+includes(workflow, 'APOIS_UPLOAD_KEY_ALIAS: "apois-passageiro-homologacao"', "Release workflow fixed upload alias");
+includes(workflow, "APOIS_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}", "Release workflow maps store password");
+includes(workflow, "APOIS_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}", "Release workflow maps key password");
 includes(workflow, "base64 --decode", "Release workflow restores external keystore");
 includes(workflow, "keytool -list", "Release workflow validates upload key");
 includes(workflow, "jarsigner -verify", "Release workflow verifies AAB signature");
