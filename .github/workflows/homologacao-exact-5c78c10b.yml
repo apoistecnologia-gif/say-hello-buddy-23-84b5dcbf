@@ -1,0 +1,104 @@
+name: APOIS Passenger — Exact Homologation 5c78c10b
+
+on:
+  push:
+    branches:
+      - homologacao-exact-5c78c10b
+    paths:
+      - ".github/workflows/homologacao-exact-5c78c10b.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
+      GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+      APOIS_PASSENGER_PUBLIC_URL: ${{ vars.APOIS_PASSENGER_PUBLIC_URL }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 5c78c10b2fecde185805b0d5209ba6a1be3bb19f
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate exact source, Supabase, package and Firebase
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "5c78c10b2fecde185805b0d5209ba6a1be3bb19f"
+          grep -F 'SUPABASE_PROJECT_ID="vqtucstyduxrqjgyigfk"' .env
+          grep -F 'SUPABASE_URL="https://vqtucstyduxrqjgyigfk.supabase.co"' .env
+          grep -F 'appId: "com.apois.passageiro"' capacitor.config.ts
+          test -f android/app/google-services.json
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const cfg = JSON.parse(readFileSync('android/app/google-services.json','utf8'));
+          const packages = (cfg.client ?? []).map(c => c?.client_info?.android_client_info?.package_name).filter(Boolean);
+          if (!packages.includes('com.apois.passageiro')) throw new Error(`Firebase client missing com.apois.passageiro: ${packages.join(', ')}`);
+          console.log('FIREBASE_PASSENGER_PACKAGE_OK');
+          NODE
+
+      - name: Validate build inputs
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_MAPS_WEB_API_KEY"
+          test -n "$GOOGLE_MAPS_ANDROID_API_KEY"
+          test -n "$APOIS_PASSENGER_PUBLIC_URL"
+
+      - name: Build web bundle
+        run: |
+          set -euo pipefail
+          export VITE_GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_WEB_API_KEY"
+          export VITE_PUBLIC_APP_URL="$APOIS_PASSENGER_PUBLIC_URL"
+          bun run build
+
+      - name: Sync Capacitor Android
+        run: |
+          set -euo pipefail
+          printf 'GOOGLE_MAPS_API_KEY=%s\n' "$GOOGLE_MAPS_ANDROID_API_KEY" > android/local.properties
+          bunx cap sync android
+
+      - name: Validate Android manifest
+        run: |
+          set -euo pipefail
+          M=android/app/src/main/AndroidManifest.xml
+          grep -F 'android.permission.ACCESS_FINE_LOCATION' "$M"
+          grep -F 'android.permission.ACCESS_COARSE_LOCATION' "$M"
+          grep -F 'com.google.firebase.messaging.default_notification_channel_id' "$M"
+          grep -F 'android:scheme="apoispassageiro"' "$M"
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../APOIS-Passageiro-Homologacao-5c78c10b.apk
+          sha256sum ../APOIS-Passageiro-Homologacao-5c78c10b.apk
+          ls -lh ../APOIS-Passageiro-Homologacao-5c78c10b.apk
+
+      - name: Upload exact APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: APOIS-Passageiro-Homologacao-5c78c10b
+          path: APOIS-Passageiro-Homologacao-5c78c10b.apk
+          if-no-files-found: error
+          retention-days: 7
