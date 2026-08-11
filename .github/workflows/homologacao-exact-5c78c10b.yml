@@ -17,7 +17,6 @@ jobs:
     env:
       GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
       GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
-      APOIS_PASSENGER_PUBLIC_URL: ${{ vars.APOIS_PASSENGER_PUBLIC_URL }}
     steps:
       - name: Checkout exact candidate
         uses: actions/checkout@v4
@@ -55,18 +54,16 @@ jobs:
           console.log('FIREBASE_PASSENGER_PACKAGE_OK');
           NODE
 
-      - name: Validate build inputs
+      - name: Validate Maps inputs
         run: |
           set -euo pipefail
           test -n "$GOOGLE_MAPS_WEB_API_KEY"
           test -n "$GOOGLE_MAPS_ANDROID_API_KEY"
-          test -n "$APOIS_PASSENGER_PUBLIC_URL"
 
       - name: Build web bundle
         run: |
           set -euo pipefail
           export VITE_GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_WEB_API_KEY"
-          export VITE_PUBLIC_APP_URL="$APOIS_PASSENGER_PUBLIC_URL"
           bun run build
 
       - name: Sync Capacitor Android
