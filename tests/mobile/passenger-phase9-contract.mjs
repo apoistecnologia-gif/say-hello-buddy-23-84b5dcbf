@@ -118,7 +118,7 @@ includes(gradle, "APOIS_UPLOAD_STORE_PASSWORD", "External upload store password"
 includes(gradle, "APOIS_UPLOAD_KEY_PASSWORD", "External upload key password");
 excludes(gradle.toLowerCase(), ".jks\"", "Hardcoded JKS path");
 
-includes(workflow, "vars.APOIS_PASSENGER_PUBLIC_URL", "Passenger public URL repository variable");
+includes(workflow, "secrets.APOIS_PASSENGER_PUBLIC_URL", "Passenger public URL repository secret");
 includes(workflow, 'export VITE_PUBLIC_APP_URL="$APOIS_PASSENGER_PUBLIC_URL"', "Passenger build uses validated public URL");
 excludes(workflow, "passageiro.apois.example", "Fake passenger public URL");
 excludes(workflow, "https://passageiro.apois.example", "Reserved .example release URL");
