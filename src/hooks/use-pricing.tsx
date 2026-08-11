@@ -84,6 +84,7 @@ export const PricingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     lastRequestRef.current = requestSignature;
 
     const requestId = ++requestSequenceRef.current;
+    setEstimates([]);
     setStatus("loading");
     setError(null);
 
