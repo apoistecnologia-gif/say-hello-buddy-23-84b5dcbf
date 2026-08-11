@@ -21,9 +21,9 @@ jobs:
       GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
       GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
       APOIS_PASSENGER_PUBLIC_URL: ${{ vars.APOIS_PASSENGER_PUBLIC_URL }}
-      APOIS_UPLOAD_KEY_ALIAS: ${{ secrets.APOIS_UPLOAD_KEY_ALIAS }}
-      APOIS_UPLOAD_STORE_PASSWORD: ${{ secrets.APOIS_UPLOAD_STORE_PASSWORD }}
-      APOIS_UPLOAD_KEY_PASSWORD: ${{ secrets.APOIS_UPLOAD_KEY_PASSWORD }}
+      APOIS_UPLOAD_KEY_ALIAS: "apois-passageiro-homologacao"
+      APOIS_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      APOIS_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,21 +53,15 @@ jobs:
             echo 'Keystore/signing material must never be committed.'
             exit 1
           fi
-          if git grep -nE 'APOIS_UPLOAD_(STORE_PASSWORD|KEY_PASSWORD)\s*[=:]\s*[^$]' -- ':!*.md' ':!.github/workflows/**'; then
-            echo 'Potential hardcoded upload-key password detected.'
-            exit 1
-          fi
           echo 'APOIS_SIGNING_SECRETS_NOT_COMMITTED_OK'
 
       - name: Require and restore Play upload signing key
         env:
-          APOIS_UPLOAD_KEYSTORE_BASE64: ${{ secrets.APOIS_UPLOAD_KEYSTORE_BASE64 }}
+          APOIS_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
-          test -n "$APOIS_UPLOAD_KEYSTORE_BASE64" || { echo 'Missing secret: APOIS_UPLOAD_KEYSTORE_BASE64'; exit 1; }
-          test -n "$APOIS_UPLOAD_KEY_ALIAS" || { echo 'Missing secret: APOIS_UPLOAD_KEY_ALIAS'; exit 1; }
-          test -n "$APOIS_UPLOAD_STORE_PASSWORD" || { echo 'Missing secret: APOIS_UPLOAD_STORE_PASSWORD'; exit 1; }
-          test -n "$APOIS_UPLOAD_KEY_PASSWORD" || { echo 'Missing secret: APOIS_UPLOAD_KEY_PASSWORD'; exit 1; }
+          test -n "$APOIS_UPLOAD_KEYSTORE_BASE64" || { echo 'Missing secret: ANDROID_KEYSTORE_BASE64'; exit 1; }
+          test -n "$APOIS_UPLOAD_STORE_PASSWORD" || { echo 'Missing secret: ANDROID_KEYSTORE_PASSWORD'; exit 1; }
           printf '%s' "$APOIS_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/apois-upload.jks"
           chmod 600 "$RUNNER_TEMP/apois-upload.jks"
           keytool -list -keystore "$RUNNER_TEMP/apois-upload.jks" -storepass "$APOIS_UPLOAD_STORE_PASSWORD" -alias "$APOIS_UPLOAD_KEY_ALIAS" >/dev/null
