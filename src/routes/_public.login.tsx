@@ -83,8 +83,8 @@ function LoginPage() {
   };
 
   return (
-    <PublicAuthShell contentClassName="justify-center">
-      <div className="flex w-full flex-col">
+    <PublicAuthShell contentClassName="justify-start">
+      <div className="flex w-full flex-col pb-4">
         <AppBrand subtitle="Sua corrida, do seu jeito." />
 
         <section className="app-surface mt-7 rounded-3xl p-5 sm:p-6" aria-labelledby="login-title">
