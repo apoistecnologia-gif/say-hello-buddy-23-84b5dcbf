@@ -1,6 +1,9 @@
 name: APOIS Corridas — Passenger Phase 9 Release
 
 on:
+  push:
+    branches:
+      - release/playstore-passageiro-v1
   workflow_dispatch:
 
 permissions:
