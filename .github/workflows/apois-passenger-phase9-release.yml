@@ -20,7 +20,7 @@ jobs:
     env:
       GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
       GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
-      APOIS_PASSENGER_PUBLIC_URL: ${{ vars.APOIS_PASSENGER_PUBLIC_URL }}
+      APOIS_PASSENGER_PUBLIC_URL: ${{ secrets.APOIS_PASSENGER_PUBLIC_URL }}
       APOIS_UPLOAD_KEY_ALIAS: "apois-passageiro-homologacao"
       APOIS_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       APOIS_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -73,7 +73,7 @@ jobs:
           set -euo pipefail
           test -n "$GOOGLE_MAPS_WEB_API_KEY"
           test -n "$GOOGLE_MAPS_ANDROID_API_KEY"
-          test -n "$APOIS_PASSENGER_PUBLIC_URL" || { echo 'Missing repository variable: APOIS_PASSENGER_PUBLIC_URL'; exit 1; }
+          test -n "$APOIS_PASSENGER_PUBLIC_URL" || { echo 'Missing repository secret: APOIS_PASSENGER_PUBLIC_URL'; exit 1; }
           node --input-type=module <<'NODE'
           const raw = String(process.env.APOIS_PASSENGER_PUBLIC_URL ?? '').trim();
           let url;
