@@ -84,7 +84,7 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
             </div>
           ) : (
             <span className="truncate text-[9px] font-bold uppercase tracking-wide text-zinc-600">
-              Avaliação indisponível
+              Novo
             </span>
           )}
         </div>
