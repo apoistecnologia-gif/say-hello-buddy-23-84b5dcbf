@@ -32,6 +32,8 @@ export interface FareEstimate {
   distance_fare?: number;
   duration_fare?: number;
   min_fare?: number;
+  pixProcessingFee?: number;
+  pixPassengerTotal?: number;
 }
 
 export interface PricingRequest {
