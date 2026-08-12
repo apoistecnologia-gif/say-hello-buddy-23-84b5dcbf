@@ -161,7 +161,7 @@ jobs:
           src/routes/_public.recuperar-senha.tsx
           src/routes/_public.redefinir-senha.tsx
           src/routes/_public.termos.tsx
-          src/routes/_authenticated.corrida.$rideId.tsx
+          'src/routes/_authenticated.corrida.$rideId.tsx'
           src/routes/_authenticated.perfil.tsx
 
       - name: Build web
