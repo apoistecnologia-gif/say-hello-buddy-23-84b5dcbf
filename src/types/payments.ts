@@ -53,6 +53,7 @@ export interface CheckoutEstimate {
   baseFare: number;
   extrasTotal: number;
   discountTotal: number;
+  processingFee: number;
   finalTotal: number;
   readiness: boolean;
   blockingReasons: string[];
