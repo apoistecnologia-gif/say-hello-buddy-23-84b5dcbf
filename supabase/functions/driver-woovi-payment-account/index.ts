@@ -4,7 +4,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WOOVI_APP_ID = (Deno.env.get("WOOVI_APP_ID") ?? "").trim();
-const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL") ?? "https://api.openpix.com.br").replace(/\/+$/, "");
+const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL") ?? "https://api.woovi.com").replace(/\/+$/, "");
 
 type JsonObject = Record<string, unknown>;
 
@@ -23,6 +23,26 @@ function cleanPixKey(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const key = value.trim();
   return key.length >= 5 && key.length <= 160 ? key : null;
+}
+
+async function attachPendingCredits(
+  admin: ReturnType<typeof createClient>,
+  driverId: string,
+  paymentAccountId: string,
+): Promise<void> {
+  const { error } = await admin
+    .from("driver_provider_credits")
+    .update({
+      payment_account_id: paymentAccountId,
+      status: "pending",
+      last_error: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("driver_id", driverId)
+    .eq("provider", "woovi")
+    .is("payment_account_id", null)
+    .in("status", ["pending", "failed"]);
+  if (error) throw new Error(`pending_credit_attach_failed:${error.message}`);
 }
 
 Deno.serve(async (req) => {
@@ -84,6 +104,9 @@ Deno.serve(async (req) => {
           message: "Por segurança, a alteração de uma chave Pix já vinculada deve ser confirmada pelo suporte APOIS.",
         }, 409, req);
       }
+      if (existing.status === "active") {
+        await attachPendingCredits(admin, driver.id, existing.id);
+      }
       return json({ ok: true, reused: true, status: existing.status, verifiedAt: existing.verified_at }, 200, req);
     }
 
@@ -131,6 +154,8 @@ Deno.serve(async (req) => {
       .select("id,status,verified_at")
       .single();
     if (insertError) throw new Error(`payment_account_insert_failed:${insertError.message}`);
+
+    await attachPendingCredits(admin, driver.id, created.id);
 
     return json({ ok: true, reused: false, status: created.status, verifiedAt: created.verified_at }, 200, req);
   } catch (error) {
