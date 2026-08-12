@@ -21,6 +21,22 @@ type PixCapabilityRpcResult = {
   error: { code?: string; message?: string } | null;
 };
 
+type PaymentMethodRpcRow = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  requires_balance: boolean | null;
+  is_active: boolean | null;
+  sort_order: number | null;
+};
+
+type PaymentMethodsRpcResult = {
+  data: PaymentMethodRpcRow[] | null;
+  error: { code?: string; message?: string } | null;
+};
+
 export function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
   const normalized = code === "credit_card" ? "credit" : code === "debit_card" ? "debit" : code;
   return PAYMENT_METHOD_CODES.includes(normalized as PaymentMethodCode)
@@ -56,12 +72,12 @@ class PaymentService {
   }
 
   async getPaymentMethods(): Promise<PaymentMethod[]> {
+    const callMethods = supabase.rpc as unknown as (
+      fn: "get_passenger_payment_methods",
+    ) => PromiseLike<PaymentMethodsRpcResult>;
+
     const [{ data, error }, electronicEnabled] = await Promise.all([
-      supabase
-        .from("payment_methods")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true }),
+      callMethods("get_passenger_payment_methods"),
       this.electronicRidePaymentsEnabled(),
     ]);
 
