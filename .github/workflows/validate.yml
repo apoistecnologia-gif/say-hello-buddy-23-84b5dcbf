@@ -92,14 +92,35 @@ jobs:
         run: deno check --node-modules-dir=auto supabase/functions/send-ride-push/index.ts
 
       - name: Check Woovi Edge Functions
+        shell: bash
         run: |
-          deno check --node-modules-dir=auto supabase/functions/woovi-create-ride-pix/index.ts
-          deno check --node-modules-dir=auto supabase/functions/woovi-webhook/index.ts
-          deno check --node-modules-dir=auto supabase/functions/woovi-payout-webhook/index.ts
-          deno check --node-modules-dir=auto supabase/functions/driver-woovi-credit/index.ts
-          deno check --node-modules-dir=auto supabase/functions/driver-woovi-payment-account/index.ts
-          deno check --node-modules-dir=auto supabase/functions/request-driver-payout/index.ts
-          deno check --node-modules-dir=auto supabase/functions/driver-ride-action/index.ts
+          set +e
+          files=(
+            supabase/functions/woovi-create-ride-pix/index.ts
+            supabase/functions/woovi-webhook/index.ts
+            supabase/functions/woovi-payout-webhook/index.ts
+            supabase/functions/driver-woovi-credit/index.ts
+            supabase/functions/driver-woovi-payment-account/index.ts
+            supabase/functions/request-driver-payout/index.ts
+            supabase/functions/driver-ride-action/index.ts
+          )
+          failed=0
+          : > /tmp/woovi-deno.log
+          for file in "${files[@]}"; do
+            echo "=== $file ===" | tee -a /tmp/woovi-deno.log
+            deno check --node-modules-dir=auto "$file" 2>&1 | tee -a /tmp/woovi-deno.log
+            status=${PIPESTATUS[0]}
+            if [ "$status" -ne 0 ]; then failed=1; fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          text = Path('/tmp/woovi-deno.log').read_text(errors='replace')
+          message = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')[-12000:]
+          print(f'::error title=Woovi Deno diagnostics::{message}')
+          PY
+            exit 1
+          fi
 
       - name: Validate reserved next-ride contract
         run: |
@@ -146,6 +167,7 @@ jobs:
           grep -F 'HOMOLOGATED_ELECTRONIC_METHODS' src/services/payments/payment-service.ts
           grep -F 'woovi-create-ride-pix' src/components/payments/RidePixPaymentCard.tsx
           grep -F 'processingFee' src/hooks/use-checkout-preparation.tsx
+          grep -F 'Taxa de processamento' src/routes/_authenticated.revisar-solicitacao.tsx
           python3 - <<'PY'
           from pathlib import Path
           card = Path('src/components/rides/active/SecurityCodeCard.tsx').read_text(encoding='utf-8')
