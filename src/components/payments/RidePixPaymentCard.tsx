@@ -21,6 +21,10 @@ type PixCheckout = {
   detail?: string;
 };
 
+type BillingCpfRpcResult = {
+  error: { message: string } | null;
+};
+
 function cpfDigits(value: string): string {
   return value.replace(/\D/g, "").slice(0, 11);
 }
@@ -160,14 +164,21 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
     }
     setSavingCpf(true);
     try {
-      const { error: updateError } = await supabase.rpc("set_passenger_billing_cpf", {
+      // The live production schema already exposes set_passenger_billing_cpf,
+      // but the checked-in generated types lag one migration behind. Keep this
+      // call narrow and explicit until the full generated schema file is refreshed.
+      const callBillingCpfRpc = supabase.rpc as unknown as (
+        fn: "set_passenger_billing_cpf",
+        args: { _cpf: string },
+      ) => Promise<BillingCpfRpcResult>;
+      const { error: updateError } = await callBillingCpfRpc("set_passenger_billing_cpf", {
         _cpf: cpfDigits(cpf),
       });
       if (updateError) {
         if (updateError.message.includes("cpf_change_requires_support")) {
           throw new Error("cpf_change_requires_support");
         }
-        throw updateError;
+        throw new Error(updateError.message);
       }
       setNeedsCpf(false);
       setError(null);
