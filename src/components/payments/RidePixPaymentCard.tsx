@@ -53,7 +53,7 @@ function readableError(code: string | undefined) {
       return "Precisamos confirmar seu CPF de cobrança antes de gerar o Pix.";
     case "ride_already_paid":
       return "O pagamento desta corrida já foi confirmado pelo provedor.";
-    case "ride_not_awaiting_payment":
+    case "ride_not_awaiting_pix_payment":
       return "Esta corrida já avançou para a próxima etapa.";
     case "ride_not_found":
       return "Não foi possível localizar esta corrida para cobrança.";
@@ -111,16 +111,16 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
       : officialAmount;
   const expirationLabel = formatExpiration(checkout?.pixExpirationAt);
 
-  const generate = useCallback(async () => {
+  const generate = useCallback(async (action: "recover" | "retry" = "recover") => {
     if (loading || paid) return;
     setLoading(true);
     setError(null);
     try {
-      // A Edge Function é a única autoridade da cobrança. Esta chamada também
-      // recupera a tentativa ativa já existente, evitando Pix duplicado ao reabrir o app.
+      // A Edge Function é a única autoridade da cobrança. "recover" nunca cria
+      // uma segunda tentativa para um Pix expirado; somente "retry" explícito cria.
       const { data, error: invokeError } = await supabase.functions.invoke<PixCheckout>(
         "asaas-create-ride-pix",
-        { body: { rideId } },
+        { body: { rideId, action } },
       );
       if (invokeError) throw invokeError;
       if (!data?.ok) {
@@ -151,7 +151,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
   useEffect(() => {
     if (autoLoadedRideRef.current === rideId) return;
     autoLoadedRideRef.current = rideId;
-    void generate();
+    void generate("recover");
   }, [generate, rideId]);
 
   const saveBillingCpf = async () => {
@@ -172,7 +172,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
       setNeedsCpf(false);
       setError(null);
       toast.success("CPF de cobrança salvo com segurança.");
-      await generate();
+      await generate("recover");
     } catch (caughtError) {
       console.error("[RidePixPaymentCard] billing CPF update failed", caughtError);
       toast.error("Não foi possível salvar o CPF agora.");
@@ -292,7 +292,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
           <button
             type="button"
             disabled={loading}
-            onClick={() => void generate()}
+            onClick={() => void generate("recover")}
             className="app-pressable mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] text-[11px] font-black text-zinc-300 disabled:opacity-60"
           >
             {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
@@ -310,7 +310,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
           <button
             type="button"
             disabled={loading}
-            onClick={() => void generate()}
+            onClick={() => void generate("retry")}
             className="app-pressable mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-xs font-black text-black disabled:opacity-60"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
@@ -323,7 +323,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
         <button
           type="button"
           disabled={loading}
-          onClick={() => void generate()}
+          onClick={() => void generate("recover")}
           className="app-pressable mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-sm font-black text-black disabled:opacity-60"
         >
           {loading ? <Loader2 size={17} className="animate-spin" /> : <QrCode size={17} />}
@@ -335,7 +335,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
         <div className="mt-3 flex items-start justify-between gap-3 rounded-2xl border border-red-400/20 bg-red-400/8 p-3">
           <p className="text-[11px] leading-4 text-red-300">{error}</p>
           {!needsCpf ? (
-            <button type="button" onClick={() => void generate()} className="shrink-0 text-apois-yellow" aria-label="Tentar consultar Pix novamente">
+            <button type="button" onClick={() => void generate("recover")} className="shrink-0 text-apois-yellow" aria-label="Tentar consultar Pix novamente">
               <RefreshCw size={16} />
             </button>
           ) : null}
