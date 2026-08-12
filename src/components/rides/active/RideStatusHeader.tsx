@@ -1,5 +1,5 @@
 import type { RideStatus } from "@/types/rides/active-ride";
-import { CheckCircle2, MapPin, Navigation, Search, XCircle } from "lucide-react";
+import { CheckCircle2, MapPin, Navigation, QrCode, Search, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface RideStatusHeaderProps {
@@ -33,6 +33,13 @@ export function RideStatusHeader({
 
   const getStatusConfig = () => {
     switch (status) {
+      case "aguardando_pagamento":
+        return {
+          title: "Aguardando pagamento Pix",
+          subtitle: "O motorista só será chamado após a confirmação do pagamento pelo provedor.",
+          icon: <QrCode className="text-apois-yellow" size={18} />,
+          color: "border-apois-yellow/25 bg-black/88",
+        };
       case "procurar_motorista":
         if (isQueuedRide) {
           return {
