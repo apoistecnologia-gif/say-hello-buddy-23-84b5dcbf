@@ -60,7 +60,7 @@ export interface ActiveRide {
   payment_method: string;
   payment_status?: string;
   payment_provider?: string;
-  payment_provider_id?: string;
+  provider_payment_id?: string;
   service_details?: Record<string, unknown>;
   encoded_polyline?: string;
 
