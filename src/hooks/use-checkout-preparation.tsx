@@ -39,9 +39,6 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
   const checkout = useMemo<CheckoutEstimate>(() => {
     const blockingReasons: string[] = [];
 
-    // A sessão autenticada é o gate do cliente. O perfil operacional é
-    // revalidado autoritativamente pela Edge Function passenger-ride-request.
-    // Não bloquear a UI por uma leitura de perfil atrasada após resume/relogin.
     if (!user) blockingReasons.push("user_not_authenticated");
     if (!route) blockingReasons.push("route_missing");
     if (!selectedCategory) blockingReasons.push("category_missing");
@@ -54,21 +51,24 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
       blockingReasons.push("passenger_debt_block");
     }
 
+    const baseFare = estimate?.estimatedPrice ?? 0;
+    const extrasTotal = estimate?.extrasTotal ?? 0;
+    const processingFee = selectedMethod === "pix" ? estimate?.pixProcessingFee ?? 0 : 0;
+    const finalTotal = Math.round((baseFare + processingFee) * 100) / 100;
+
     if (selectedMethod === "wallet" && estimate) {
       const availableBalance = wallet?.available_balance ?? 0;
-      if (availableBalance < estimate.estimatedPrice) {
+      if (availableBalance < finalTotal) {
         blockingReasons.push("insufficient_balance");
       }
     }
-
-    const baseFare = estimate?.estimatedPrice ?? 0;
-    const extrasTotal = estimate?.extrasTotal ?? 0;
 
     return {
       baseFare,
       extrasTotal,
       discountTotal: 0,
-      finalTotal: baseFare,
+      processingFee,
+      finalTotal,
       readiness: blockingReasons.length === 0,
       blockingReasons,
       missingRequirements: blockingReasons.map(
