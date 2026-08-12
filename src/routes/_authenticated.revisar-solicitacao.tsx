@@ -110,7 +110,7 @@ function getServiceSummary(category: string | undefined, details: Record<string,
   return [];
 }
 
-function CategoryArtwork({ code }: { code?: string }) {
+function CategoryArtwork({ code }: { code: string | undefined }) {
   const Icon =
     code === "motos"
       ? Bike
