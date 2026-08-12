@@ -20,6 +20,7 @@ jobs:
     env:
       GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
       GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+      VITE_PUBLIC_APP_URL: ${{ secrets.PASSENGER_PUBLIC_APP_URL }}
 
     steps:
       - name: Checkout
@@ -95,12 +96,17 @@ jobs:
           grep -F 'void navigate({ to: "/inicio", replace: true });' 'src/routes/_authenticated.corrida.$rideId.tsx'
           grep -F 'walletState === "blocked"' src/routes/_authenticated.revisar-solicitacao.tsx
           grep -F 'canCancel && status !== "em_viagem"' src/components/rides/active/ActiveJourneyScreen.tsx
+          grep -F 'HOMOLOGATED_ELECTRONIC_METHODS' src/services/payments/payment-service.ts
+          grep -F 'asaas-create-ride-pix' src/components/payments/RidePixPaymentCard.tsx
           python3 - <<'PY'
           from pathlib import Path
           card = Path('src/components/rides/active/SecurityCodeCard.tsx').read_text(encoding='utf-8')
           assert 'slice(0, 4)' in card, 'PIN não está limitado a quatro dígitos'
           assert '/^\\d{4}$/' in card, 'PIN não exige exatamente quatro dígitos'
-          print('PIN de 4 dígitos validado')
+          payment = Path('src/services/payments/payment-service.ts').read_text(encoding='utf-8')
+          assert 'new Set<PaymentMethodCode>(["pix"])' in payment, 'Pix não está marcado como eletrônico homologado'
+          assert 'new Set<PaymentMethodCode>(["credit", "debit"])' in payment, 'Cartão não está explicitamente bloqueado até homologação'
+          print('PIN e contrato de pagamento do passageiro validados')
           PY
 
       - name: Validate Firebase passenger client
@@ -138,24 +144,35 @@ jobs:
           src/components/legal/PublicLegalDocument.tsx
           src/components/BottomNavigation.tsx
           src/components/notifications/PushStatusCard.tsx
+          src/components/payments/RidePixPaymentCard.tsx
           src/hooks/use-auth.tsx
+          src/hooks/use-checkout-preparation.tsx
           src/hooks/use-location.tsx
+          src/hooks/use-payment-methods.tsx
           src/hooks/use-push-notifications.tsx
+          src/hooks/rides/use-ride-request.tsx
           src/lib/auth/native-password-recovery.ts
           src/lib/auth/password-recovery.ts
           src/lib/legal/legal-documents.ts
+          src/services/payments/payment-service.ts
           src/routes/_public.login.tsx
           src/routes/_public.cadastro.tsx
           src/routes/_public.privacidade.tsx
           src/routes/_public.recuperar-senha.tsx
           src/routes/_public.redefinir-senha.tsx
           src/routes/_public.termos.tsx
+          src/routes/_authenticated.corrida.$rideId.tsx
           src/routes/_authenticated.perfil.tsx
 
       - name: Build web
         run: |
           export VITE_GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_WEB_API_KEY:-ci_validation_placeholder}"
-          export VITE_PUBLIC_APP_URL="https://passageiro.apois.example"
+          if [ -n "$VITE_PUBLIC_APP_URL" ]; then
+            echo "Public share URL configurada para este build."
+          else
+            unset VITE_PUBLIC_APP_URL
+            echo "::warning::PASSENGER_PUBLIC_APP_URL não configurada; compartilhamento público ficará honestamente indisponível neste APK, sem URL fictícia."
+          fi
           bun run build
 
       - name: Sync Capacitor Android
