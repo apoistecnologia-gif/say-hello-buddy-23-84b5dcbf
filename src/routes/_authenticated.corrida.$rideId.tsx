@@ -11,6 +11,7 @@ import { SecurityCodeCard } from "@/components/rides/active/SecurityCodeCard";
 import { RideStopsTimeline } from "@/components/rides/active/RideStopsTimeline";
 import { CancellationDialog } from "@/components/rides/active/CancellationDialog";
 import { RideSafetyDialog } from "@/components/rides/active/RideSafetyDialog";
+import { SearchingDriverScreen } from "@/components/rides/active/SearchingDriverScreen";
 import { RideRatingCard } from "@/components/rides/RideRatingCard";
 import { Button } from "@/components/ui/button";
 import { passengerShareService } from "@/services/safety/passenger-share-service";
@@ -97,8 +98,6 @@ function ActiveRidePage() {
   const handleShareRide = async (): Promise<void> => {
     if (!ride || isSharingRide) return;
 
-    // A página pública precisa ter um endereço real. Em builds nativos não
-    // inventamos localhost nem um domínio inexistente.
     if (!publicShareUrl("preview")) {
       toast.error("Acompanhamento público ainda não está configurado neste build.");
       return;
@@ -106,8 +105,6 @@ function ActiveRidePage() {
 
     setIsSharingRide(true);
     try {
-      // O token é criado/reutilizado no backend somente quando o passageiro
-      // efetivamente solicita o compartilhamento. Nunca usamos ride_id público.
       const session = await passengerShareService.create(ride.id);
       const trackingUrl = publicShareUrl(session.token);
       if (!trackingUrl) throw new Error("public_share_url_unavailable");
@@ -198,6 +195,32 @@ function ActiveRidePage() {
   const isQueuedRide =
     status === "procurar_motorista" &&
     Boolean(ride.driver_id && ride.queued_after_ride_id);
+
+  if (status === "procurar_motorista" && !isQueuedRide && screenState === "active") {
+    return (
+      <>
+        <SearchingDriverScreen
+          ride={ride}
+          isRefreshing={isRefreshing}
+          isRealtimeConnected={isRealtimeConnected}
+          canCancel={Boolean(actionAvailability?.canCancel)}
+          onRefresh={() => void refreshRide()}
+          onCancel={() => setIsCancelDialogOpen(true)}
+        />
+        <CancellationDialog
+          isOpen={isCancelDialogOpen}
+          onClose={() => setIsCancelDialogOpen(false)}
+          rideId={ride.id}
+          rideCreatedAt={ride.created_at}
+          onSuccess={() => {
+            setIsCancelDialogOpen(false);
+            clearRide();
+            void navigate({ to: "/inicio", replace: true });
+          }}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-black">
