@@ -5,6 +5,15 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WEBHOOK_AUTHORIZATION = (Deno.env.get("WOOVI_WEBHOOK_AUTHORIZATION") ?? "").trim();
 
 type JsonObject = Record<string, unknown>;
+type WithdrawalRow = {
+  id: string;
+  amount: number;
+  status: string;
+  provider: string | null;
+  provider_transfer_id: string | null;
+  pix_key: string | null;
+  requested_at: string | null;
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -62,20 +71,78 @@ Deno.serve(async (req) => {
     text(transaction.correlationId);
   if (!correlationId) return json({ error: "correlation_id_missing" }, 422);
 
+  const destinationAlias =
+    text(payment.destinationAlias) ??
+    text(transaction.destinationAlias);
+  const webhookAmount = Number(payment.value ?? transaction.value);
+
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: withdrawal, error: lookupError } = await admin
+  let withdrawal: WithdrawalRow | null = null;
+  const { data: directWithdrawal, error: lookupError } = await admin
     .from("driver_withdrawals")
-    .select("id,amount,status,provider,provider_transfer_id")
+    .select("id,amount,status,provider,provider_transfer_id,pix_key,requested_at")
     .eq("provider", "woovi")
     .eq("provider_transfer_id", correlationId)
     .maybeSingle();
   if (lookupError) return json({ error: "withdrawal_lookup_failed" }, 500);
+  if (directWithdrawal) withdrawal = directWithdrawal as WithdrawalRow;
+
+  // If our original HTTP response was lost, provider_transfer_id may not have
+  // reached the database even though Woovi created the movement. The payout
+  // RPC allows only one in-flight withdrawal per driver, and Pix keys are
+  // unique among Woovi driver payment accounts. Therefore an exact match on
+  // processing + destination Pix key + amount within the recent window is a
+  // safe recovery path. We refuse ambiguous matches instead of guessing.
+  if (!withdrawal && destinationAlias && Number.isFinite(webhookAmount)) {
+    const expectedAmount = Math.round(webhookAmount) / 100;
+    const recentCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: candidates, error: candidateError } = await admin
+      .from("driver_withdrawals")
+      .select("id,amount,status,provider,provider_transfer_id,pix_key,requested_at")
+      .eq("provider", "woovi")
+      .eq("status", "processing")
+      .eq("pix_key", destinationAlias)
+      .eq("amount", expectedAmount)
+      .gte("requested_at", recentCutoff)
+      .order("requested_at", { ascending: false })
+      .limit(2);
+    if (candidateError) return json({ error: "withdrawal_reconciliation_lookup_failed" }, 500);
+
+    if ((candidates?.length ?? 0) > 1) {
+      console.error("[woovi-payout-webhook] ambiguous fallback match", {
+        correlationId,
+        destinationAlias,
+        webhookAmount,
+        candidateIds: candidates?.map((candidate) => candidate.id),
+      });
+      return json({ error: "withdrawal_reconciliation_ambiguous" }, 409);
+    }
+
+    if (candidates?.length === 1) {
+      withdrawal = candidates[0] as WithdrawalRow;
+      const { error: bindError } = await admin
+        .from("driver_withdrawals")
+        .update({
+          provider_transfer_id: correlationId,
+          failure_reason: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", withdrawal.id)
+        .eq("status", "processing")
+        .is("provider_transfer_id", null);
+      if (bindError) {
+        console.error("[woovi-payout-webhook] fallback binding failed", bindError);
+        return json({ error: "withdrawal_reconciliation_bind_failed" }, 500);
+      }
+      withdrawal.provider_transfer_id = correlationId;
+    }
+  }
+
   if (!withdrawal) return json({ ok: true, ignored: true, reason: "withdrawal_not_found" });
 
-  const webhookAmount = Number(payment.value ?? transaction.value);
   const expectedCents = Math.round(Number(withdrawal.amount) * 100);
   if (Number.isFinite(webhookAmount) && Math.round(webhookAmount) !== expectedCents) {
     console.error("[woovi-payout-webhook] amount mismatch", {
