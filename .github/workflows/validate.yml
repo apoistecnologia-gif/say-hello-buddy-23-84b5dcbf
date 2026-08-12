@@ -88,12 +88,13 @@ jobs:
 
       - name: Validate PDF passenger checklist
         run: |
-          grep -F 'height="62dvh"' src/routes/_authenticated.inicio.tsx
-          grep -F 'maxHeight="560px"' src/routes/_authenticated.inicio.tsx
+          grep -F 'h-[164px]' src/routes/_authenticated.inicio.tsx
+          grep -F 'pb-[150px]' src/routes/_authenticated.inicio.tsx
           grep -F 'haversineMeters(previous.origin, originCoord) < 50' src/hooks/use-route.tsx
           grep -F 'freezeRoute();' src/routes/_authenticated.revisar-solicitacao.tsx
           grep -F 'void navigate({ to: "/inicio", replace: true });' 'src/routes/_authenticated.corrida.$rideId.tsx'
           grep -F 'walletState === "blocked"' src/routes/_authenticated.revisar-solicitacao.tsx
+          grep -F 'canCancel && status !== "em_viagem"' src/components/rides/active/ActiveJourneyScreen.tsx
           python3 - <<'PY'
           from pathlib import Path
           card = Path('src/components/rides/active/SecurityCodeCard.tsx').read_text(encoding='utf-8')
