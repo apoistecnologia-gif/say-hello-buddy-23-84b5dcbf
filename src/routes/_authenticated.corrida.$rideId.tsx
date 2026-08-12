@@ -169,6 +169,67 @@ function ActiveRidePage() {
   const isQueuedRide =
     status === "procurar_motorista" && Boolean(ride.driver_id && ride.queued_after_ride_id);
 
+  if (status === "aguardando_pagamento" && screenState === "active") {
+    return (
+      <>
+        <div className="app-screen min-h-0 bg-black text-white">
+          <header className="app-safe-top app-safe-x shrink-0 border-b border-white/5 bg-black pb-3 pt-3 text-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-apois-yellow">APOIS</p>
+            <h1 className="mt-1 text-xl font-black">Pagamento da corrida</h1>
+            <p className="mt-1 text-[11px] text-zinc-500">Nenhum motorista será chamado enquanto o Pix estiver pendente.</p>
+          </header>
+
+          <div className="app-scroll flex-1 space-y-3 px-4 py-4">
+            <section className="h-[190px] overflow-hidden rounded-[26px] border border-white/8 bg-zinc-900">
+              <ActiveRideMap ride={ride} />
+            </section>
+
+            <section className="rounded-3xl border border-white/8 bg-[#0e1014] p-4">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">Rota confirmada</p>
+              <p className="mt-2 text-xs font-bold text-zinc-300">{ride.origin_name}</p>
+              <p className="my-1 text-[10px] text-zinc-600">até</p>
+              <p className="text-xs font-bold text-zinc-300">{ride.destination_name}</p>
+            </section>
+
+            <RidePixPaymentCard rideId={ride.id} officialAmount={ride.estimated_price} />
+
+            <button
+              type="button"
+              onClick={() => void refreshRide()}
+              disabled={isRefreshing}
+              className="app-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] text-xs font-black text-zinc-300 disabled:opacity-60"
+            >
+              <RefreshCw size={16} className={isRefreshing ? "animate-spin" : ""} />
+              Atualizar status da corrida
+            </button>
+
+            {actionAvailability?.canCancel ? (
+              <button
+                type="button"
+                onClick={() => setIsCancelDialogOpen(true)}
+                className="app-pressable min-h-12 w-full rounded-2xl border border-red-400/20 bg-red-400/5 text-xs font-black text-red-300"
+              >
+                Cancelar solicitação
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        <CancellationDialog
+          isOpen={isCancelDialogOpen}
+          onClose={() => setIsCancelDialogOpen(false)}
+          rideId={ride.id}
+          rideCreatedAt={ride.created_at}
+          onSuccess={() => {
+            setIsCancelDialogOpen(false);
+            clearRide();
+            void navigate({ to: "/inicio", replace: true });
+          }}
+        />
+      </>
+    );
+  }
+
   if (status === "procurar_motorista" && !isQueuedRide && screenState === "active") {
     return (
       <>
@@ -264,10 +325,6 @@ function ActiveRidePage() {
               R$ {(ride.final_price ?? ride.estimated_price).toFixed(2).replace(".", ",")}
             </p>
           </section>
-
-          {screenState === "completed" && ride.payment_method === "pix" ? (
-            <RidePixPaymentCard rideId={ride.id} />
-          ) : null}
 
           {screenState === "completed" ? (
             <RideRatingCard
