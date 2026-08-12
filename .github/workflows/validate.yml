@@ -89,7 +89,7 @@ jobs:
         run: |
           grep -F '| "expired";' src/types/rides/active-ride.ts
           grep -F '"expired",' src/services/rides/active-ride-service.ts
-          grep -F 'expired: 5' src/services/rides/active-ride-service.ts
+          grep -F 'expired: 6' src/services/rides/active-ride-service.ts
           grep -F 'updatedRide.status === "expired"' src/hooks/rides/use-active-ride.tsx
           grep -F 'data.status !== "expired"' src/hooks/rides/use-active-ride.tsx
           grep -F 'case "expired":' src/components/rides/active/RideStatusHeader.tsx
