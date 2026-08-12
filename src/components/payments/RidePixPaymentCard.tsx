@@ -20,13 +20,6 @@ type PixCheckout = {
   detail?: string;
 };
 
-type PixRow = {
-  status: string;
-  amount_cents: number;
-  pix_payload: string | null;
-  pix_expiration_at: string | null;
-};
-
 function readableError(code: string | undefined) {
   switch (code) {
     case "driver_asaas_account_not_ready":
@@ -51,31 +44,24 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
 
   const refreshStatus = useCallback(async () => {
     const { data, error: statusError } = await supabase
-      .from("ride_pix_payments")
-      .select("status,amount_cents,pix_payload,pix_expiration_at")
+      .from("ride_settlements")
+      .select("payment_status,status,provider_payment_id")
       .eq("ride_id", rideId)
       .maybeSingle();
 
     if (statusError || !data) return;
-    const row = data as PixRow;
-    if (["received", "confirmed"].includes(row.status)) setPaid(true);
-    setCheckout((previous) => ({
-      ...previous,
-      ok: true,
-      status: row.status,
-      amountCents: Number(row.amount_cents),
-      pixPayload: row.pix_payload,
-      pixExpirationAt: row.pix_expiration_at,
-    }));
+    if (data.payment_status === "paid" || data.status === "settled") {
+      setPaid(true);
+    }
   }, [rideId]);
 
   useEffect(() => {
     void refreshStatus();
     const channel = supabase
-      .channel(`ride-pix-${rideId}`)
+      .channel(`ride-pix-settlement-${rideId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "ride_pix_payments", filter: `ride_id=eq.${rideId}` },
+        { event: "UPDATE", schema: "public", table: "ride_settlements", filter: `ride_id=eq.${rideId}` },
         () => void refreshStatus(),
       )
       .subscribe();
@@ -187,7 +173,7 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
           className="app-pressable mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-sm font-black text-black disabled:opacity-60"
         >
           {loading ? <Loader2 size={17} className="animate-spin" /> : <QrCode size={17} />}
-          {loading ? "Gerando Pix..." : "Gerar Pix da corrida"}
+          {loading ? "Gerando Pix..." : "Gerar / consultar Pix da corrida"}
         </button>
       )}
 
