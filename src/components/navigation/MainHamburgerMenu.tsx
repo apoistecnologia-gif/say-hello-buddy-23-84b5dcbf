@@ -27,6 +27,7 @@ export function MainHamburgerMenu() {
 
   const isNestedRideDetails = pathname.startsWith("/corridas/");
   const isJourney =
+    pathname === "/inicio" ||
     journeyRoutes.includes(pathname) ||
     pathname.startsWith("/corrida/") ||
     isNestedRideDetails;
