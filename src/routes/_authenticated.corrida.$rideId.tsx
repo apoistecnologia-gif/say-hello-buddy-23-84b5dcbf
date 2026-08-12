@@ -10,6 +10,7 @@ import { RideSafetyDialog } from "@/components/rides/active/RideSafetyDialog";
 import { SearchingDriverScreen } from "@/components/rides/active/SearchingDriverScreen";
 import { ActiveJourneyScreen } from "@/components/rides/active/ActiveJourneyScreen";
 import { RideRatingCard } from "@/components/rides/RideRatingCard";
+import { RidePixPaymentCard } from "@/components/payments/RidePixPaymentCard";
 import { Button } from "@/components/ui/button";
 import { passengerShareService } from "@/services/safety/passenger-share-service";
 import { FileText, Home, RefreshCw, X } from "lucide-react";
@@ -263,6 +264,10 @@ function ActiveRidePage() {
               R$ {(ride.final_price ?? ride.estimated_price).toFixed(2).replace(".", ",")}
             </p>
           </section>
+
+          {screenState === "completed" && ride.payment_method === "pix" ? (
+            <RidePixPaymentCard rideId={ride.id} />
+          ) : null}
 
           {screenState === "completed" ? (
             <RideRatingCard
