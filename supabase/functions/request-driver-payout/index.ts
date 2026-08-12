@@ -146,11 +146,16 @@ Deno.serve(async (req) => {
       return json(req, { error: "woovi_payment_account_missing", withdrawalId }, 409);
     }
 
-    if (withdrawal.status === "processing" && withdrawal.provider_transfer_id) {
+    // Once a payout has entered processing we never call the provider again for
+    // the same reservation. A missing provider_transfer_id can mean that the
+    // provider accepted the request but our HTTP response was lost. Retrying
+    // the withdraw endpoint in that state could pay the driver twice.
+    if (withdrawal.status === "processing") {
       return json(req, {
         ok: true,
         pending: true,
         idempotent: true,
+        reconciliationRequired: !withdrawal.provider_transfer_id,
         withdrawalId,
         transferId: withdrawal.provider_transfer_id,
         status: "processing",
@@ -192,18 +197,39 @@ Deno.serve(async (req) => {
       }
     } catch (error) {
       const reason = error instanceof DOMException && error.name === "AbortError"
-        ? "provider_timeout"
-        : String(error).slice(0, 400);
-      await admin.rpc("mark_driver_withdrawal_failed", {
-        _withdrawal_id: withdrawal.id,
-        _reason: reason,
-        _response: null,
-      });
-      return json(req, { error: "provider_unavailable", withdrawalId }, 502);
+        ? "provider_timeout_reconciliation_required"
+        : `provider_transport_unknown:${String(error).slice(0, 350)}`;
+
+      // A transport failure is an ambiguous outcome: the provider may already
+      // have accepted the payout. Keep funds reserved and let the webhook (or
+      // an operational reconciliation) decide the terminal state. Never refund
+      // an ambiguous payout automatically.
+      const { error: persistUnknownError } = await admin
+        .from("driver_withdrawals")
+        .update({
+          failure_reason: reason,
+          provider_response: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", withdrawal.id)
+        .eq("status", "processing");
+      if (persistUnknownError) {
+        console.error("[request-driver-payout] ambiguous outcome persist", persistUnknownError);
+      }
+
+      return json(req, {
+        ok: true,
+        pending: true,
+        reconciliationRequired: true,
+        withdrawalId,
+        status: "processing",
+      }, 202);
     } finally {
       clearTimeout(timeout);
     }
 
+    // An explicit non-2xx response is a provider-declared failure and can be
+    // safely reconciled as failed/refunded.
     if (!response.ok) {
       const reason = `HTTP ${response.status}: ${rawText.slice(0, 400)}`;
       await admin.rpc("mark_driver_withdrawal_failed", {
@@ -225,12 +251,30 @@ Deno.serve(async (req) => {
     const providerValue = Number(transaction.value);
 
     if (Number.isFinite(providerValue) && Math.round(providerValue) !== amountCents) {
-      await admin.rpc("mark_driver_withdrawal_failed", {
-        _withdrawal_id: withdrawal.id,
-        _reason: "provider_amount_mismatch",
-        _response: providerBody as never,
-      });
-      return json(req, { error: "provider_amount_mismatch", withdrawalId }, 502);
+      // A successful HTTP response with an unexpected amount is also ambiguous:
+      // do not refund automatically because a real movement may already exist.
+      const { error: mismatchPersistError } = await admin
+        .from("driver_withdrawals")
+        .update({
+          provider_transfer_id: transferId,
+          failure_reason: "provider_amount_mismatch_reconciliation_required",
+          provider_response: providerBody,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", withdrawal.id)
+        .eq("status", "processing");
+      if (mismatchPersistError) {
+        console.error("[request-driver-payout] amount mismatch persist", mismatchPersistError);
+      }
+      return json(req, {
+        ok: true,
+        pending: true,
+        reconciliationRequired: true,
+        error: "provider_amount_mismatch",
+        withdrawalId,
+        transferId,
+        status: "processing",
+      }, 202);
     }
 
     const { error: metadataError } = await admin
@@ -238,6 +282,7 @@ Deno.serve(async (req) => {
       .update({
         provider: "woovi",
         provider_transfer_id: transferId,
+        failure_reason: transferId ? null : "provider_correlation_missing_reconciliation_required",
         provider_response: providerBody,
         updated_at: new Date().toISOString(),
       })
@@ -267,6 +312,7 @@ Deno.serve(async (req) => {
     return json(req, {
       ok: true,
       pending: true,
+      reconciliationRequired: !transferId,
       withdrawalId,
       transferId,
       status: providerStatus,
