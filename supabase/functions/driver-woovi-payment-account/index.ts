@@ -7,6 +7,7 @@ const WOOVI_APP_ID = (Deno.env.get("WOOVI_APP_ID") ?? "").trim();
 const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL") ?? "https://api.woovi.com").replace(/\/+$/, "");
 
 type JsonObject = Record<string, unknown>;
+type AdminClient = ReturnType<typeof createClient<any, "public">>;
 
 function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
@@ -26,7 +27,7 @@ function cleanPixKey(value: unknown): string | null {
 }
 
 async function attachPendingCredits(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   driverId: string,
   paymentAccountId: string,
 ): Promise<void> {
