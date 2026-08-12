@@ -373,6 +373,9 @@ function RideRequestReviewPage() {
             {checkout.discountTotal > 0 ? (
               <PaymentRow label="Desconto" value={`- ${formatCurrency(checkout.discountTotal)}`} positive />
             ) : null}
+            {checkout.processingFee > 0 ? (
+              <PaymentRow label="Taxa de processamento" value={formatCurrency(checkout.processingFee)} />
+            ) : null}
             <div className="my-3 h-px bg-white/8" />
             <div className="flex items-center justify-between">
               <span className="text-[16px] font-black text-white">Total</span>
@@ -381,7 +384,7 @@ function RideRequestReviewPage() {
             <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/7 bg-black/30 px-3 py-2">
               <Info className="mt-0.5 shrink-0 text-zinc-500" size={14} />
               <p className="text-[9px] leading-4 text-zinc-500">
-                A estimativa usa a rota, as paradas e os detalhes informados. O servidor valida o valor ao solicitar a corrida.
+                A estimativa usa a rota, as paradas e os detalhes informados. O servidor valida o valor e a taxa de processamento ao solicitar a corrida.
               </p>
             </div>
           </div>
