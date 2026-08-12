@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, Copy, Loader2, QrCode, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,55 +42,33 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
   const [paid, setPaid] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshStatus = useCallback(async () => {
-    const { data, error: statusError } = await supabase
-      .from("ride_settlements")
-      .select("payment_status,status,provider_payment_id")
-      .eq("ride_id", rideId)
-      .maybeSingle();
-
-    if (statusError || !data) return;
-    if (data.payment_status === "paid" || data.status === "settled") {
-      setPaid(true);
-    }
-  }, [rideId]);
-
-  useEffect(() => {
-    void refreshStatus();
-    const channel = supabase
-      .channel(`ride-pix-settlement-${rideId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "ride_settlements", filter: `ride_id=eq.${rideId}` },
-        () => void refreshStatus(),
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [refreshStatus, rideId]);
-
   const generate = async () => {
     if (loading || paid) return;
     setLoading(true);
     setError(null);
     try {
+      // A Edge Function é idempotente por rideId: se a cobrança já existe,
+      // devolve a cobrança real existente em vez de criar uma duplicata.
       const { data, error: invokeError } = await supabase.functions.invoke<PixCheckout>(
         "asaas-create-ride-pix",
         { body: { rideId } },
       );
       if (invokeError) throw invokeError;
       if (!data?.ok) {
+        if (data?.error === "ride_already_paid") setPaid(true);
         setError(readableError(data?.error));
         return;
       }
       setCheckout(data);
-      if (["received", "confirmed"].includes(String(data.status ?? ""))) setPaid(true);
-      if (data.pixPayload) toast.success("Pix da corrida gerado com segurança.");
-      await refreshStatus();
+      if (["received", "confirmed"].includes(String(data.status ?? ""))) {
+        setPaid(true);
+        toast.success("Pagamento Pix confirmado.");
+        return;
+      }
+      if (data.pixPayload) toast.success("Pix da corrida pronto para pagamento.");
     } catch (caughtError) {
       console.error("[RidePixPaymentCard] Pix generation failed", caughtError);
-      setError("Não foi possível gerar o Pix agora. Tente novamente.");
+      setError("Não foi possível gerar ou consultar o Pix agora. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -117,7 +95,7 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
           </span>
           <div>
             <p className="text-sm font-black text-white">Pix confirmado</p>
-            <p className="mt-1 text-[11px] text-zinc-400">O pagamento foi confirmado automaticamente pelo Asaas.</p>
+            <p className="mt-1 text-[11px] text-zinc-400">O pagamento foi confirmado pelo fluxo oficial do Asaas.</p>
           </div>
         </div>
       </section>
@@ -133,7 +111,7 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-black text-white">Pagamento por Pix</p>
           <p className="mt-1 text-[11px] leading-4 text-zinc-400">
-            A cobrança é gerada pelo Asaas com o valor real do fechamento da corrida. A confirmação é automática pelo webhook.
+            O Pix usa o valor real do fechamento da corrida e o processamento oficial do Asaas.
           </p>
         </div>
       </div>
@@ -164,6 +142,15 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
             {copied ? <Check size={16} /> : <Copy size={16} />}
             {copied ? "Código copiado" : "Copiar código Pix"}
           </button>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void generate()}
+            className="app-pressable mt-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] text-[11px] font-black text-zinc-300 disabled:opacity-60"
+          >
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+            Consultar pagamento
+          </button>
         </>
       ) : (
         <button
@@ -173,7 +160,7 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
           className="app-pressable mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-sm font-black text-black disabled:opacity-60"
         >
           {loading ? <Loader2 size={17} className="animate-spin" /> : <QrCode size={17} />}
-          {loading ? "Gerando Pix..." : "Gerar / consultar Pix da corrida"}
+          {loading ? "Consultando Pix..." : "Gerar / consultar Pix da corrida"}
         </button>
       )}
 
