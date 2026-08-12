@@ -17,14 +17,14 @@ const ELECTRONIC_RIDE_GATE_KEY = "finance.ride_electronic_payments_enabled";
 const HOMOLOGATED_ELECTRONIC_METHODS = new Set<PaymentMethodCode>(["pix"]);
 const NOT_YET_HOMOLOGATED_METHODS = new Set<PaymentMethodCode>(["credit", "debit"]);
 
-function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
+export function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
   const normalized = code === "credit_card" ? "credit" : code === "debit_card" ? "debit" : code;
   return PAYMENT_METHOD_CODES.includes(normalized as PaymentMethodCode)
     ? (normalized as PaymentMethodCode)
     : null;
 }
 
-function settingEnabled(value: unknown): boolean {
+export function settingEnabled(value: unknown): boolean {
   if (value === true || value === "true") return true;
   if (typeof value === "object" && value !== null && !Array.isArray(value)) {
     const record = value as Record<string, unknown>;
