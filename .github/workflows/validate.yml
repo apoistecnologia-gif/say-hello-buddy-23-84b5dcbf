@@ -58,14 +58,20 @@ jobs:
           import re
           from pathlib import Path
 
+          text = Path('/tmp/apois-tsc.log').read_text(errors='replace')
           pattern = re.compile(r'^(.*)\((\d+),(\d+)\): error (TS\d+): (.*)$')
-          for raw in Path('/tmp/apois-tsc.log').read_text(errors='replace').splitlines():
+          matched = False
+          for raw in text.splitlines():
               match = pattern.match(raw.strip())
               if not match:
                   continue
+              matched = True
               path, line, col, code, message = match.groups()
               message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
               print(f'::error file={path},line={line},col={col},title={code}::{message}')
+          if not matched and text.strip():
+              message = text.strip().replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')[:6000]
+              print(f'::error title=TypeScript diagnostics::{message}')
           PY
           exit "$status"
 
