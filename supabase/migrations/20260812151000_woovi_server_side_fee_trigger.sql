@@ -1,7 +1,7 @@
 -- Server-side financial guard. Client values are never authoritative.
--- Current Woovi public-plan defaults: 0.80%, minimum R$0.50, maximum R$5.00.
--- Edge Functions expose equivalent env-configurable values; any future commercial
--- plan change must update this database function in the same release.
+-- Canonical Woovi fee contract: 0.80%, minimum R$0.50, maximum R$5.00.
+-- These values are intentionally fixed in code + SQL for the same release.
+-- Any future commercial-plan change must update both implementations together.
 
 create or replace function private.calculate_pix_processing_fee_cents(_fare_cents bigint)
 returns bigint
