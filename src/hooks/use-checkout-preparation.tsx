@@ -5,6 +5,7 @@ import { usePricing } from "@/hooks/use-pricing";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 import { useRoute } from "@/hooks/use-route";
 import { useWallet } from "@/hooks/use-wallet";
+import { calculatePassengerPaymentBreakdown } from "@/services/payments/processing-fee";
 import type { CheckoutEstimate } from "@/types/payments";
 
 interface CheckoutPreparationContextType {
@@ -63,12 +64,22 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
 
     const baseFare = estimate?.estimatedPrice ?? 0;
     const extrasTotal = estimate?.extrasTotal ?? 0;
+    const discountTotal = 0;
+    const fareAfterDiscount = Math.max(0, baseFare - discountTotal);
+    const paymentBreakdown = calculatePassengerPaymentBreakdown(
+      fareAfterDiscount,
+      selectedMethod,
+    );
 
     return {
       baseFare,
       extrasTotal,
-      discountTotal: 0,
-      finalTotal: baseFare,
+      discountTotal,
+      processingFee: paymentBreakdown.processingFee,
+      passengerTotal: paymentBreakdown.passengerTotal,
+      driverEarning: paymentBreakdown.driverEarning,
+      platformCommission: paymentBreakdown.platformCommission,
+      finalTotal: paymentBreakdown.passengerTotal,
       readiness: blockingReasons.length === 0,
       blockingReasons,
       missingRequirements: blockingReasons.map(
