@@ -29,7 +29,7 @@ const requirementLabels: Record<string, string> = {
 export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { route } = useRoute();
   const { selectedCategory } = useRideCategories();
   const { estimate, status: pricingStatus } = usePricing();
@@ -39,7 +39,10 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
   const checkout = useMemo<CheckoutEstimate>(() => {
     const blockingReasons: string[] = [];
 
-    if (!user || !profile) blockingReasons.push("user_not_authenticated");
+    // A sessão autenticada é o gate do cliente. O perfil operacional é
+    // revalidado autoritativamente pela Edge Function passenger-ride-request.
+    // Não bloquear a UI por uma leitura de perfil atrasada após resume/relogin.
+    if (!user) blockingReasons.push("user_not_authenticated");
     if (!route) blockingReasons.push("route_missing");
     if (!selectedCategory) blockingReasons.push("category_missing");
     if (pricingStatus !== "success" || !estimate || !estimate.available) {
@@ -75,7 +78,6 @@ export const CheckoutPreparationProvider: React.FC<{ children: React.ReactNode }
   }, [
     estimate,
     pricingStatus,
-    profile,
     route,
     selectedCategory,
     selectedMethod,
