@@ -6,17 +6,15 @@ export const FareDetails: React.FC = () => {
   const { selectedEstimate, status, error } = usePricing();
 
   if (status === "loading") return null;
-  if (error) return <div className="px-6 py-2 text-red-500 text-xs">{error}</div>;
+  if (error) return <div className="px-1 py-1 text-[10px] text-red-400">{error}</div>;
   if (!selectedEstimate) return null;
 
   return (
-    <div className="px-6 py-4">
-      <div className="flex justify-between items-center bg-zinc-900/50 p-4 rounded-2xl border border-white/5">
-        <span className="text-sm font-bold text-zinc-400">Valor Estimado</span>
-        <span className="text-xl font-black text-apois-yellow">
-          {formatCurrency(selectedEstimate.estimatedPrice)}
-        </span>
-      </div>
+    <div className="flex items-center justify-between rounded-xl border border-apois-yellow/10 bg-apois-yellow/[0.05] px-3 py-2">
+      <span className="text-[10px] font-bold text-zinc-500">Valor da categoria</span>
+      <span className="text-base font-black tracking-tight text-apois-yellow">
+        {formatCurrency(selectedEstimate.estimatedPrice)}
+      </span>
     </div>
   );
 };
