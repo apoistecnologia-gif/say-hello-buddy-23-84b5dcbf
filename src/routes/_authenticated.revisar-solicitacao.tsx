@@ -1,22 +1,32 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Anchor,
+  ArrowLeft,
+  Bike,
+  Car,
   ChevronRight,
   Clock3,
   Info,
   Loader2,
   MapPin,
+  Package,
+  Pencil,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
+  Truck,
+  WalletCards,
 } from "lucide-react";
-import { ScreenHeader } from "@/components/layout/ScreenHeader";
+import PassengerMap from "@/components/map/PassengerMap";
+import { PaymentMethodList } from "@/components/payments/PaymentMethodSelector";
 import { useCancellationPolicy } from "@/hooks/rides/use-cancellation-policy";
 import { useActiveRide } from "@/hooks/rides/use-active-ride";
 import { useRideRequest } from "@/hooks/rides/use-ride-request";
 import { useCheckoutPreparation } from "@/hooks/use-checkout-preparation";
 import { useDestination } from "@/hooks/use-destination";
+import { useLocation } from "@/hooks/use-location";
 import { usePaymentMethods } from "@/hooks/use-payment-methods";
 import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { usePricing } from "@/hooks/use-pricing";
@@ -40,6 +50,14 @@ const paymentLabels: Record<string, string> = {
   money: "Dinheiro",
   wallet: "Carteira APOIS",
   corporate: "Corporativo",
+};
+
+const categoryDescriptions: Record<string, string> = {
+  carros: "Viagem confortável para o dia a dia",
+  motos: "Agilidade para trajetos urbanos",
+  fretes: "Transporte de volumes e mudanças",
+  guincho: "Assistência para seu veículo",
+  envios: "Entrega rápida de objetos",
 };
 
 const readBoolean = (details: Record<string, unknown>, key: string) => details[key] === true;
@@ -92,12 +110,32 @@ function getServiceSummary(category: string | undefined, details: Record<string,
   return [];
 }
 
+function CategoryArtwork({ code }: { code?: string }) {
+  const Icon =
+    code === "motos"
+      ? Bike
+      : code === "fretes"
+        ? Truck
+        : code === "guincho"
+          ? Anchor
+          : code === "envios"
+            ? Package
+            : Car;
+
+  return (
+    <div className="flex h-[82px] w-[118px] shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-white/[0.07] to-transparent">
+      <Icon className="text-apois-yellow" size={52} strokeWidth={1.35} />
+    </div>
+  );
+}
+
 function RideRequestReviewPage() {
   const navigate = useNavigate();
   const { confirmRide, request } = useRideRequest();
   const { recoverActiveRide } = useActiveRide();
   const { address: pickupAddress, pickupLabel } = usePickupAddress();
   const { destination } = useDestination();
+  const { location } = useLocation();
   const { route, freeze: freezeRoute, unfreeze: unfreezeRoute } = useRoute();
   const { selectedCategory } = useRideCategories();
   const { checkout } = useCheckoutPreparation();
@@ -105,6 +143,7 @@ function RideRequestReviewPage() {
   const { state: walletState, wallet } = useWallet();
   const { orderedStops } = useRideStops();
   const { serviceDetails } = usePricing();
+  const [isPaymentListOpen, setIsPaymentListOpen] = useState(false);
   const {
     policy,
     isLoading: isPolicyLoading,
@@ -186,78 +225,115 @@ function RideRequestReviewPage() {
     ? paymentLabels[selectedMethod] || selectedMethod
     : "Não selecionado";
 
+  const pickupText =
+    pickupAddress ||
+    pickupLabel ||
+    (route
+      ? `Local ${route.origin.lat.toFixed(5)}, ${route.origin.lng.toFixed(5)}`
+      : "Localização indisponível");
+  const destinationText = destination?.formattedAddress || destination?.label || "Destino indisponível";
+
   return (
-    <div className="app-screen min-h-0 bg-apois-black text-white">
-      <ScreenHeader
-        title="Revisar solicitação"
-        subtitle="Confira antes de pedir"
-        onBack={handleBack}
-      />
+    <div className="app-screen min-h-0 bg-black text-white">
+      <header className="app-safe-top app-safe-x shrink-0 bg-black pb-3 pt-3">
+        <div className="grid grid-cols-[44px_1fr_auto] items-center gap-2">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="app-pressable flex h-11 w-11 items-center justify-center rounded-xl text-apois-yellow"
+            aria-label="Voltar"
+          >
+            <ArrowLeft size={26} />
+          </button>
+          <div className="text-center">
+            <h1 className="text-[20px] font-black tracking-tight text-white">Revisar corrida</h1>
+            <p className="mt-0.5 text-[11px] text-zinc-500">Confira os detalhes antes de confirmar</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xl font-black tracking-[-0.06em] text-white">APOIS</p>
+            <p className="text-[7px] font-black uppercase tracking-[0.24em] text-apois-yellow">Vamos juntos</p>
+          </div>
+        </div>
+      </header>
 
-      <div className="app-scroll flex-1 space-y-3 px-4 py-3">
-        <section className="app-surface rounded-2xl p-3.5" aria-label="Trajeto da corrida">
-          <div className="flex gap-3">
-            <div className="flex w-3.5 shrink-0 flex-col items-center py-0.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-apois-success shadow-[0_0_8px_rgba(41,201,111,0.4)]" />
-              <div className="my-0.5 w-px flex-1 bg-zinc-700" />
-              {orderedStops.map((stop) => (
-                <div key={stop.id} className="contents">
-                  <div className="flex h-3.5 w-3.5 items-center justify-center rounded-full border border-apois-yellow/50 bg-zinc-900 text-[7px] font-black text-apois-yellow">
-                    {stop.order + 1}
+      <div className="app-scroll flex-1 space-y-3 px-3 pb-5">
+        <section className="relative h-[214px] overflow-hidden rounded-2xl border border-white/10 bg-[#111317] shadow-xl">
+          <PassengerMap
+            origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
+            destination={destination ? { lat: destination.latitude, lng: destination.longitude } : undefined}
+            encodedPolyline={route?.encodedPolyline}
+            driverLocation={undefined}
+            isStatic
+            compact
+          />
+          <div className="absolute inset-y-0 left-0 z-20 w-[54%] bg-gradient-to-r from-black via-black/92 to-transparent p-4">
+            <div className="flex h-full gap-3">
+              <div className="flex w-4 shrink-0 flex-col items-center py-1">
+                <div className="h-3 w-3 rounded-full border-2 border-apois-yellow bg-black" />
+                <div className="my-1 w-px flex-1 border-l border-dashed border-zinc-500" />
+                {orderedStops.map((stop, index) => (
+                  <div key={stop.id} className="contents">
+                    <div className="flex h-4 w-4 items-center justify-center rounded-full border border-apois-yellow bg-black text-[8px] font-black text-apois-yellow">
+                      {index + 1}
+                    </div>
+                    <div className="my-1 w-px flex-1 border-l border-dashed border-zinc-500" />
                   </div>
-                  <div className="my-0.5 w-px flex-1 bg-zinc-700" />
-                </div>
-              ))}
-              <div className="h-2.5 w-2.5 rounded-sm bg-apois-yellow shadow-[0_0_8px_rgba(255,184,0,0.35)]" />
+                ))}
+                <div className="h-3 w-3 rounded-full border-2 border-white bg-black" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-3">
+                <AddressBlock label="Origem" value={pickupText} />
+                {orderedStops.map((stop, index) => (
+                  <AddressBlock
+                    key={stop.id}
+                    label={`Parada ${index + 1}`}
+                    value={stop.formattedAddress || stop.label}
+                  />
+                ))}
+                <AddressBlock label="Destino" value={destinationText} />
+              </div>
             </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleBack}
+            className="app-pressable absolute bottom-3 right-3 z-30 flex min-h-10 items-center gap-2 rounded-xl border border-apois-yellow/35 bg-black/90 px-3 text-[11px] font-black text-apois-yellow shadow-xl"
+          >
+            <Pencil size={14} />
+            Alterar rota
+          </button>
+        </section>
 
-            <div className="min-w-0 flex-1 space-y-2.5">
-              <AddressBlock
-                label="Embarque"
-                value={
-                  pickupAddress ||
-                  pickupLabel ||
-                  (route
-                    ? `Local ${route.origin.lat.toFixed(5)}, ${route.origin.lng.toFixed(5)}`
-                    : "Localização indisponível")
-                }
-              />
+        <section className="grid grid-cols-3 rounded-2xl border border-white/10 bg-[#0e1014] p-2 shadow-lg">
+          <Metric label="Distância" value={route ? `${(route.distanceMeters / 1000).toFixed(1).replace(".", ",")} km` : "—"} icon="route" />
+          <Metric label="Tempo estimado" value={route ? `${Math.max(1, Math.ceil(route.durationSeconds / 60))} min` : "—"} icon="time" />
+          <Metric label="Preço estimado" value={checkout.finalTotal > 0 ? formatCurrency(checkout.finalTotal) : "—"} icon="price" />
+        </section>
 
-              {orderedStops.map((stop, index) => (
-                <AddressBlock
-                  key={stop.id}
-                  label={`Parada ${index + 1}`}
-                  value={stop.formattedAddress || stop.label}
-                />
-              ))}
-
-              <AddressBlock
-                label="Destino"
-                value={destination?.formattedAddress || destination?.label || "Destino indisponível"}
-              />
+        <section>
+          <h2 className="mb-2 px-1 text-[14px] font-black text-white">Categoria selecionada</h2>
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0e1014] p-3">
+            <CategoryArtwork code={selectedCategory?.code} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[17px] font-black text-white">{selectedCategory?.label || selectedCategory?.name || "Categoria"}</p>
+              <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-zinc-500">
+                {categoryDescriptions[selectedCategory?.code || ""] || selectedCategory?.description || "Serviço selecionado"}
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={handleBack}
+              className="app-pressable min-h-10 rounded-xl border border-apois-yellow/40 px-3 text-[11px] font-black text-apois-yellow"
+            >
+              Alterar
+            </button>
           </div>
         </section>
 
-        <section className="grid grid-cols-4 gap-2 max-[390px]:grid-cols-2">
-          <SummaryCard label="Categoria" value={selectedCategory?.label || "Não selecionada"} highlight />
-          <SummaryCard label="Pagamento" value={paymentLabel} />
-          <SummaryCard
-            label="Distância"
-            value={route ? `${(route.distanceMeters / 1000).toFixed(1)} km` : "--"}
-          />
-          <SummaryCard
-            label="Tempo"
-            value={route ? `${Math.max(1, Math.ceil(route.durationSeconds / 60))} min` : "--"}
-          />
-        </section>
-
         {serviceSummary.length > 0 ? (
-          <section className="app-surface rounded-2xl p-3.5">
-            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-500">
-              Detalhes do serviço
-            </p>
-            <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2">
+          <section className="rounded-2xl border border-white/10 bg-[#0e1014] p-3.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.15em] text-apois-yellow">Detalhes do serviço</p>
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
               {serviceSummary.map(([label, value]) => (
                 <div key={label} className="min-w-0">
                   <p className="text-[9px] font-bold uppercase tracking-wide text-zinc-600">{label}</p>
@@ -268,27 +344,61 @@ function RideRequestReviewPage() {
           </section>
         ) : null}
 
-        <section className="app-surface rounded-2xl p-3.5">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                Estimativa total
-              </p>
-              <p className="mt-0.5 text-2xl font-black leading-none tracking-tight text-white">
-                {formatCurrency(checkout.finalTotal)}
-              </p>
+        <section>
+          <h2 className="mb-2 px-1 text-[14px] font-black text-white">Forma de pagamento</h2>
+          <button
+            type="button"
+            onClick={() => setIsPaymentListOpen(true)}
+            className="app-pressable flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-[#0e1014] p-3 text-left"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-apois-yellow">
+              <WalletCards size={22} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-black text-white">{paymentLabel}</span>
+              <span className="mt-0.5 block text-[10px] text-zinc-500">Método selecionado para esta corrida</span>
+            </span>
+            <span className="text-[11px] font-black text-apois-yellow">Alterar</span>
+            <ChevronRight size={18} className="text-zinc-500" />
+          </button>
+        </section>
+
+        <section>
+          <h2 className="mb-2 px-1 text-[14px] font-black text-white">Resumo do pagamento</h2>
+          <div className="rounded-2xl border border-white/10 bg-[#0e1014] p-4">
+            <PaymentRow label="Preço estimado" value={formatCurrency(checkout.baseFare)} />
+            {checkout.extrasTotal > 0 ? (
+              <PaymentRow label="Adicionais informados" value={formatCurrency(checkout.extrasTotal)} />
+            ) : null}
+            {checkout.discountTotal > 0 ? (
+              <PaymentRow label="Desconto" value={`- ${formatCurrency(checkout.discountTotal)}`} positive />
+            ) : null}
+            <div className="my-3 h-px bg-white/8" />
+            <div className="flex items-center justify-between">
+              <span className="text-[16px] font-black text-white">Total</span>
+              <span className="text-[20px] font-black text-apois-yellow">{formatCurrency(checkout.finalTotal)}</span>
             </div>
-            <div className="shrink-0 rounded-xl border border-apois-yellow/15 bg-apois-yellow/8 px-2.5 py-1.5 text-right">
-              <p className="text-[9px] font-black uppercase text-apois-yellow">Validado</p>
-              <p className="mt-0.5 text-[8px] text-zinc-500">pelo servidor</p>
+            <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/7 bg-black/30 px-3 py-2">
+              <Info className="mt-0.5 shrink-0 text-zinc-500" size={14} />
+              <p className="text-[9px] leading-4 text-zinc-500">
+                A estimativa usa a rota, as paradas e os detalhes informados. O servidor valida o valor ao solicitar a corrida.
+              </p>
             </div>
           </div>
+        </section>
 
-          <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-white/7 bg-black/30 px-2.5 py-2">
-            <Info className="mt-0.5 shrink-0 text-zinc-500" size={14} />
-            <p className="line-clamp-2 text-[9px] leading-4 text-zinc-400">
-              A estimativa considera rota, paradas e detalhes informados. O valor é validado pelo servidor ao solicitar.
-            </p>
+        <section className="rounded-2xl border border-apois-yellow/25 bg-apois-yellow/[0.04] p-4">
+          <div className="flex items-center gap-3">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-apois-yellow/25 bg-apois-yellow/10 text-apois-yellow">
+              <ShieldCheck size={26} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-black text-apois-yellow">Segurança da corrida</p>
+              <p className="mt-1 text-[10px] leading-4 text-zinc-400">
+                Os recursos de segurança do APOIS continuam disponíveis durante o acompanhamento da viagem.
+              </p>
+            </div>
+            <ChevronRight size={20} className="text-zinc-600" />
           </div>
         </section>
 
@@ -297,7 +407,7 @@ function RideRequestReviewPage() {
             "rounded-2xl border p-3.5",
             policyError
               ? "border-apois-danger/25 bg-apois-danger/10"
-              : "border-apois-success/20 bg-apois-success/8",
+              : "border-white/10 bg-[#0e1014]",
           )}
         >
           <div className="flex items-start gap-2.5">
@@ -306,7 +416,7 @@ function RideRequestReviewPage() {
             ) : policyError ? (
               <AlertTriangle className="mt-0.5 shrink-0 text-apois-danger" size={18} />
             ) : (
-              <ShieldCheck className="mt-0.5 shrink-0 text-apois-success" size={18} />
+              <ShieldCheck className="mt-0.5 shrink-0 text-apois-yellow" size={18} />
             )}
             <div className="min-w-0 flex-1">
               <h2 className="text-[12px] font-black leading-4 text-white">Regra de cancelamento</h2>
@@ -389,7 +499,7 @@ function RideRequestReviewPage() {
         ) : null}
       </div>
 
-      <footer className="app-safe-bottom shrink-0 border-t border-white/7 bg-apois-black/96 px-4 pb-2.5 pt-2.5 backdrop-blur-xl">
+      <footer className="app-safe-bottom shrink-0 bg-black px-3 pb-2.5 pt-2">
         <button
           type="button"
           onClick={
@@ -399,7 +509,7 @@ function RideRequestReviewPage() {
           }
           disabled={walletState !== "blocked" && !canSubmit}
           className={cn(
-            "app-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-xl text-base font-black",
+            "app-pressable flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl text-[17px] font-black shadow-lg",
             walletState === "blocked"
               ? "bg-white text-black"
               : canSubmit
@@ -409,19 +519,25 @@ function RideRequestReviewPage() {
         >
           {request.isSubmitting ? (
             <>
-              <Loader2 className="animate-spin" size={19} />
+              <Loader2 className="animate-spin" size={20} />
               Validando e solicitando...
             </>
           ) : walletState === "blocked" ? (
             "Regularizar pendência"
           ) : (
             <>
-              Solicitar corrida
-              <ChevronRight size={19} strokeWidth={3} />
+              Confirmar corrida
+              <ChevronRight size={21} strokeWidth={3} />
             </>
           )}
         </button>
+        <div className="mt-2 flex items-center justify-center gap-1.5 text-[9px] text-zinc-600">
+          <ShieldCheck size={11} className="text-apois-yellow" />
+          Seus dados e pagamentos são protegidos
+        </div>
       </footer>
+
+      <PaymentMethodList isOpen={isPaymentListOpen} onClose={() => setIsPaymentListOpen(false)} />
     </div>
   );
 }
@@ -429,30 +545,30 @@ function RideRequestReviewPage() {
 function AddressBlock({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-      <p className="mt-0.5 line-clamp-1 text-[12px] font-bold leading-4 text-white">{value}</p>
+      <p className="text-[10px] font-black text-apois-yellow">{label}</p>
+      <p className="mt-0.5 line-clamp-2 text-[12px] font-bold leading-4 text-white">{value}</p>
     </div>
   );
 }
 
-function SummaryCard({
-  label,
-  value,
-  highlight = false,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
+function Metric({ label, value, icon }: { label: string; value: string; icon: "route" | "time" | "price" }) {
+  const Icon = icon === "time" ? Clock3 : icon === "price" ? WalletCards : MapPin;
   return (
-    <div className="app-surface min-w-0 rounded-xl px-2.5 py-2.5">
-      <div className="flex items-center gap-1 text-zinc-500">
-        <MapPin size={9} />
-        <p className="truncate text-[8px] font-black uppercase tracking-[0.1em]">{label}</p>
+    <div className="flex min-w-0 items-center justify-center gap-2 border-r border-white/8 px-2 py-2 last:border-r-0">
+      <Icon size={20} className="shrink-0 text-apois-yellow" />
+      <div className="min-w-0">
+        <p className="truncate text-[9px] text-zinc-500">{label}</p>
+        <p className="mt-0.5 truncate text-[13px] font-black text-white">{value}</p>
       </div>
-      <p className={cn("mt-1 truncate text-[11px] font-black", highlight ? "text-apois-yellow" : "text-white")}>
-        {value}
-      </p>
+    </div>
+  );
+}
+
+function PaymentRow({ label, value, positive = false }: { label: string; value: string; positive?: boolean }) {
+  return (
+    <div className="mb-2.5 flex items-center justify-between gap-3 last:mb-0">
+      <span className={cn("text-[11px]", positive ? "text-emerald-400" : "text-zinc-400")}>{label}</span>
+      <span className={cn("text-[12px] font-black", positive ? "text-emerald-400" : "text-white")}>{value}</span>
     </div>
   );
 }
