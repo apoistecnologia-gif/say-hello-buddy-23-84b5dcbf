@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Loader2, QrCode, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,6 +95,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
   const [needsCpf, setNeedsCpf] = useState(false);
   const [cpf, setCpf] = useState("");
   const [savingCpf, setSavingCpf] = useState(false);
+  const autoLoadedRideRef = useRef<string | null>(null);
 
   const expired = useMemo(() => {
     const status = normalizePaymentStatus(checkout?.status);
@@ -148,8 +149,10 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
   }, [loading, paid, rideId]);
 
   useEffect(() => {
+    if (autoLoadedRideRef.current === rideId) return;
+    autoLoadedRideRef.current = rideId;
     void generate();
-  }, [generate]);
+  }, [generate, rideId]);
 
   const saveBillingCpf = async () => {
     if (savingCpf) return;
