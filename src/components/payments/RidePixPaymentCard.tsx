@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Copy, Loader2, QrCode, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 interface RidePixPaymentCardProps {
   rideId: string;
+  officialAmount?: number;
 }
 
 type PixCheckout = {
@@ -48,20 +49,44 @@ function isValidCpf(value: string): boolean {
 
 function readableError(code: string | undefined) {
   switch (code) {
-    case "driver_asaas_account_not_ready":
-      return "O recebimento Pix deste motorista ainda não foi liberado pelo provedor.";
     case "passenger_billing_identity_incomplete":
       return "Precisamos confirmar seu CPF de cobrança antes de gerar o Pix.";
-    case "ride_settlement_not_found":
-      return "O fechamento financeiro da corrida ainda está sendo processado. Tente novamente em instantes.";
     case "ride_already_paid":
-      return "Esta corrida já consta como paga.";
+      return "O pagamento desta corrida já foi confirmado pelo provedor.";
+    case "ride_not_awaiting_payment":
+      return "Esta corrida já avançou para a próxima etapa.";
+    case "ride_not_found":
+      return "Não foi possível localizar esta corrida para cobrança.";
     default:
-      return "Não foi possível gerar o Pix agora. Tente novamente.";
+      return "Não foi possível gerar ou consultar o Pix agora. Tente novamente.";
   }
 }
 
-export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
+function normalizePaymentStatus(value: string | undefined): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function isBackendPaidStatus(value: string | undefined): boolean {
+  return ["received", "confirmed", "paid"].includes(normalizePaymentStatus(value));
+}
+
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+function formatExpiration(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCardProps) {
   const [checkout, setCheckout] = useState<PixCheckout | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -71,13 +96,27 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
   const [cpf, setCpf] = useState("");
   const [savingCpf, setSavingCpf] = useState(false);
 
-  const generate = async () => {
+  const expired = useMemo(() => {
+    const status = normalizePaymentStatus(checkout?.status);
+    if (["expired", "overdue"].includes(status)) return true;
+    if (!checkout?.pixExpirationAt) return false;
+    const expiration = Date.parse(checkout.pixExpirationAt);
+    return Number.isFinite(expiration) && expiration <= Date.now();
+  }, [checkout?.pixExpirationAt, checkout?.status]);
+
+  const amount =
+    typeof checkout?.amountCents === "number" && Number.isFinite(checkout.amountCents)
+      ? checkout.amountCents / 100
+      : officialAmount;
+  const expirationLabel = formatExpiration(checkout?.pixExpirationAt);
+
+  const generate = useCallback(async () => {
     if (loading || paid) return;
     setLoading(true);
     setError(null);
     try {
-      // A Edge Function é idempotente por rideId: se a cobrança já existe,
-      // devolve a cobrança real existente em vez de criar uma duplicata.
+      // A Edge Function é a única autoridade da cobrança. Esta chamada também
+      // recupera a tentativa ativa já existente, evitando Pix duplicado ao reabrir o app.
       const { data, error: invokeError } = await supabase.functions.invoke<PixCheckout>(
         "asaas-create-ride-pix",
         { body: { rideId } },
@@ -89,21 +128,28 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
         setError(readableError(data?.error));
         return;
       }
+
       setNeedsCpf(false);
       setCheckout(data);
-      if (["received", "confirmed"].includes(String(data.status ?? ""))) {
+      if (isBackendPaidStatus(data.status)) {
         setPaid(true);
-        toast.success("Pagamento Pix confirmado.");
+        toast.success("Pagamento Pix confirmado pelo Asaas.");
         return;
       }
-      if (data.pixPayload) toast.success("Pix da corrida pronto para pagamento.");
+      if (data.pixPayload && !["expired", "overdue"].includes(normalizePaymentStatus(data.status))) {
+        toast.success(data.reused ? "Pix pendente recuperado." : "Pix pronto para pagamento.");
+      }
     } catch (caughtError) {
-      console.error("[RidePixPaymentCard] Pix generation failed", caughtError);
+      console.error("[RidePixPaymentCard] Pix lookup failed", caughtError);
       setError("Não foi possível gerar ou consultar o Pix agora. Tente novamente.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [loading, paid, rideId]);
+
+  useEffect(() => {
+    void generate();
+  }, [generate]);
 
   const saveBillingCpf = async () => {
     if (savingCpf) return;
@@ -133,7 +179,7 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
   };
 
   const copy = async () => {
-    if (!checkout?.pixPayload) return;
+    if (!checkout?.pixPayload || expired) return;
     try {
       await navigator.clipboard.writeText(checkout.pixPayload);
       setCopied(true);
@@ -153,7 +199,9 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
           </span>
           <div>
             <p className="text-sm font-black text-white">Pix confirmado</p>
-            <p className="mt-1 text-[11px] text-zinc-400">O pagamento foi confirmado pelo fluxo oficial do Asaas.</p>
+            <p className="mt-1 text-[11px] text-zinc-400">
+              O pagamento foi confirmado pelo backend após o retorno oficial do Asaas.
+            </p>
           </div>
         </div>
       </section>
@@ -167,12 +215,20 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
           <QrCode size={22} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-white">Pagamento por Pix</p>
+          <p className="text-sm font-black text-white">Pague por Pix para chamar o motorista</p>
           <p className="mt-1 text-[11px] leading-4 text-zinc-400">
-            O Pix usa o valor real do fechamento da corrida e o processamento oficial do Asaas.
+            A corrida só entra na busca de motorista depois que o Asaas confirmar o pagamento ao backend.
           </p>
         </div>
       </div>
+
+      {typeof amount === "number" && Number.isFinite(amount) ? (
+        <div className="mt-4 rounded-2xl border border-white/8 bg-black/35 p-3">
+          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">Valor oficial da corrida</p>
+          <p className="mt-1 text-2xl font-black text-apois-yellow">{formatCurrency(amount)}</p>
+          <p className="mt-1 text-[10px] leading-4 text-zinc-500">Valor calculado e persistido pelo backend.</p>
+        </div>
+      ) : null}
 
       {needsCpf ? (
         <div className="mt-4 rounded-2xl border border-apois-yellow/20 bg-black/30 p-3">
@@ -201,7 +257,7 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
         </div>
       ) : null}
 
-      {checkout?.pixQrCodeBase64 ? (
+      {checkout?.pixQrCodeBase64 && !expired ? (
         <div className="mx-auto mt-4 w-fit rounded-2xl bg-white p-3">
           <img
             src={`data:image/png;base64,${checkout.pixQrCodeBase64}`}
@@ -211,9 +267,12 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
         </div>
       ) : null}
 
-      {checkout?.pixPayload ? (
+      {checkout?.pixPayload && !expired ? (
         <>
-          <div className="mt-4 rounded-2xl border border-white/8 bg-black/35 p-3">
+          {expirationLabel ? (
+            <p className="mt-3 text-center text-[10px] font-bold text-zinc-400">Válido até {expirationLabel}</p>
+          ) : null}
+          <div className="mt-3 rounded-2xl border border-white/8 bg-black/35 p-3">
             <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">Pix copia e cola</p>
             <p className="mt-2 max-h-20 overflow-hidden break-all font-mono text-[10px] leading-4 text-zinc-300">
               {checkout.pixPayload}
@@ -237,7 +296,27 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
             Consultar pagamento
           </button>
         </>
-      ) : !needsCpf ? (
+      ) : null}
+
+      {expired ? (
+        <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/8 p-3">
+          <p className="text-sm font-black text-amber-300">Pix expirado</p>
+          <p className="mt-1 text-[11px] leading-4 text-zinc-400">
+            A corrida continua sem despacho. Gere uma nova tentativa segura para continuar.
+          </p>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void generate()}
+            className="app-pressable mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-xs font-black text-black disabled:opacity-60"
+          >
+            {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+            Gerar novo Pix
+          </button>
+        </div>
+      ) : null}
+
+      {!checkout?.pixPayload && !needsCpf && !expired ? (
         <button
           type="button"
           disabled={loading}
@@ -245,7 +324,7 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
           className="app-pressable mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-sm font-black text-black disabled:opacity-60"
         >
           {loading ? <Loader2 size={17} className="animate-spin" /> : <QrCode size={17} />}
-          {loading ? "Consultando Pix..." : "Gerar / consultar Pix da corrida"}
+          {loading ? "Consultando Pix..." : "Gerar / recuperar Pix"}
         </button>
       ) : null}
 
@@ -253,7 +332,7 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
         <div className="mt-3 flex items-start justify-between gap-3 rounded-2xl border border-red-400/20 bg-red-400/8 p-3">
           <p className="text-[11px] leading-4 text-red-300">{error}</p>
           {!needsCpf ? (
-            <button type="button" onClick={() => void generate()} className="shrink-0 text-apois-yellow" aria-label="Tentar gerar Pix novamente">
+            <button type="button" onClick={() => void generate()} className="shrink-0 text-apois-yellow" aria-label="Tentar consultar Pix novamente">
               <RefreshCw size={16} />
             </button>
           ) : null}
