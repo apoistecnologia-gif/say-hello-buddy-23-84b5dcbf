@@ -116,8 +116,6 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
     setLoading(true);
     setError(null);
     try {
-      // A Edge Function é a única autoridade da cobrança. "recover" nunca cria
-      // uma segunda tentativa para um Pix expirado; somente "retry" explícito cria.
       const { data, error: invokeError } = await supabase.functions.invoke<PixCheckout>(
         "asaas-create-ride-pix",
         { body: { rideId, action } },
@@ -162,20 +160,26 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
     }
     setSavingCpf(true);
     try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData.user) throw authError ?? new Error("not_authenticated");
-      const { error: updateError } = await supabase
-        .from("users")
-        .update({ cpf: cpfDigits(cpf), updated_at: new Date().toISOString() })
-        .eq("auth_user_id", authData.user.id);
-      if (updateError) throw updateError;
+      const { error: updateError } = await supabase.rpc("set_passenger_billing_cpf", {
+        _cpf: cpfDigits(cpf),
+      });
+      if (updateError) {
+        if (updateError.message.includes("cpf_change_requires_support")) {
+          throw new Error("cpf_change_requires_support");
+        }
+        throw updateError;
+      }
       setNeedsCpf(false);
       setError(null);
       toast.success("CPF de cobrança salvo com segurança.");
       await generate("recover");
     } catch (caughtError) {
       console.error("[RidePixPaymentCard] billing CPF update failed", caughtError);
-      toast.error("Não foi possível salvar o CPF agora.");
+      if (caughtError instanceof Error && caughtError.message.includes("cpf_change_requires_support")) {
+        toast.error("Para alterar um CPF já cadastrado, fale com o suporte.");
+      } else {
+        toast.error("Não foi possível salvar o CPF agora.");
+      }
     } finally {
       setSavingCpf(false);
     }
