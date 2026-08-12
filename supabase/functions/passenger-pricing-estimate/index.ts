@@ -1,6 +1,12 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { calculateServerFare } from "../_shared/pricing.ts";
+import {
+  brlFromCents,
+  calculateProcessingFeeCents,
+  centsFromBrl,
+  processingFeePolicyFromSettings,
+} from "../_shared/payment-processing.ts";
 
 type PricingInput = {
   distanceMeters?: unknown;
@@ -39,6 +45,13 @@ const TARIFF_COLUMNS = [
   "valid_from",
   "valid_to",
 ].join(",");
+
+const PROCESSING_SETTING_KEYS = [
+  "finance.ride_processing_fee_enabled",
+  "finance.ride_processing_fee_rate_bps",
+  "finance.ride_processing_fee_min_cents",
+  "finance.ride_processing_fee_max_cents",
+];
 
 function json(body: unknown, status: number, req: Request): Response {
   return new Response(JSON.stringify(body), {
@@ -88,6 +101,14 @@ Deno.serve(async (req) => {
     const serviceDetails = sanitizeRecord(input.serviceDetails);
     const city = typeof input.city === "string" && input.city.trim() ? input.city.trim() : "default";
 
+    const { data: feeSettingRows, error: feeSettingError } = await admin
+      .from("app_settings")
+      .select("key,value")
+      .in("key", PROCESSING_SETTING_KEYS);
+    if (feeSettingError) return json({ error: "processing_fee_settings_failed" }, 500, req);
+    const feeSettings = Object.fromEntries((feeSettingRows ?? []).map((row) => [row.key, row.value]));
+    const processingFeePolicy = processingFeePolicyFromSettings(feeSettings);
+
     let categoriesQuery = admin
       .from("ride_categories")
       .select("id,code,name")
@@ -131,6 +152,8 @@ Deno.serve(async (req) => {
           originalPrice: 0,
           minimumPriceApplied: false,
           pricingVersion: "canonical-v2",
+          pixProcessingFee: 0,
+          pixPassengerTotal: 0,
           unavailableReason: "Categoria sem tarifa ativa para esta região.",
         };
       }
@@ -168,6 +191,9 @@ Deno.serve(async (req) => {
           stopCount,
           serviceDetails,
         });
+        const fareCents = centsFromBrl(breakdown.total);
+        const pixProcessingFeeCents = calculateProcessingFeeCents(fareCents, processingFeePolicy);
+        const pixPassengerTotalCents = fareCents + pixProcessingFeeCents;
 
         return {
           categoryId: category.id,
@@ -180,6 +206,8 @@ Deno.serve(async (req) => {
           pricingVersion: "canonical-v2",
           extrasTotal: Object.values(breakdown.extras).reduce((sum, value) => sum + value, 0),
           base_fare: breakdown.base,
+          pixProcessingFee: brlFromCents(pixProcessingFeeCents),
+          pixPassengerTotal: brlFromCents(pixPassengerTotalCents),
         };
       } catch (error) {
         return {
@@ -190,6 +218,8 @@ Deno.serve(async (req) => {
           originalPrice: 0,
           minimumPriceApplied: false,
           pricingVersion: "canonical-v2",
+          pixProcessingFee: 0,
+          pixPassengerTotal: 0,
           unavailableReason: error instanceof Error ? error.message : "Tarifa indisponível.",
         };
       }
