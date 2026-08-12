@@ -13,8 +13,9 @@ const PAYMENT_METHOD_CODES: PaymentMethodCode[] = [
   "wallet",
 ];
 
-const ELECTRONIC_RIDE_METHODS = new Set<PaymentMethodCode>(["pix", "credit", "debit"]);
 const ELECTRONIC_RIDE_GATE_KEY = "finance.ride_electronic_payments_enabled";
+const HOMOLOGATED_ELECTRONIC_METHODS = new Set<PaymentMethodCode>(["pix"]);
+const NOT_YET_HOMOLOGATED_METHODS = new Set<PaymentMethodCode>(["credit", "debit"]);
 
 function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
   const normalized = code === "credit_card" ? "credit" : code === "debit_card" ? "debit" : code;
@@ -41,9 +42,6 @@ class PaymentService {
       .maybeSingle();
 
     if (error) {
-      // Fail-closed: sem confirmação explícita do backend, o Passageiro não
-      // recebe uma forma eletrônica que ainda não possui checkout/webhook de
-      // corrida homologado.
       console.warn("[PaymentService] Electronic ride payment gate unavailable", {
         code: error.code,
         message: error.message,
@@ -74,7 +72,13 @@ class PaymentService {
       if (!code) return [];
 
       const isActive = method.is_active === true;
-      const providerReady = !ELECTRONIC_RIDE_METHODS.has(code) || electronicEnabled;
+      const isElectronicHomologated = HOMOLOGATED_ELECTRONIC_METHODS.has(code);
+      const isElectronicPending = NOT_YET_HOMOLOGATED_METHODS.has(code);
+      const providerReady = isElectronicPending
+        ? false
+        : isElectronicHomologated
+          ? electronicEnabled
+          : true;
       const enabled = isActive && providerReady;
 
       return [
@@ -84,9 +88,11 @@ class PaymentService {
           name: method.name,
           label: method.name,
           description:
-            !providerReady && ELECTRONIC_RIDE_METHODS.has(code)
-              ? "Indisponível até a confirmação do provedor de pagamento da corrida."
-              : method.description,
+            isElectronicPending
+              ? "Indisponível até a homologação da integração de cartão."
+              : isElectronicHomologated && !providerReady
+                ? "Indisponível até a confirmação do provedor Pix da corrida."
+                : method.description,
           icon: method.icon,
           isActive,
           enabled,
