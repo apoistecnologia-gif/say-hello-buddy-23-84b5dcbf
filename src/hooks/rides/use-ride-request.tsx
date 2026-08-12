@@ -260,7 +260,6 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const execute = async (): Promise<RideRequestResponse | null> => {
       if (
         !user ||
-        !profile ||
         !selectedCategory ||
         !route ||
         !destination ||
@@ -354,7 +353,7 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
           requestKey: request.requestKey,
         });
 
-        if (isUnknownSubmissionOutcome(error)) {
+        if (isUnknownSubmissionOutcome(error) && profile) {
           const recovered = await recoverRideCreatedWithoutResponse(profile.id);
           if (recovered) {
             setRequest((previous) => ({
