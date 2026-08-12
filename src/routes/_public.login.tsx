@@ -83,20 +83,20 @@ function LoginPage() {
   };
 
   return (
-    <PublicAuthShell contentClassName="justify-start">
-      <div className="flex w-full flex-col pb-4">
-        <AppBrand subtitle="Sua corrida, do seu jeito." />
+    <PublicAuthShell contentClassName="justify-start !py-5">
+      <div className="flex w-full flex-col pb-3">
+        <AppBrand compact subtitle="Sua corrida, do seu jeito." />
 
-        <section className="app-surface mt-7 rounded-3xl p-5 sm:p-6" aria-labelledby="login-title">
-          <div className="mb-6">
+        <section className="app-surface mt-5 rounded-3xl p-5" aria-labelledby="login-title">
+          <div className="mb-5">
             <p className="text-xs font-black uppercase tracking-[0.24em] text-apois-yellow">Passageiro</p>
             <h1 id="login-title" className="mt-2 text-2xl font-black tracking-tight text-white">
               Entre na sua conta
             </h1>
-            <p className="mt-2 text-sm leading-6 text-zinc-400">Use seu e-mail e senha para continuar.</p>
+            <p className="mt-2 text-sm leading-5 text-zinc-400">Use seu e-mail e senha para continuar.</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4" noValidate>
+          <form onSubmit={handleLogin} className="space-y-3.5" noValidate>
             <div className="space-y-2">
               <label htmlFor="login-email" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
                 E-mail
@@ -113,7 +113,7 @@ function LoginPage() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   disabled={loading}
-                  className="h-14 w-full rounded-2xl border-white/10 bg-black/45 pl-12 text-white placeholder:text-zinc-600 focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow"
+                  className="h-13 w-full rounded-2xl border-white/10 bg-black/45 pl-12 text-white placeholder:text-zinc-600 focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow"
                 />
               </div>
             </div>
@@ -132,7 +132,7 @@ function LoginPage() {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   disabled={loading}
-                  className="h-14 w-full rounded-2xl border-white/10 bg-black/45 pl-12 pr-12 text-white placeholder:text-zinc-600 focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow"
+                  className="h-13 w-full rounded-2xl border-white/10 bg-black/45 pl-12 pr-12 text-white placeholder:text-zinc-600 focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow"
                 />
                 <button
                   type="button"
@@ -146,7 +146,7 @@ function LoginPage() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-1">
+            <div className="flex justify-end">
               <Link
                 to="/recuperar-senha"
                 className="app-pressable rounded-lg px-1 py-2 text-sm font-bold text-apois-yellow hover:text-yellow-300"
@@ -155,17 +155,17 @@ function LoginPage() {
               </Link>
             </div>
 
-            <PrimaryButton type="submit" loading={loading} loadingLabel="Entrando..." className="mt-2">
+            <PrimaryButton type="submit" loading={loading} loadingLabel="Entrando...">
               Entrar
             </PrimaryButton>
           </form>
         </section>
 
-        <div className="mt-6 text-center">
+        <div className="mt-4 text-center">
           <p className="text-sm text-zinc-500">Ainda não tem uma conta?</p>
           <Link
             to="/cadastro"
-            className="app-pressable mt-2 inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-black uppercase tracking-[0.16em] text-apois-yellow"
+            className="app-pressable mt-1 inline-flex min-h-10 items-center justify-center rounded-xl px-4 text-sm font-black uppercase tracking-[0.16em] text-apois-yellow"
           >
             Criar minha conta
           </Link>
