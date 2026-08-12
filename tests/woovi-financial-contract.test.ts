@@ -11,6 +11,18 @@ describe("Woovi financial safety contracts", () => {
     expect(migration).toContain("check (provider in ('asaas', 'woovi'))");
   });
 
+  test("keeps the processing-fee formula canonical instead of secret-configurable", () => {
+    const shared = source("supabase/functions/_shared/processing-fee.ts");
+    const migration = source("supabase/migrations/20260812151000_woovi_server_side_fee_trigger.sql");
+    expect(shared).not.toContain("Deno.env.get(\"PIX_PROCESSING_");
+    expect(shared).toContain("percentBps: 80");
+    expect(shared).toContain("minCents: 50");
+    expect(shared).toContain("maxCents: 500");
+    expect(migration).toContain("* 80) / 10000");
+    expect(migration).toContain("greatest(50::bigint");
+    expect(migration).toContain("least(500::bigint");
+  });
+
   test("never reclaims an ambiguous processing driver credit", () => {
     const migration = source("supabase/migrations/20260812170000_harden_woovi_provider_credit_claim.sql");
     expect(migration).toContain("c.status = 'pending'");
@@ -33,6 +45,14 @@ describe("Woovi financial safety contracts", () => {
     expect(payout).toContain("reconciliationRequired: true");
     expect(payout).toContain("Never refund");
     expect(payout).toContain("provider_timeout_reconciliation_required");
+  });
+
+  test("serializes payout reservations and enforces idempotency in the database", () => {
+    const migration = source("supabase/migrations/20260812170500_harden_driver_withdrawal_idempotency.sql");
+    expect(migration).toContain("driver_withdrawals_driver_idempotency_uidx");
+    expect(migration).toContain("on public.driver_withdrawals(driver_id, idempotency_key)");
+    expect(migration).toContain("for update");
+    expect(migration).toContain("w.idempotency_key=_idempotency_key");
   });
 
   test("persists the actual provider fee from a completed Woovi charge", () => {
