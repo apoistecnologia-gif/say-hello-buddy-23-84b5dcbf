@@ -91,6 +91,16 @@ jobs:
       - name: Check Supabase push function
         run: deno check --node-modules-dir=auto supabase/functions/send-ride-push/index.ts
 
+      - name: Check Woovi Edge Functions
+        run: |
+          deno check --node-modules-dir=auto supabase/functions/woovi-create-ride-pix/index.ts
+          deno check --node-modules-dir=auto supabase/functions/woovi-webhook/index.ts
+          deno check --node-modules-dir=auto supabase/functions/woovi-payout-webhook/index.ts
+          deno check --node-modules-dir=auto supabase/functions/driver-woovi-credit/index.ts
+          deno check --node-modules-dir=auto supabase/functions/driver-woovi-payment-account/index.ts
+          deno check --node-modules-dir=auto supabase/functions/request-driver-payout/index.ts
+          deno check --node-modules-dir=auto supabase/functions/driver-ride-action/index.ts
+
       - name: Validate reserved next-ride contract
         run: |
           grep -F 'queued_after_ride_id' src/types/rides/active-ride.ts
@@ -134,7 +144,8 @@ jobs:
           grep -F 'walletState === "blocked"' src/routes/_authenticated.revisar-solicitacao.tsx
           grep -F 'canCancel && status !== "em_viagem"' src/components/rides/active/ActiveJourneyScreen.tsx
           grep -F 'HOMOLOGATED_ELECTRONIC_METHODS' src/services/payments/payment-service.ts
-          grep -F 'asaas-create-ride-pix' src/components/payments/RidePixPaymentCard.tsx
+          grep -F 'woovi-create-ride-pix' src/components/payments/RidePixPaymentCard.tsx
+          grep -F 'processingFee' src/hooks/use-checkout-preparation.tsx
           python3 - <<'PY'
           from pathlib import Path
           card = Path('src/components/rides/active/SecurityCodeCard.tsx').read_text(encoding='utf-8')
