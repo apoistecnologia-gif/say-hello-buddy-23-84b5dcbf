@@ -7,8 +7,9 @@
   justify-content: center;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 35%, rgb(255 184 0 / 14%), transparent 34%),
-    #000000;
+    radial-gradient(circle at 50% 35%, rgb(255 184 0 / 18%), transparent 36%),
+    radial-gradient(circle at 50% 90%, rgb(255 184 0 / 8%), transparent 42%),
+    #050505;
   animation: apois-intro-fade-out 260ms ease 690ms both;
 }
 
@@ -27,7 +28,7 @@
   aspect-ratio: 1;
   border-radius: 26%;
   object-fit: cover;
-  box-shadow: 0 24px 70px rgb(255 184 0 / 18%);
+  box-shadow: 0 28px 90px rgb(255 184 0 / 24%);
 }
 
 .apois-native-intro__eyebrow {
@@ -40,9 +41,9 @@
 
 .apois-native-intro__tagline {
   margin: 8px 0 0;
-  color: rgb(255 255 255 / 72%);
+  color: rgb(255 255 255 / 78%);
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.02em;
 }
 
