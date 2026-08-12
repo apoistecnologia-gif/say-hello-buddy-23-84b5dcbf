@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WOOVI_APP_ID = (Deno.env.get("WOOVI_APP_ID") ?? "").trim();
-const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL") ?? "https://api.openpix.com.br").replace(/\/+$/, "");
+const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL") ?? "https://api.woovi.com").replace(/\/+$/, "");
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -90,12 +90,10 @@ Deno.serve(async (req) => {
         `${account.pix_key}:${credit.id}`,
       );
 
-      const { error: successError } = await admin.from("driver_provider_credits").update({
-        status: "succeeded",
-        provider_operation_id: providerOperationId,
-        processed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }).eq("id", credit.id).eq("status", "processing");
+      const { error: successError } = await admin.rpc("mark_driver_provider_credit_succeeded", {
+        _credit_id: credit.id,
+        _provider_operation_id: providerOperationId,
+      });
       if (successError) throw new Error(`credit_success_persist_failed:${successError.message}`);
 
       processed += 1;
