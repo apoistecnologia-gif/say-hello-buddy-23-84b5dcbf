@@ -55,6 +55,15 @@ describe("Woovi financial safety contracts", () => {
     expect(migration).toContain("w.idempotency_key=_idempotency_key");
   });
 
+  test("keeps legacy paid Asaas Pix completable during the Woovi cutover", () => {
+    const migration = source("supabase/migrations/20260812171000_preserve_asaas_pix_cutover_settlement.sql");
+    expect(migration).toContain("v_provider not in ('asaas','woovi')");
+    expect(migration).toContain("and provider = v_provider");
+    expect(migration).toContain("when v_provider = 'woovi' then coalesce(v_ride.passenger_charge_cents, v_driver_earning_cents)");
+    expect(migration).toContain("available_balance=available_balance+v_amount");
+    expect(migration).toContain("pending_balance=pending_balance+v_amount");
+  });
+
   test("persists the actual provider fee from a completed Woovi charge", () => {
     const webhook = source("supabase/functions/woovi-webhook/index.ts");
     expect(webhook).toContain("charge.fee ?? pix?.fee");
