@@ -3,6 +3,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 type DriverAction = "accept" | "reject" | "arrive" | "start" | "finish";
 
@@ -51,6 +52,29 @@ function pushEventFor(action: DriverAction): string | null {
     case "reject":
     default:
       return null;
+  }
+}
+
+async function triggerWooviDriverCredit(): Promise<void> {
+  if (!SERVICE_ROLE) {
+    console.warn("[driver-ride-action] Woovi credit worker skipped: service role missing");
+    return;
+  }
+
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/driver-woovi-credit`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${SERVICE_ROLE}`,
+      apikey: SERVICE_ROLE,
+      "content-type": "application/json",
+    },
+    body: "{}",
+  });
+  if (!response.ok) {
+    console.warn("[driver-ride-action] Woovi credit worker unavailable", {
+      status: response.status,
+      detail: (await response.text()).slice(0, 500),
+    });
   }
 }
 
@@ -168,6 +192,17 @@ Deno.serve(async (req) => {
             message: pushError instanceof Error ? pushError.message : String(pushError),
           });
         }),
+    );
+  }
+
+  if (body.action === "finish") {
+    EdgeRuntime.waitUntil(
+      triggerWooviDriverCredit().catch((creditError) => {
+        console.warn("[driver-ride-action] Woovi credit trigger failed", {
+          rideId,
+          message: creditError instanceof Error ? creditError.message : String(creditError),
+        });
+      }),
     );
   }
 
