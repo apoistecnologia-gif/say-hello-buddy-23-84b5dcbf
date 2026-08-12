@@ -305,7 +305,7 @@ function ActiveRidePage() {
           </p>
           <p className="mt-2 text-sm font-black">
             {isQueuedRide
-              ? "Seu motorista está finalizando uma viagem próxima."
+              ? "Sua corrida já está reservada. Seu motorista está finalizando uma viagem próxima."
               : "Acompanhe aqui quando a corrida ficar disponível."}
           </p>
         </div>
