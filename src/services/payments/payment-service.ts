@@ -13,9 +13,13 @@ const PAYMENT_METHOD_CODES: PaymentMethodCode[] = [
   "wallet",
 ];
 
-const ELECTRONIC_RIDE_GATE_KEY = "finance.ride_electronic_payments_enabled";
 const HOMOLOGATED_ELECTRONIC_METHODS = new Set<PaymentMethodCode>(["pix"]);
 const NOT_YET_HOMOLOGATED_METHODS = new Set<PaymentMethodCode>(["credit", "debit"]);
+
+type PixCapabilityRpcResult = {
+  data: boolean | null;
+  error: { code?: string; message?: string } | null;
+};
 
 export function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
   const normalized = code === "credit_card" ? "credit" : code === "debit_card" ? "debit" : code;
@@ -35,11 +39,10 @@ export function settingEnabled(value: unknown): boolean {
 
 class PaymentService {
   private async electronicRidePaymentsEnabled(): Promise<boolean> {
-    const { data, error } = await supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", ELECTRONIC_RIDE_GATE_KEY)
-      .maybeSingle();
+    const callCapability = supabase.rpc as unknown as (
+      fn: "is_passenger_ride_pix_enabled",
+    ) => PromiseLike<PixCapabilityRpcResult>;
+    const { data, error } = await callCapability("is_passenger_ride_pix_enabled");
 
     if (error) {
       console.warn("[PaymentService] Electronic ride payment gate unavailable", {
@@ -49,7 +52,7 @@ class PaymentService {
       return false;
     }
 
-    return settingEnabled(data?.value);
+    return data === true;
   }
 
   async getPaymentMethods(): Promise<PaymentMethod[]> {
