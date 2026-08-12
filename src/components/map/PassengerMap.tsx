@@ -5,6 +5,7 @@ import { useRoute } from "@/hooks/use-route";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { useDestination } from "@/hooks/use-destination";
 import { googleMapsLoader } from "@/services/google/google-maps-loader";
+import { cn } from "@/lib/utils";
 
 interface PassengerMapProps {
   origin: { lat: number; lng: number } | undefined;
@@ -13,14 +14,13 @@ interface PassengerMapProps {
   driverLocation: { lat: number; lng: number; heading?: number } | undefined;
   isStatic: boolean | undefined;
   selectionMode?: boolean;
+  compact?: boolean;
   onCenterChange?: (coordinate: { lat: number; lng: number }) => void;
 }
 
 type MapStatus = "loading" | "ready" | "configuration-error" | "api-error";
 type Coordinate = { lat: number; lng: number };
 
-// Centro neutro do Brasil usado somente enquanto ainda não existe uma
-// coordenada real do aparelho. Nunca deve ser tratado como origem do usuário.
 const NEUTRAL_CENTER = { lat: -14.235, lng: -51.9253 };
 const NEUTRAL_ZOOM = 4;
 const DRIVER_ANIMATION_MS = 900;
@@ -60,6 +60,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   driverLocation,
   isStatic = false,
   selectionMode = false,
+  compact = false,
   onCenterChange,
 }) => {
   const { location } = useLocation();
@@ -286,7 +287,12 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     }
 
     if (pointCount > 1) {
-      mapRef.current.fitBounds(bounds, { top: 170, right: 40, bottom: 330, left: 40 });
+      mapRef.current.fitBounds(
+        bounds,
+        compact
+          ? { top: 28, right: 28, bottom: 28, left: 28 }
+          : { top: 170, right: 40, bottom: 330, left: 40 },
+      );
     } else if (origin) {
       mapRef.current.setCenter(origin);
       mapRef.current.setZoom(16);
@@ -296,7 +302,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     }
 
     cameraInitializedRef.current = true;
-  }, [destination, emitMapCenter, orderedStops, origin, route?.decodedPoints, selectionMode, status, validDriverLocation]);
+  }, [compact, destination, emitMapCenter, orderedStops, origin, route?.decodedPoints, selectionMode, status, validDriverLocation]);
 
   useEffect(() => {
     if (!mapRef.current || status !== "ready" || selectionMode) return;
@@ -389,7 +395,13 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="relative h-full min-h-[320px] w-full overflow-hidden bg-[#171a21]">
+    <div
+      ref={containerRef}
+      className={cn(
+        "relative h-full w-full overflow-hidden bg-[#171a21]",
+        compact ? "min-h-0" : "min-h-[320px]",
+      )}
+    >
       <div ref={mapElementRef} className="absolute inset-0 h-full w-full" aria-label={selectionMode ? "Mapa para escolher o destino" : "Mapa da corrida"} />
 
       {status === "loading" && (
