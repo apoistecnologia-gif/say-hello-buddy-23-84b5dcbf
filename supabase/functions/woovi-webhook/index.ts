@@ -78,6 +78,7 @@ Deno.serve(async (req) => {
 
   const correlationID = String(charge.correlationID ?? "").trim();
   const amountCents = integer(charge.valueWithDiscount ?? charge.value ?? pix?.value);
+  const providerFeeCents = integer(charge.fee ?? pix?.fee);
   const transactionID = String(charge.transactionID ?? pix?.transactionID ?? charge.identifier ?? "").trim();
   const paidAt = typeof charge.paidAt === "string"
     ? charge.paidAt
@@ -150,12 +151,17 @@ Deno.serve(async (req) => {
       return json({ ok: true, stale: true });
     }
 
-    const { error: updatePaymentError } = await admin.from("ride_pix_payments").update({
+    const paymentUpdate: JsonObject = {
       provider_payment_id: correlationID,
       status: "received",
       paid_at: paidAt,
       updated_at: new Date().toISOString(),
-    }).eq("ride_id", payment.ride_id).eq("external_reference", correlationID);
+    };
+    if (providerFeeCents !== null) paymentUpdate.provider_fee_cents = providerFeeCents;
+
+    const { error: updatePaymentError } = await admin.from("ride_pix_payments").update(paymentUpdate)
+      .eq("ride_id", payment.ride_id)
+      .eq("external_reference", correlationID);
     if (updatePaymentError) throw new Error(`payment_update_failed:${updatePaymentError.message}`);
 
     const { data: activation, error: activationError } = await admin.rpc("activate_prepaid_pix_ride", {
