@@ -20,12 +20,38 @@ type PixCheckout = {
   detail?: string;
 };
 
+function cpfDigits(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 11);
+}
+
+function formatCpf(value: string): string {
+  const digits = cpfDigits(value);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function isValidCpf(value: string): boolean {
+  const cpf = cpfDigits(value);
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  const digit = (length: number) => {
+    let sum = 0;
+    for (let index = 0; index < length; index += 1) {
+      sum += Number(cpf[index]) * (length + 1 - index);
+    }
+    const mod = (sum * 10) % 11;
+    return mod === 10 ? 0 : mod;
+  };
+  return digit(9) === Number(cpf[9]) && digit(10) === Number(cpf[10]);
+}
+
 function readableError(code: string | undefined) {
   switch (code) {
     case "driver_asaas_account_not_ready":
       return "O recebimento Pix deste motorista ainda não foi liberado pelo provedor.";
     case "passenger_billing_identity_incomplete":
-      return "Complete seus dados de cobrança no perfil antes de gerar o Pix.";
+      return "Precisamos confirmar seu CPF de cobrança antes de gerar o Pix.";
     case "ride_settlement_not_found":
       return "O fechamento financeiro da corrida ainda está sendo processado. Tente novamente em instantes.";
     case "ride_already_paid":
@@ -41,6 +67,9 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
   const [copied, setCopied] = useState(false);
   const [paid, setPaid] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsCpf, setNeedsCpf] = useState(false);
+  const [cpf, setCpf] = useState("");
+  const [savingCpf, setSavingCpf] = useState(false);
 
   const generate = async () => {
     if (loading || paid) return;
@@ -56,9 +85,11 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
       if (invokeError) throw invokeError;
       if (!data?.ok) {
         if (data?.error === "ride_already_paid") setPaid(true);
+        if (data?.error === "passenger_billing_identity_incomplete") setNeedsCpf(true);
         setError(readableError(data?.error));
         return;
       }
+      setNeedsCpf(false);
       setCheckout(data);
       if (["received", "confirmed"].includes(String(data.status ?? ""))) {
         setPaid(true);
@@ -71,6 +102,33 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
       setError("Não foi possível gerar ou consultar o Pix agora. Tente novamente.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveBillingCpf = async () => {
+    if (savingCpf) return;
+    if (!isValidCpf(cpf)) {
+      toast.error("Informe um CPF válido.");
+      return;
+    }
+    setSavingCpf(true);
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) throw authError ?? new Error("not_authenticated");
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ cpf: cpfDigits(cpf), updated_at: new Date().toISOString() })
+        .eq("auth_user_id", authData.user.id);
+      if (updateError) throw updateError;
+      setNeedsCpf(false);
+      setError(null);
+      toast.success("CPF de cobrança salvo com segurança.");
+      await generate();
+    } catch (caughtError) {
+      console.error("[RidePixPaymentCard] billing CPF update failed", caughtError);
+      toast.error("Não foi possível salvar o CPF agora.");
+    } finally {
+      setSavingCpf(false);
     }
   };
 
@@ -116,6 +174,33 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
         </div>
       </div>
 
+      {needsCpf ? (
+        <div className="mt-4 rounded-2xl border border-apois-yellow/20 bg-black/30 p-3">
+          <label htmlFor={`ride-pix-cpf-${rideId}`} className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">
+            CPF para cobrança Pix
+          </label>
+          <input
+            id={`ride-pix-cpf-${rideId}`}
+            inputMode="numeric"
+            autoComplete="off"
+            value={cpf}
+            onChange={(event) => setCpf(formatCpf(event.target.value))}
+            placeholder="000.000.000-00"
+            className="mt-2 h-12 w-full rounded-2xl border border-white/10 bg-[#111318] px-4 text-sm font-bold text-white outline-none focus:border-apois-yellow/50"
+          />
+          <p className="mt-2 text-[10px] leading-4 text-zinc-500">Usado somente para identificar a cobrança no provedor de pagamento.</p>
+          <button
+            type="button"
+            disabled={savingCpf}
+            onClick={() => void saveBillingCpf()}
+            className="app-pressable mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow text-xs font-black text-black disabled:opacity-60"
+          >
+            {savingCpf ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+            {savingCpf ? "Salvando..." : "Salvar CPF e continuar"}
+          </button>
+        </div>
+      ) : null}
+
       {checkout?.pixQrCodeBase64 ? (
         <div className="mx-auto mt-4 w-fit rounded-2xl bg-white p-3">
           <img
@@ -152,7 +237,7 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
             Consultar pagamento
           </button>
         </>
-      ) : (
+      ) : !needsCpf ? (
         <button
           type="button"
           disabled={loading}
@@ -162,14 +247,16 @@ export function RidePixPaymentCard({ rideId }: RidePixPaymentCardProps) {
           {loading ? <Loader2 size={17} className="animate-spin" /> : <QrCode size={17} />}
           {loading ? "Consultando Pix..." : "Gerar / consultar Pix da corrida"}
         </button>
-      )}
+      ) : null}
 
       {error ? (
         <div className="mt-3 flex items-start justify-between gap-3 rounded-2xl border border-red-400/20 bg-red-400/8 p-3">
           <p className="text-[11px] leading-4 text-red-300">{error}</p>
-          <button type="button" onClick={() => void generate()} className="shrink-0 text-apois-yellow" aria-label="Tentar gerar Pix novamente">
-            <RefreshCw size={16} />
-          </button>
+          {!needsCpf ? (
+            <button type="button" onClick={() => void generate()} className="shrink-0 text-apois-yellow" aria-label="Tentar gerar Pix novamente">
+              <RefreshCw size={16} />
+            </button>
+          ) : null}
         </div>
       ) : null}
     </section>
