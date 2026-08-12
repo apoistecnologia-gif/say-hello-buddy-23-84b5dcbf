@@ -55,7 +55,7 @@ type OptionalStringRideKey =
   | "security_code"
   | "payment_status"
   | "payment_provider"
-  | "payment_provider_id"
+  | "provider_payment_id"
   | "cancellation_reason"
   | "cancelled_by"
   | "accepted_at"
@@ -348,7 +348,7 @@ class ActiveRideService {
       ["security_code", "security_code"],
       ["payment_status", "payment_status"],
       ["payment_provider", "payment_provider"],
-      ["payment_provider_id", "payment_provider_id"],
+      ["provider_payment_id", "provider_payment_id"],
       ["cancellation_reason", "cancellation_reason"],
       ["cancelled_by", "cancelled_by"],
       ["accepted_at", "accepted_at"],
