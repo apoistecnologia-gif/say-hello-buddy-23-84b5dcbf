@@ -4,10 +4,11 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WOOVI_APP_ID = (Deno.env.get("WOOVI_APP_ID") ?? "").trim();
-const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL") ?? "https://api.openpix.com.br").replace(/\/+$/, "");
+const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL") ?? "https://api.woovi.com").replace(/\/+$/, "");
 const PIX_EXPIRES_SECONDS = Math.max(300, Number.parseInt(Deno.env.get("WOOVI_RIDE_PIX_EXPIRES_SECONDS") ?? "900", 10) || 900);
 
 type JsonObject = Record<string, unknown>;
+type AdminClient = ReturnType<typeof createClient<any, "public">>;
 
 function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
@@ -40,7 +41,7 @@ function parseCharge(payload: unknown): JsonObject | null {
   return payload;
 }
 
-async function resolvePassenger(admin: ReturnType<typeof createClient>, authUserId: string) {
+async function resolvePassenger(admin: AdminClient, authUserId: string) {
   const { data, error } = await admin
     .from("users")
     .select("id,deleted_at")
@@ -50,7 +51,7 @@ async function resolvePassenger(admin: ReturnType<typeof createClient>, authUser
   return data;
 }
 
-async function returnExisting(admin: ReturnType<typeof createClient>, rideId: string, req: Request) {
+async function returnExisting(admin: AdminClient, rideId: string, req: Request) {
   const { data, error } = await admin
     .from("ride_pix_payments")
     .select("provider_payment_id,amount_cents,status,pix_payload,pix_expiration_at,pix_qr_code_base64,attempt_number")
