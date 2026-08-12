@@ -74,6 +74,9 @@ jobs:
           PY
           exit "$status"
 
+      - name: Unit tests
+        run: bun run test
+
       - name: Check Supabase push function
         run: deno check --node-modules-dir=auto supabase/functions/send-ride-push/index.ts
 
