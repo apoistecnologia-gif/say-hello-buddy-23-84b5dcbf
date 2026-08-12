@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Briefcase,
   ChevronRight,
+  Clock3,
   Grid2X2,
   Home,
   Loader2,
@@ -12,6 +13,7 @@ import {
   Menu,
   Navigation,
   Settings2,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "@/hooks/use-location";
@@ -31,10 +33,7 @@ import {
   PaymentMethodList,
 } from "@/components/payments/PaymentMethodSelector";
 import { CouponInput } from "@/components/coupons/CouponInput";
-import { CheckoutSummary } from "@/components/pricing/CheckoutSummary";
-import { FareDetails } from "@/components/pricing/FareDetails";
-import { BottomSheet } from "@/components/ui/bottom-sheet/BottomSheet";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/inicio")({
   component: InicioPage,
@@ -51,6 +50,17 @@ const getGreeting = () => {
 const getFirstName = (name: string | null | undefined): string => {
   const normalized = name?.trim();
   return normalized?.split(/\s+/)[0] ?? "Passageiro";
+};
+
+const formatRouteDistance = (distanceMeters?: number) => {
+  if (!distanceMeters || distanceMeters <= 0) return null;
+  if (distanceMeters < 1000) return `${Math.round(distanceMeters)} m`;
+  return `${(distanceMeters / 1000).toFixed(1).replace(".", ",")} km`;
+};
+
+const formatRouteDuration = (durationSeconds?: number) => {
+  if (!durationSeconds || durationSeconds <= 0) return null;
+  return `${Math.max(1, Math.round(durationSeconds / 60))} min`;
 };
 
 function HomeWorkShortcuts() {
@@ -155,6 +165,8 @@ function InicioPage() {
   const firstName = getFirstName(profile?.name);
   const avatarInitial = firstName.charAt(0).toUpperCase();
   const routeIsLoading = routeStatus === "loading" || routeStatus === "debouncing";
+  const routeDistance = formatRouteDistance(route?.distanceMeters);
+  const routeDuration = formatRouteDuration(route?.durationSeconds);
 
   const currentAddressText =
     addressStatus === "identifying" || isGeocoding
@@ -196,13 +208,185 @@ function InicioPage() {
     void navigate({ to: "/revisar-solicitacao" });
   };
 
+  if (hasDestination) {
+    return (
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-black text-white">
+        <div className="app-safe-top app-safe-x shrink-0 border-b border-white/5 bg-black/96 pb-2 pt-2 backdrop-blur-xl">
+          <div className="flex h-11 items-center justify-between">
+            <button
+              type="button"
+              onClick={handleClearDestination}
+              className="app-pressable flex h-10 w-10 items-center justify-center rounded-xl text-apois-yellow"
+              aria-label="Voltar"
+            >
+              <ArrowLeft size={22} />
+            </button>
+            <h1 className="text-[16px] font-black tracking-tight">Escolher categoria</h1>
+            <div className="flex h-9 items-center gap-1.5 rounded-xl border border-white/10 bg-[#111317] px-2.5 text-[10px] font-bold text-zinc-300">
+              <ShieldCheck size={14} className="text-apois-yellow" />
+              Segurança
+            </div>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[150px] pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mx-auto max-w-[430px] space-y-2.5">
+            <div className="rounded-2xl border border-white/8 bg-[#111317] p-2.5 shadow-lg">
+              <button
+                type="button"
+                onClick={() => void handleLocationAction()}
+                className="app-pressable flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-apois-yellow/25 bg-apois-yellow/10 text-apois-yellow">
+                  <Navigation size={16} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-medium text-zinc-500">De onde você está?</span>
+                  <span className="mt-0.5 block truncate text-[13px] font-bold text-white">{currentAddressText}</span>
+                </span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/8 bg-black/30 text-zinc-300">
+                  {isLocating ? <Loader2 size={15} className="animate-spin" /> : <Navigation size={14} />}
+                </span>
+              </button>
+            </div>
+
+            <div className="rounded-2xl border border-white/8 bg-[#111317] p-2.5 shadow-lg">
+              <button
+                type="button"
+                onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false } })}
+                className="app-pressable flex w-full items-center gap-3 rounded-xl px-1 py-1 text-left"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-apois-yellow/25 bg-apois-yellow/10 text-apois-yellow">
+                  <MapPin size={17} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-medium text-zinc-500">Para onde vamos?</span>
+                  <span className="mt-0.5 block truncate text-[13px] font-bold text-white">
+                    {destination?.label || destination?.formattedAddress}
+                  </span>
+                </span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/8 bg-black/30 text-apois-yellow">
+                  <ChevronRight size={16} />
+                </span>
+              </button>
+            </div>
+
+            <div className="relative h-[164px] overflow-hidden rounded-2xl border border-white/8 bg-[#111317] shadow-xl">
+              <PassengerMap
+                origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
+                destination={destination ? { lat: destination.latitude, lng: destination.longitude } : undefined}
+                encodedPolyline={route?.encodedPolyline}
+                driverLocation={undefined}
+                isStatic={false}
+                compact
+              />
+              {route && routeDistance && routeDuration ? (
+                <div className="pointer-events-none absolute left-1/2 top-2.5 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-white/10 bg-black/85 px-3 py-1.5 text-[11px] font-bold text-white shadow-xl backdrop-blur-md">
+                  <Clock3 size={13} className="text-zinc-300" />
+                  <span>{routeDistance}</span>
+                  <span className="text-zinc-600">•</span>
+                  <span>{routeDuration}</span>
+                </div>
+              ) : null}
+            </div>
+
+            {routeIsLoading ? (
+              <div className="flex items-center gap-2 rounded-xl border border-apois-yellow/15 bg-apois-yellow/8 px-3 py-2 text-apois-yellow">
+                <Loader2 size={14} className="animate-spin" />
+                <p className="text-[11px] font-bold">Calculando rota e valores...</p>
+              </div>
+            ) : null}
+
+            {routeError ? (
+              <div className="rounded-xl border border-apois-danger/20 bg-apois-danger/10 p-3">
+                <div className="flex items-start gap-2">
+                  <AlertCircle size={16} className="mt-0.5 shrink-0 text-apois-danger" />
+                  <p className="flex-1 text-[11px] font-medium leading-4 text-red-300">{routeError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void retryRoute()}
+                  className="app-pressable mt-2 min-h-9 w-full rounded-lg border border-apois-danger/20 bg-black/20 px-3 text-[11px] font-black text-white"
+                >
+                  Calcular novamente
+                </button>
+              </div>
+            ) : null}
+
+            <section className="rounded-2xl border border-white/8 bg-[#0e1014] p-2.5 shadow-lg">
+              <div className="mb-2 flex items-center justify-between px-1">
+                <div>
+                  <p className="text-[13px] font-black text-white">Escolha a categoria ideal para você</p>
+                  <p className="mt-0.5 text-[9px] font-medium text-zinc-600">Preço e tempo calculados para sua rota</p>
+                </div>
+                {selectedCategory && ["fretes", "guincho", "envios"].includes(selectedCategory.code) ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsFormOpen(true)}
+                    className="app-pressable flex items-center gap-1 rounded-lg border border-apois-yellow/20 bg-apois-yellow/8 px-2 py-1 text-[10px] font-black text-apois-yellow"
+                  >
+                    <Settings2 size={12} />
+                    Detalhes
+                  </button>
+                ) : null}
+              </div>
+              <CategorySelector />
+            </section>
+
+            <RideStopsInput />
+
+            <div className="rounded-2xl border border-white/8 bg-[#0e1014] p-2.5">
+              <CouponInput />
+            </div>
+          </div>
+        </div>
+
+        <div
+          className="absolute bottom-0 left-0 right-0 z-40 border-t border-white/8 bg-black/96 px-3 pt-2 shadow-[0_-16px_40px_rgba(0,0,0,0.72)] backdrop-blur-xl"
+          style={{ paddingBottom: "max(10px, var(--app-safe-bottom))" }}
+        >
+          <div className="mx-auto max-w-[430px] rounded-2xl border border-white/8 bg-[#111317] p-2.5 shadow-2xl">
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <PaymentMethodSelector onOpenList={() => setIsPaymentListOpen(true)} />
+              <div className="flex min-w-[116px] flex-col justify-center rounded-2xl border border-white/5 bg-black/30 px-3">
+                <p className="text-[9px] font-bold text-zinc-500">Preço estimado</p>
+                <p className="mt-0.5 text-[20px] font-black leading-none text-white">
+                  {checkout.finalTotal > 0 ? formatCurrency(checkout.finalTotal) : "—"}
+                </p>
+                <p className="mt-1 text-[9px] font-black text-apois-yellow">Ver detalhes</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleReview}
+              disabled={!checkout.readiness || Boolean(routeError) || routeIsLoading}
+              className={cn(
+                "app-pressable mt-2 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-black shadow-lg",
+                checkout.readiness && !routeError && !routeIsLoading
+                  ? "app-gold-glow bg-apois-yellow text-black"
+                  : "bg-zinc-800 text-zinc-600",
+              )}
+            >
+              Confirmar corrida
+              <ChevronRight size={19} strokeWidth={3} />
+            </button>
+          </div>
+        </div>
+
+        <ServiceDetailsForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
+        <PaymentMethodList isOpen={isPaymentListOpen} onClose={() => setIsPaymentListOpen(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0a0d14]">
       <div className="absolute inset-0 z-0">
         <PassengerMap
           origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
-          destination={destination ? { lat: destination.latitude, lng: destination.longitude } : undefined}
-          encodedPolyline={route?.encodedPolyline}
+          destination={undefined}
+          encodedPolyline={undefined}
           driverLocation={undefined}
           isStatic={false}
         />
@@ -275,158 +459,55 @@ function InicioPage() {
         </button>
       </div>
 
-      {!hasDestination ? (
-        <div className="relative z-30 mt-auto bg-gradient-to-t from-black via-[#080b11]/98 to-transparent px-4 pb-4 pt-12">
-          <div className="mx-auto max-h-[58dvh] max-w-[430px] space-y-4 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              type="button"
-              onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false } })}
-              className="app-pressable flex w-full items-center gap-3 rounded-2xl px-1 text-left"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-apois-yellow/20 bg-apois-yellow/10 text-apois-yellow">
-                <MapPin aria-hidden="true" size={15} />
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-bold tracking-tight text-white">
-                {currentAddressText}
-              </span>
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-500">
-                <Navigation aria-hidden="true" size={12} />
-              </span>
-            </button>
+      <div className="relative z-30 mt-auto bg-gradient-to-t from-black via-[#080b11]/98 to-transparent px-4 pb-4 pt-12">
+        <div className="mx-auto max-h-[58dvh] max-w-[430px] space-y-4 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false } })}
+            className="app-pressable flex w-full items-center gap-3 rounded-2xl px-1 text-left"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-apois-yellow/20 bg-apois-yellow/10 text-apois-yellow">
+              <MapPin aria-hidden="true" size={15} />
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm font-bold tracking-tight text-white">
+              {currentAddressText}
+            </span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 text-zinc-500">
+              <Navigation aria-hidden="true" size={12} />
+            </span>
+          </button>
 
-            <div>
-              <p className="text-sm font-bold text-apois-yellow">Olá, {firstName} 👋</p>
-              <h1 className="mt-0.5 text-3xl font-black leading-tight tracking-[-0.04em] text-white">
-                Para onde vamos?
-              </h1>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false } })}
-              className="app-pressable app-surface flex w-full items-center gap-4 rounded-2xl p-4 text-left shadow-2xl"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-apois-yellow/10 text-apois-yellow">
-                <MapPin aria-hidden="true" size={21} />
-              </span>
-              <span className="flex-1 text-base font-semibold text-zinc-400">Digite um endereço...</span>
-              <ChevronRight aria-hidden="true" size={20} className="text-zinc-600" />
-            </button>
-
-            <HomeWorkShortcuts />
-
-            <button
-              type="button"
-              onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false } })}
-              className="app-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-apois-yellow/20 bg-apois-yellow/10 px-4 text-sm font-black text-apois-yellow"
-            >
-              <Grid2X2 aria-hidden="true" size={18} />
-              Ver serviços disponíveis
-            </button>
+          <div>
+            <p className="text-sm font-bold text-apois-yellow">Olá, {firstName} 👋</p>
+            <h1 className="mt-0.5 text-3xl font-black leading-tight tracking-[-0.04em] text-white">
+              Para onde vamos?
+            </h1>
           </div>
+
+          <button
+            type="button"
+            onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false } })}
+            className="app-pressable app-surface flex w-full items-center gap-4 rounded-2xl p-4 text-left shadow-2xl"
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-apois-yellow/10 text-apois-yellow">
+              <MapPin aria-hidden="true" size={21} />
+            </span>
+            <span className="flex-1 text-base font-semibold text-zinc-400">Digite um endereço...</span>
+            <ChevronRight aria-hidden="true" size={20} className="text-zinc-600" />
+          </button>
+
+          <HomeWorkShortcuts />
+
+          <button
+            type="button"
+            onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false } })}
+            className="app-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-apois-yellow/20 bg-apois-yellow/10 px-4 text-sm font-black text-apois-yellow"
+          >
+            <Grid2X2 aria-hidden="true" size={18} />
+            Ver serviços disponíveis
+          </button>
         </div>
-      ) : null}
-
-      {hasDestination ? (
-        <BottomSheet
-          isOpen
-          onClose={handleClearDestination}
-          preventClose
-          showBackdrop={false}
-          height="62dvh"
-          maxHeight="560px"
-        >
-          <div className="w-full pb-4">
-            <div className="space-y-4 animate-in fade-in slide-in-from-bottom duration-300">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleClearDestination}
-                  className="app-pressable flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/5 text-white"
-                  aria-label="Voltar e trocar destino"
-                >
-                  <ArrowLeft aria-hidden="true" size={19} />
-                </button>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-apois-yellow">Seu destino</p>
-                  <p className="mt-0.5 truncate text-sm font-bold text-white">
-                    {destination?.label || destination?.formattedAddress}
-                  </p>
-                </div>
-              </div>
-
-              {routeIsLoading ? (
-                <div className="flex items-center gap-3 rounded-2xl border border-apois-yellow/15 bg-apois-yellow/8 p-3 text-apois-yellow">
-                  <Loader2 aria-hidden="true" size={18} className="shrink-0 animate-spin" />
-                  <p className="text-xs font-bold">Calculando a melhor rota e os valores...</p>
-                </div>
-              ) : null}
-
-              {routeError ? (
-                <div className="rounded-2xl border border-apois-danger/20 bg-apois-danger/10 p-3">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle aria-hidden="true" size={18} className="mt-0.5 shrink-0 text-apois-danger" />
-                    <p className="flex-1 text-xs font-medium leading-5 text-red-300">{routeError}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void retryRoute()}
-                    className="app-pressable mt-3 min-h-10 w-full rounded-xl border border-apois-danger/20 bg-black/20 px-4 text-xs font-black text-white"
-                  >
-                    Calcular novamente
-                  </button>
-                </div>
-              ) : null}
-
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
-                  Selecione sua categoria
-                </p>
-                {selectedCategory && ["fretes", "guincho", "envios"].includes(selectedCategory.code) ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsFormOpen(true)}
-                    className="app-pressable flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-bold text-apois-yellow"
-                  >
-                    <Settings2 aria-hidden="true" size={14} />
-                    Detalhes
-                  </button>
-                ) : null}
-              </div>
-
-              <RideStopsInput />
-              <CategorySelector />
-
-              <div className="space-y-4">
-                <PaymentMethodSelector onOpenList={() => setIsPaymentListOpen(true)} />
-                <CouponInput />
-                <div className="pt-1">
-                  <FareDetails />
-                  <CheckoutSummary />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleReview}
-                disabled={!checkout.readiness || Boolean(routeError) || routeIsLoading}
-                className={cn(
-                  "app-pressable flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl font-black shadow-lg",
-                  checkout.readiness && !routeError && !routeIsLoading
-                    ? "app-gold-glow bg-apois-yellow text-black"
-                    : "bg-zinc-800 text-zinc-600",
-                )}
-              >
-                Revisar {selectedCategory?.name || "solicitação"}
-                <ChevronRight aria-hidden="true" size={20} strokeWidth={3} />
-              </button>
-            </div>
-          </div>
-        </BottomSheet>
-      ) : null}
-
-      <ServiceDetailsForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
-      <PaymentMethodList isOpen={isPaymentListOpen} onClose={() => setIsPaymentListOpen(false)} />
+      </div>
     </div>
   );
 }
