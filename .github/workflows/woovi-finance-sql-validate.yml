@@ -1,0 +1,69 @@
+name: Validate Woovi Financial Cutover SQL
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "supabase/migrations/2026081220*.sql"
+      - "supabase/migrations/2026081221*.sql"
+      - "tests/sql/woovi_*.sql"
+      - ".github/workflows/woovi-finance-sql-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: woovi-finance-sql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-cutover-sql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: apois_woovi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d apois_woovi_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: apois_woovi_test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Confirm PostgreSQL client
+        run: psql --version
+
+      - name: Build observed pre-cutover financial schema
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_pre_cutover_fixture.sql
+
+      - name: Apply consolidated Woovi cutover migrations
+        run: |
+          set -euo pipefail
+          for file in \
+            supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql \
+            supabase/migrations/20260812205500_guard_woovi_pix_destination_change.sql \
+            supabase/migrations/20260812210000_provider_aware_driver_financial_dashboard.sql \
+            supabase/migrations/20260812210500_provider_aware_admin_finance_summary.sql \
+            supabase/migrations/20260812211000_preserve_driver_withdrawal_public_facade.sql; do
+            echo "Applying $file"
+            psql -v ON_ERROR_STOP=1 -f "$file"
+          done
+
+      - name: Execute financial cutover assertions
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_cutover_assertions.sql
