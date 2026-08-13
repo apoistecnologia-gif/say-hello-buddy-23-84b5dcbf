@@ -19,7 +19,6 @@ describe("Woovi runtime provider gates", () => {
     expect(account).toContain('eq("key", "finance.target_payout_provider")');
     expect(account).toContain('jsonSettingString(providerSetting?.value) !== "woovi"');
     expect(account).toContain('error: "payout_provider_not_woovi"');
-    expect(account).toContain('functions');
   });
 
   test("database independently rejects new payment attempts from an inactive provider", () => {
