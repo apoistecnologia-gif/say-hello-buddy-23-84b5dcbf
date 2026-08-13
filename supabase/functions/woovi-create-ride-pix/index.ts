@@ -158,6 +158,13 @@ Deno.serve(async (req) => {
       }, 409, req);
     }
 
+    // Recovery of a legacy Asaas charge is permitted, but creating a fresh
+    // Woovi attempt is not. The database owns the provider switch and stamps
+    // each ride with the active provider before checkout.
+    if (String(ride.payment_provider ?? "").toLowerCase() !== "woovi") {
+      return json({ error: "electronic_payment_provider_not_woovi" }, 409, req);
+    }
+
     if (action === "retry" && existingPayment?.provider === "woovi") {
       const { error: expireError } = await admin
         .from("ride_pix_payments")
