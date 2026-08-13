@@ -46,10 +46,6 @@ function integer(value: unknown): number | null {
 }
 
 async function dispatchPaidPix(rideId: string): Promise<void> {
-  // Keep the same post-payment dispatch boundary used by the production Asaas
-  // webhook. passenger-ride-request owns the initial-dispatch claim and the
-  // canonical driver eligibility logic, so the Woovi webhook must not claim
-  // the dispatch separately before invoking it.
   const response = await fetch(`${SUPABASE_URL}/functions/v1/passenger-ride-request`, {
     method: "POST",
     headers: {
@@ -67,8 +63,6 @@ async function dispatchPaidPix(rideId: string): Promise<void> {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-  if (!WEBHOOK_SECRET) return json({ error: "webhook_not_configured" }, 503);
-  if (!safeEqual(webhookAuthorization(req), WEBHOOK_SECRET)) return json({ error: "unauthorized" }, 401);
 
   let payload: JsonObject;
   try {
@@ -79,11 +73,18 @@ Deno.serve(async (req) => {
     return json({ error: "invalid_json" }, 400);
   }
 
+  // Woovi validates a new webhook by sending a synthetic handshake payload.
+  // Some dashboard test requests omit the configured custom authorization
+  // header, so this one side-effect-free handshake must return 200 before auth.
+  // Real payment events still require the shared webhook secret below.
   const event = String(payload.event ?? "").toUpperCase();
   const handshake = String(payload.evento ?? "").trim().toLowerCase();
   if (handshake === "teste_webhook") {
     return json({ ok: true, test: true, event: event || null });
   }
+
+  if (!WEBHOOK_SECRET) return json({ error: "webhook_not_configured" }, 503);
+  if (!safeEqual(webhookAuthorization(req), WEBHOOK_SECRET)) return json({ error: "unauthorized" }, 401);
 
   if (!["OPENPIX:CHARGE_COMPLETED", "WOOVI:CHARGE_COMPLETED"].includes(event)) {
     return json({ ok: true, ignored: true });
