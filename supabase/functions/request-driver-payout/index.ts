@@ -40,10 +40,18 @@ function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function normalizeAmountCents(value: unknown): number | null {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return null;
-  const cents = Math.round(amount * 100);
+function normalizeAmountCents(amountCentsValue: unknown, legacyAmountValue: unknown): number | null {
+  if (amountCentsValue !== undefined && amountCentsValue !== null) {
+    const cents = Number(amountCentsValue);
+    if (!Number.isSafeInteger(cents) || cents < 2_000 || cents > 5_000_000) return null;
+    return cents;
+  }
+
+  // Transitional compatibility only. The canonical mobile/backend contract is
+  // amountCents, matching driver_request_withdrawal and avoiding float money.
+  const legacyAmount = Number(legacyAmountValue);
+  if (!Number.isFinite(legacyAmount)) return null;
+  const cents = Math.round(legacyAmount * 100);
   if (cents < 2_000 || cents > 5_000_000) return null;
   return cents;
 }
@@ -76,14 +84,14 @@ Deno.serve(async (req) => {
     const { data: userResult, error: userError } = await userClient.auth.getUser();
     if (userError || !userResult.user) return json(req, { error: "unauthorized" }, 401);
 
-    let payload: { amount?: unknown; idempotencyKey?: unknown } = {};
+    let payload: { amountCents?: unknown; amount?: unknown; idempotencyKey?: unknown } = {};
     try {
       payload = await req.json();
     } catch {
       return json(req, { error: "invalid_json" }, 400);
     }
 
-    const amountCents = normalizeAmountCents(payload.amount);
+    const amountCents = normalizeAmountCents(payload.amountCents, payload.amount);
     if (amountCents === null) {
       return json(req, {
         error: "invalid_withdrawal_amount",
