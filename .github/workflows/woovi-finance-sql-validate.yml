@@ -52,7 +52,7 @@ jobs:
       - name: Build observed pre-cutover financial schema
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_pre_cutover_fixture.sql
 
-      - name: Apply consolidated Woovi cutover migrations
+      - name: Apply consolidated Woovi financial foundation
         run: |
           set -euo pipefail
           for file in \
@@ -65,5 +65,11 @@ jobs:
             psql -v ON_ERROR_STOP=1 -f "$file"
           done
 
-      - name: Execute financial cutover assertions
+      - name: Execute financial foundation assertions
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_cutover_assertions.sql
+
+      - name: Apply staged electronic-provider gate
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260812211500_gate_ride_pix_provider_cutover.sql
+
+      - name: Execute staged provider-switch assertions
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_switch_gate_assertions.sql
