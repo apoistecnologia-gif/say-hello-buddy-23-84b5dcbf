@@ -174,6 +174,16 @@ describe("Woovi financial safety contracts", () => {
     expect(checkout).toContain("Keep the row in `creating`");
   });
 
+  test("keeps the webhook authoritative when provider API reports charge completed", () => {
+    const checkout = source("supabase/functions/woovi-create-ride-pix/index.ts");
+    const card = source("src/components/payments/RidePixPaymentCard.tsx");
+    expect(checkout).toContain('if (status === "COMPLETED") return "confirmed"');
+    expect(checkout).toContain("Until the authenticated webhook is processed");
+    expect(card).toContain('return ["received", "paid"].includes(normalizePaymentStatus(value));');
+    expect(card).not.toContain('["received", "confirmed", "paid"]');
+    expect(card).toContain("aguardando a confirmação segura do webhook");
+  });
+
   test("never creates a Woovi retry while a legacy Asaas charge is still active", () => {
     const checkout = source("supabase/functions/woovi-create-ride-pix/index.ts");
     expect(checkout).toContain("provider,provider_payment_id");
