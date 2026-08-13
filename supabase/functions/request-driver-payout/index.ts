@@ -228,10 +228,40 @@ Deno.serve(async (req) => {
       clearTimeout(timeout);
     }
 
-    // An explicit non-2xx response is a provider-declared failure and can be
-    // safely reconciled as failed/refunded.
     if (!response.ok) {
       const reason = `HTTP ${response.status}: ${rawText.slice(0, 400)}`;
+      const ambiguousHttpFailure = response.status >= 500 || [408, 425, 429].includes(response.status);
+
+      // Woovi's withdraw endpoint has no client-supplied idempotency key. A
+      // timeout-like HTTP status or any 5xx can therefore arrive after the
+      // provider mutated state. Never refund those cases automatically; keep
+      // the ledger reservation intact until MOVEMENT_* webhook/reconciliation.
+      if (ambiguousHttpFailure) {
+        const { error: persistAmbiguousError } = await admin
+          .from("driver_withdrawals")
+          .update({
+            failure_reason: `provider_http_ambiguous:${reason}`.slice(0, 1000),
+            provider_response: providerBody,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", withdrawal.id)
+          .eq("status", "processing");
+        if (persistAmbiguousError) {
+          console.error("[request-driver-payout] ambiguous HTTP persist", persistAmbiguousError);
+        }
+
+        return json(req, {
+          ok: true,
+          pending: true,
+          reconciliationRequired: true,
+          withdrawalId,
+          status: "processing",
+        }, 202);
+      }
+
+      // Explicit, non-ambiguous 4xx rejection means the provider declined the
+      // operation before a movement was accepted, so the reserved balance may
+      // be returned exactly once by the database reconciliation RPC.
       await admin.rpc("mark_driver_withdrawal_failed", {
         _withdrawal_id: withdrawal.id,
         _reason: reason,
