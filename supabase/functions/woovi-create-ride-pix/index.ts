@@ -6,6 +6,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WOOVI_APP_ID = (Deno.env.get("WOOVI_APP_ID") ?? "").trim();
 const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL") ?? "https://api.woovi.com").replace(/\/+$/, "");
 const PIX_EXPIRES_SECONDS = Math.max(300, Number.parseInt(Deno.env.get("WOOVI_RIDE_PIX_EXPIRES_SECONDS") ?? "900", 10) || 900);
+const REQUEST_TIMEOUT_MS = 15_000;
 
 type JsonObject = Record<string, unknown>;
 type AdminClient = ReturnType<typeof createClient<any, "public">>;
@@ -19,6 +20,18 @@ type ExistingPayment = {
   pix_expiration_at: string | null;
   pix_qr_code_base64: string | null;
   attempt_number: number;
+};
+type RidePaymentContext = {
+  id: string;
+  estimated_price: number | string;
+  processing_fee_cents: number | string | null;
+};
+type ProviderResult = {
+  ok: boolean;
+  status: number;
+  rawText: string;
+  charge: JsonObject | null;
+  ambiguous: boolean;
 };
 
 function json(body: unknown, status = 200, req?: Request): Response {
@@ -50,6 +63,10 @@ function parseCharge(payload: unknown): JsonObject | null {
   if (isObject(payload.charge)) return payload.charge;
   if (isObject(payload.pixQrCode)) return payload.pixQrCode;
   return payload;
+}
+
+function cleanText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 async function resolvePassenger(admin: AdminClient, authUserId: string) {
@@ -88,6 +105,100 @@ function existingResponse(payment: ExistingPayment, req: Request): Response {
     pixQrCodeBase64: payment.pix_qr_code_base64,
     pixExpirationAt: payment.pix_expiration_at,
   }, 200, req);
+}
+
+function providerPayload(correlationID: string, amountCents: number, ride: RidePaymentContext): JsonObject {
+  return {
+    correlationID,
+    value: amountCents,
+    type: "DYNAMIC",
+    expiresIn: PIX_EXPIRES_SECONDS,
+    comment: "APOIS Corridas - pagamento antes do despacho",
+    additionalInfo: [
+      { key: "rideId", value: ride.id },
+      { key: "fareCents", value: String(Math.round(Number(ride.estimated_price) * 100)) },
+      { key: "processingFeeCents", value: String(Number(ride.processing_fee_cents ?? 0)) },
+    ],
+  };
+}
+
+async function createOrRecoverProviderCharge(
+  correlationID: string,
+  amountCents: number,
+  ride: RidePaymentContext,
+): Promise<ProviderResult> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${WOOVI_API_BASE_URL}/api/v1/charge?return_existing=true`, {
+      method: "POST",
+      headers: {
+        Authorization: WOOVI_APP_ID,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify(providerPayload(correlationID, amountCents, ride)),
+      signal: controller.signal,
+    });
+
+    const rawText = await response.text();
+    let providerBody: unknown = null;
+    try { providerBody = rawText ? JSON.parse(rawText) : null; } catch { providerBody = null; }
+    const ambiguous = response.status >= 500 || [408, 425, 429].includes(response.status);
+    return {
+      ok: response.ok,
+      status: response.status,
+      rawText,
+      charge: parseCharge(providerBody),
+      ambiguous,
+    };
+  } catch (error) {
+    const detail = error instanceof DOMException && error.name === "AbortError"
+      ? "provider_timeout"
+      : `provider_transport_unknown:${String(error).slice(0, 300)}`;
+    return { ok: false, status: 0, rawText: detail, charge: null, ambiguous: true };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function persistProviderCharge(
+  admin: AdminClient,
+  payment: ExistingPayment,
+  result: ProviderResult,
+): Promise<ExistingPayment | null> {
+  const charge = result.charge;
+  if (!charge) return null;
+
+  const returnedCorrelationID = cleanText(charge.correlationID);
+  if (returnedCorrelationID && payment.provider_payment_id && returnedCorrelationID !== payment.provider_payment_id) {
+    return null;
+  }
+
+  const returnedValue = charge.value === undefined ? null : Number(charge.value);
+  if (returnedValue !== null && (!Number.isFinite(returnedValue) || Math.round(returnedValue) !== Number(payment.amount_cents))) {
+    return null;
+  }
+
+  const providerStatus = normalizeProviderStatus(charge.status);
+  const pixPayload = cleanText(charge.brCode);
+  const expiresAt = cleanText(charge.expiresDate) ?? payment.pix_expiration_at ??
+    new Date(Date.now() + PIX_EXPIRES_SECONDS * 1000).toISOString();
+
+  const { data, error } = await admin
+    .from("ride_pix_payments")
+    .update({
+      status: providerStatus,
+      pix_payload: pixPayload ?? payment.pix_payload,
+      pix_expiration_at: expiresAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", payment.id)
+    .eq("provider", "woovi")
+    .select("id,provider,provider_payment_id,amount_cents,status,pix_payload,pix_expiration_at,pix_qr_code_base64,attempt_number")
+    .maybeSingle();
+  if (error) throw new Error(`payment_persist_failed:${error.message}`);
+  return (data as ExistingPayment | null) ?? null;
 }
 
 Deno.serve(async (req) => {
@@ -138,24 +249,82 @@ Deno.serve(async (req) => {
 
     const existingPayment = await loadExistingPayment(admin, rideId);
 
-    if (action === "recover" && existingPayment) {
-      // During cutover an already-issued Asaas QR remains valid and must be
-      // reused. Creating a second Woovi charge would expose two payable Pix
-      // codes for the same ride.
+    if (existingPayment?.provider === "asaas") {
+      if (action === "retry") {
+        return json({
+          error: "legacy_asaas_charge_active",
+          provider: "asaas",
+          paymentId: existingPayment.provider_payment_id,
+          amountCents: Number(existingPayment.amount_cents),
+          status: existingPayment.status,
+          pixPayload: existingPayment.pix_payload,
+          pixQrCodeBase64: existingPayment.pix_qr_code_base64,
+          pixExpirationAt: existingPayment.pix_expiration_at,
+        }, 409, req);
+      }
       return existingResponse(existingPayment, req);
     }
 
-    if (action === "retry" && existingPayment?.provider === "asaas") {
-      return json({
-        error: "legacy_asaas_charge_active",
-        provider: "asaas",
-        paymentId: existingPayment.provider_payment_id,
-        amountCents: Number(existingPayment.amount_cents),
-        status: existingPayment.status,
-        pixPayload: existingPayment.pix_payload,
-        pixQrCodeBase64: existingPayment.pix_qr_code_base64,
-        pixExpirationAt: existingPayment.pix_expiration_at,
-      }, 409, req);
+    // Recovery is provider-idempotent. If a network/5xx failure happened after
+    // Woovi accepted the POST, repeat the SAME correlationID with
+    // return_existing=true. Never create a second payable Pix code while the
+    // first provider outcome is ambiguous.
+    if (existingPayment?.provider === "woovi" && existingPayment.provider_payment_id) {
+      if (action === "recover" && existingPayment.pix_payload) {
+        return existingResponse(existingPayment, req);
+      }
+
+      const recovery = await createOrRecoverProviderCharge(
+        existingPayment.provider_payment_id,
+        Number(existingPayment.amount_cents),
+        ride as RidePaymentContext,
+      );
+
+      if (!recovery.ok) {
+        if (recovery.ambiguous) {
+          return json({
+            ok: true,
+            pending: true,
+            reconciliationRequired: true,
+            provider: "woovi",
+            paymentId: existingPayment.provider_payment_id,
+            amountCents: Number(existingPayment.amount_cents),
+            status: existingPayment.status,
+          }, 202, req);
+        }
+        console.error("[woovi-create-ride-pix] recovery rejected", recovery.status, recovery.rawText.slice(0, 500));
+        return json({ error: "payment_provider_recovery_failed" }, 502, req);
+      }
+
+      const recovered = await persistProviderCharge(admin, existingPayment, recovery);
+      if (!recovered) {
+        return json({
+          ok: true,
+          pending: true,
+          reconciliationRequired: true,
+          error: "provider_charge_mismatch",
+          provider: "woovi",
+          paymentId: existingPayment.provider_payment_id,
+          status: existingPayment.status,
+        }, 202, req);
+      }
+
+      if (["pending", "confirmed", "received", "creating"].includes(recovered.status)) {
+        return existingResponse(recovered, req);
+      }
+
+      // Only an explicit provider terminal state authorizes a new attempt.
+      // This prevents two live QRs for one ride after a timeout or 5xx.
+      if (!["expired", "cancelled", "failed"].includes(recovered.status)) {
+        return json({
+          ok: true,
+          pending: true,
+          reconciliationRequired: true,
+          provider: "woovi",
+          paymentId: recovered.provider_payment_id,
+          status: recovered.status,
+        }, 202, req);
+      }
     }
 
     // Recovery of a legacy Asaas charge is permitted, but creating a fresh
@@ -163,16 +332,6 @@ Deno.serve(async (req) => {
     // each ride with the active provider before checkout.
     if (String(ride.payment_provider ?? "").toLowerCase() !== "woovi") {
       return json({ error: "electronic_payment_provider_not_woovi" }, 409, req);
-    }
-
-    if (action === "retry" && existingPayment?.provider === "woovi") {
-      const { error: expireError } = await admin
-        .from("ride_pix_payments")
-        .update({ status: "expired", updated_at: new Date().toISOString() })
-        .eq("id", existingPayment.id)
-        .eq("provider", "woovi")
-        .in("status", ["creating", "pending", "confirmed"]);
-      if (expireError) throw new Error(`previous_payment_expire_failed:${expireError.message}`);
     }
 
     const amountCents = Number(ride.passenger_charge_cents);
@@ -190,7 +349,7 @@ Deno.serve(async (req) => {
     const attemptNumber = Math.max(1, Number(attempts?.[0]?.attempt_number ?? 0) + 1);
     const correlationID = `apois-ride-${rideId}-${attemptNumber}`;
 
-    const { error: reserveError } = await admin.from("ride_pix_payments").insert({
+    const { data: reserved, error: reserveError } = await admin.from("ride_pix_payments").insert({
       ride_id: rideId,
       passenger_id: passenger.id,
       driver_id: null,
@@ -200,7 +359,7 @@ Deno.serve(async (req) => {
       status: "creating",
       attempt_number: attemptNumber,
       external_reference: correlationID,
-    });
+    }).select("id,provider,provider_payment_id,amount_cents,status,pix_payload,pix_expiration_at,pix_qr_code_base64,attempt_number").single();
     if (reserveError) {
       if (reserveError.code === "23505") {
         const concurrent = await loadExistingPayment(admin, rideId);
@@ -209,64 +368,66 @@ Deno.serve(async (req) => {
       throw new Error(`payment_reserve_failed:${reserveError.message}`);
     }
 
-    const response = await fetch(`${WOOVI_API_BASE_URL}/api/v1/charge?return_existing=true`, {
-      method: "POST",
-      headers: {
-        Authorization: WOOVI_APP_ID,
-        "content-type": "application/json",
-        accept: "application/json",
-      },
-      body: JSON.stringify({
-        correlationID,
-        value: amountCents,
-        type: "DYNAMIC",
-        expiresIn: PIX_EXPIRES_SECONDS,
-        comment: "APOIS Corridas - pagamento antes do despacho",
-        additionalInfo: [
-          { key: "rideId", value: rideId },
-          { key: "fareCents", value: String(Math.round(Number(ride.estimated_price) * 100)) },
-          { key: "processingFeeCents", value: String(Number(ride.processing_fee_cents ?? 0)) },
-        ],
-      }),
-    });
+    const payment = reserved as ExistingPayment;
+    const providerResult = await createOrRecoverProviderCharge(
+      correlationID,
+      amountCents,
+      ride as RidePaymentContext,
+    );
 
-    const rawText = await response.text();
-    let providerBody: unknown = null;
-    try { providerBody = rawText ? JSON.parse(rawText) : null; } catch { providerBody = null; }
+    if (!providerResult.ok) {
+      if (providerResult.ambiguous) {
+        // Keep the row in `creating`. A later recover/retry uses the same
+        // correlationID, so a provider-side success can be safely recovered.
+        console.warn("[woovi-create-ride-pix] ambiguous provider outcome", providerResult.status, providerResult.rawText.slice(0, 500));
+        return json({
+          ok: true,
+          pending: true,
+          reconciliationRequired: true,
+          provider: "woovi",
+          paymentId: correlationID,
+          amountCents,
+          status: "creating",
+        }, 202, req);
+      }
 
-    if (!response.ok) {
       await admin.from("ride_pix_payments").update({
         status: "failed",
         updated_at: new Date().toISOString(),
-      }).eq("ride_id", rideId).eq("attempt_number", attemptNumber).eq("provider", "woovi");
-      console.error("[woovi-create-ride-pix] provider error", response.status, rawText.slice(0, 500));
+      }).eq("id", payment.id).eq("provider", "woovi");
+      console.error("[woovi-create-ride-pix] provider rejected", providerResult.status, providerResult.rawText.slice(0, 500));
       return json({ error: "payment_provider_error" }, 502, req);
     }
 
-    const charge = parseCharge(providerBody);
-    const pixPayload = typeof charge?.brCode === "string" ? charge.brCode : null;
-    const expiresAt = typeof charge?.expiresDate === "string"
-      ? charge.expiresDate
-      : new Date(Date.now() + PIX_EXPIRES_SECONDS * 1000).toISOString();
-    const providerStatus = normalizeProviderStatus(charge?.status);
-
-    if (!pixPayload) {
-      await admin.from("ride_pix_payments").update({
-        status: "failed",
-        updated_at: new Date().toISOString(),
-      }).eq("ride_id", rideId).eq("attempt_number", attemptNumber).eq("provider", "woovi");
-      return json({ error: "provider_pix_payload_missing" }, 502, req);
+    const persisted = await persistProviderCharge(admin, payment, providerResult);
+    if (!persisted) {
+      return json({
+        ok: true,
+        pending: true,
+        reconciliationRequired: true,
+        error: "provider_charge_mismatch",
+        provider: "woovi",
+        paymentId: correlationID,
+        amountCents,
+        status: "creating",
+      }, 202, req);
     }
 
-    const { error: persistError } = await admin.from("ride_pix_payments").update({
-      provider: "woovi",
-      provider_payment_id: correlationID,
-      status: providerStatus,
-      pix_payload: pixPayload,
-      pix_expiration_at: expiresAt,
-      updated_at: new Date().toISOString(),
-    }).eq("ride_id", rideId).eq("attempt_number", attemptNumber).eq("provider", "woovi");
-    if (persistError) throw new Error(`payment_persist_failed:${persistError.message}`);
+    if (!persisted.pix_payload && !["expired", "cancelled", "failed"].includes(persisted.status)) {
+      return json({
+        ok: true,
+        pending: true,
+        reconciliationRequired: true,
+        provider: "woovi",
+        paymentId: correlationID,
+        amountCents,
+        status: persisted.status,
+      }, 202, req);
+    }
+
+    if (["expired", "cancelled", "failed"].includes(persisted.status)) {
+      return json({ error: "provider_charge_terminal", status: persisted.status }, 502, req);
+    }
 
     const { error: rideUpdateError } = await admin.from("rides").update({
       payment_provider: "woovi",
@@ -275,18 +436,7 @@ Deno.serve(async (req) => {
     }).eq("id", rideId).eq("status", "aguardando_pagamento");
     if (rideUpdateError) throw new Error(`ride_payment_link_failed:${rideUpdateError.message}`);
 
-    return json({
-      ok: true,
-      reused: false,
-      legacy: false,
-      provider: "woovi",
-      paymentId: correlationID,
-      amountCents,
-      status: providerStatus,
-      pixPayload,
-      pixQrCodeBase64: null,
-      pixExpirationAt: expiresAt,
-    }, 200, req);
+    return existingResponse(persisted, req);
   } catch (error) {
     console.error("[woovi-create-ride-pix]", error);
     return json({ error: "ride_pix_checkout_failed" }, 500, req);
