@@ -125,6 +125,16 @@ describe("Woovi financial safety contracts", () => {
     expect(migration).toContain("finance.driver_payouts_enabled remains false");
   });
 
+  test("never silently switches fresh Pix rides merely by installing the Woovi runtime", () => {
+    const migration = source("supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql");
+    expect(migration).toContain("finance.target_electronic_payment_provider");
+    expect(migration).toContain("v_target_provider text := 'asaas'");
+    expect(migration).toContain("if v_target_provider='woovi' then");
+    expect(migration).toContain("elsif v_target_provider='asaas' then");
+    expect(migration).toContain("electronic_payment_provider_not_supported");
+    expect(migration).toContain("v_preserve_existing_provider");
+  });
+
   test("charges Woovi passenger total but preserves legacy Asaas fare", () => {
     const migration = source("supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql");
     expect(migration).toContain("when v_provider='woovi' then coalesce(v_ride.passenger_charge_cents");
