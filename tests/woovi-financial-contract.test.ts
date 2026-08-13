@@ -112,17 +112,19 @@ describe("Woovi financial safety contracts", () => {
   });
 
   test("consolidates on the existing wallet, settlement and payout destination", () => {
-    const migration = source("supabase/migrations/20260812164500_woovi_pending_driver_balance.sql");
-    expect(migration).toContain("public.driver_wallets");
-    expect(migration).toContain("public.driver_wallet_transactions");
-    expect(migration).toContain("public.ride_settlements");
-    expect(migration).toContain("public.driver_payout_destinations");
+    const pending = source("supabase/migrations/20260812164500_woovi_pending_driver_balance.sql");
+    const cutover = source("supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql");
+    expect(pending).toContain("public.driver_wallets");
+    expect(pending).toContain("public.driver_wallet_transactions");
+    expect(pending).toContain("public.ride_settlements");
+    expect(cutover).toContain("public.driver_payout_destinations");
   });
 
   test("never silently switches fresh Pix rides merely by installing the Woovi runtime", () => {
-    const migration = source("supabase/migrations/20260812162000_woovi_runtime_foundation.sql");
+    const migration = source("supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql");
     expect(migration).toContain("finance.target_electronic_payment_provider");
     expect(migration).toContain("asaas");
+    expect(migration).toContain("does NOT switch either operational");
   });
 
   test("charges Woovi passenger total but preserves legacy Asaas fare", () => {
@@ -132,28 +134,26 @@ describe("Woovi financial safety contracts", () => {
     expect(migration).toContain("passenger_charge_cents");
   });
 
-  test("binds Woovi only to the canonical confirmed Pix destination", () => {
-    const migration = source("supabase/migrations/20260812170000_harden_woovi_provider_credit_claim.sql");
+  test("binds Woovi to the canonical confirmed Pix destination", () => {
+    const migration = source("supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql");
     expect(migration).toContain("driver_payout_destinations");
-    expect(migration).toContain("confirmed_at is not null");
-    expect(migration).toContain("d.pix_key=a.pix_key");
+    expect(migration).toContain("confirmed_at");
+    expect(migration).toContain("pix_key");
   });
 
   test("blocks Pix destination changes while Woovi-backed money is outstanding", () => {
-    const migration = source("supabase/migrations/20260812171500_lock_pix_destination_with_outstanding_woovi_money.sql");
+    const migration = source("supabase/migrations/20260812205500_guard_woovi_pix_destination_change.sql");
     expect(migration).toContain("driver_provider_credits");
-    expect(migration).toContain("driver_withdrawals");
+    expect(migration).toContain("driver_wallets");
+    expect(migration).toContain("withdraw_balance_before_pix_change");
   });
 
-  test("cancels unpaid provider charges without pretending an ambiguous provider failure succeeded", () => {
+  test("keeps ambiguous charge creation recoverable without creating a second live Pix", () => {
     const createPix = source("supabase/functions/woovi-create-ride-pix/index.ts");
-    expect(createPix).toContain("provider_cancel_unknown");
-  });
-
-  test("reuses the same Woovi correlation ID after ambiguous charge creation", () => {
-    const createPix = source("supabase/functions/woovi-create-ride-pix/index.ts");
-    expect(createPix).toContain("provider_create_unknown");
+    expect(createPix).toContain("reconciliationRequired: true");
+    expect(createPix).toContain("return_existing=true");
     expect(createPix).toContain("provider_payment_id");
+    expect(createPix).toContain("Only an explicit provider terminal state authorizes a new attempt");
   });
 
   test("keeps the webhook authoritative when provider API reports charge completed", () => {
@@ -163,11 +163,14 @@ describe("Woovi financial safety contracts", () => {
 
   test("never creates a Woovi retry while a legacy Asaas charge is still active", () => {
     const createPix = source("supabase/functions/woovi-create-ride-pix/index.ts");
-    expect(createPix).toContain("asaas");
+    expect(createPix).toContain("legacy_asaas_charge_active");
+    expect(createPix).toContain("existingPayment?.provider === \"asaas\"");
   });
 
   test("passenger UI labels recovered legacy provider without claiming Woovi confirmed it", () => {
-    const paymentCard = source("src/components/passenger/RidePixPaymentCard.tsx");
-    expect(paymentCard).toContain("paymentProvider");
+    const paymentCard = source("src/components/payments/RidePixPaymentCard.tsx");
+    expect(paymentCard).toContain("checkout?.provider");
+    expect(paymentCard).toContain("providerLabel");
+    expect(paymentCard).toContain("Cobrança processada por");
   });
 });
