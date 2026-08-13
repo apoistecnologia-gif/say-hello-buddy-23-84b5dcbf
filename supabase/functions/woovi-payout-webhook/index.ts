@@ -40,22 +40,20 @@ function constantTimeEqual(left: string, right: string): boolean {
   return diff === 0;
 }
 
+function normalizeAuthorization(value: string): string {
+  return value.trim().replace(/^Bearer\s+/i, "").trim();
+}
+
 function webhookAuthorization(req: Request): string {
-  return (
+  return normalizeAuthorization(
     req.headers.get("x-openpix-authorization") ??
     req.headers.get("authorization") ??
-    ""
-  ).trim();
+    "",
+  );
 }
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-  if (!WEBHOOK_AUTHORIZATION) return json({ error: "webhook_not_configured" }, 503);
-
-  const supplied = webhookAuthorization(req);
-  if (!supplied || !constantTimeEqual(supplied, WEBHOOK_AUTHORIZATION)) {
-    return json({ error: "unauthorized" }, 401);
-  }
 
   let payload: JsonObject;
   try {
@@ -65,7 +63,23 @@ Deno.serve(async (req) => {
     return json({ error: "invalid_json" }, 400);
   }
 
+  // Woovi validates webhook registration with a synthetic request. The
+  // dashboard may omit custom auth headers during this side-effect-free test,
+  // so acknowledge it before enforcing the secret. Real movement events still
+  // require the shared webhook authorization below.
   const event = text(payload.event)?.toUpperCase() ?? "";
+  const handshake = text(payload.evento)?.toLowerCase() ?? "";
+  if (handshake === "teste_webhook") {
+    return json({ ok: true, test: true, event: event || null });
+  }
+
+  if (!WEBHOOK_AUTHORIZATION) return json({ error: "webhook_not_configured" }, 503);
+
+  const supplied = webhookAuthorization(req);
+  if (!supplied || !constantTimeEqual(supplied, WEBHOOK_AUTHORIZATION)) {
+    return json({ error: "unauthorized" }, 401);
+  }
+
   if (!["OPENPIX:MOVEMENT_CONFIRMED", "OPENPIX:MOVEMENT_FAILED", "OPENPIX:MOVEMENT_REMOVED"].includes(event)) {
     return json({ ok: true, ignored: true, event });
   }
