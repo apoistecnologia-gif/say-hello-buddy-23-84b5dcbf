@@ -33,6 +33,12 @@ verify_jwt = true
 [functions.driver-ride-action]
 verify_jwt = true
 
+[functions.driver-woovi-credit]
+verify_jwt = true
+
+[functions.driver-woovi-payment-account]
+verify_jwt = true
+
 [functions.mercadopago-health]
 verify_jwt = true
 
@@ -71,3 +77,16 @@ verify_jwt = true
 
 [functions.send-ride-push]
 verify_jwt = true
+
+[functions.woovi-create-ride-pix]
+verify_jwt = true
+
+# Provider webhooks authenticate with the secret echoed by Woovi in the
+# Authorization/x-openpix-authorization header. They must reach the function
+# without a Supabase user JWT and then pass the function's constant-time secret
+# check before any financial mutation is performed.
+[functions.woovi-webhook]
+verify_jwt = false
+
+[functions.woovi-payout-webhook]
+verify_jwt = false
