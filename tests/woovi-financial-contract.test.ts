@@ -76,4 +76,48 @@ describe("Woovi financial safety contracts", () => {
     expect(migration).toContain("pending_balance=pending_balance-v_amount");
     expect(migration).toContain("available_balance=available_balance+v_amount");
   });
+
+  test("uses the live webhook receipt schema and explicit Woovi activation", () => {
+    const webhook = source("supabase/functions/woovi-webhook/index.ts");
+    expect(webhook).toContain('.eq("event_key", eventId)');
+    expect(webhook).toContain('event_key: eventId');
+    expect(webhook).not.toContain("provider_event_id");
+    expect(webhook).toContain('_provider: "woovi"');
+  });
+
+  test("consolidates on the existing wallet, settlement and payout destination", () => {
+    const migration = source("supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql");
+    expect(migration).toContain("public.driver_payout_destinations");
+    expect(migration).toContain("public.driver_wallets");
+    expect(migration).toContain("public.driver_wallet_transactions");
+    expect(migration).toContain("public.driver_withdrawals");
+    expect(migration).toContain("public.ride_settlements");
+    expect(migration).toContain("driver_payout_destinations remains authoritative");
+    expect(migration).toContain("finance.driver_payouts_enabled remains false");
+  });
+
+  test("charges Woovi passenger total but preserves legacy Asaas fare", () => {
+    const migration = source("supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql");
+    expect(migration).toContain("when v_provider='woovi' then coalesce(v_ride.passenger_charge_cents");
+    expect(migration).toContain("else round(v_ride.estimated_price*100)::bigint");
+    expect(migration).toContain("payment_provider=v_provider");
+    expect(migration).toContain("return public.activate_prepaid_pix_ride(_ride_id,_provider_payment_id,v_provider)");
+  });
+
+  test("binds Woovi only to the canonical confirmed Pix destination", () => {
+    const account = source("supabase/functions/driver-woovi-payment-account/index.ts");
+    expect(account).toContain('.from("driver_payout_destinations")');
+    expect(account).toContain("pix_key_must_match_payout_destination");
+    expect(account).toContain("pix_payout_destination_cooldown");
+    expect(account).toContain("payout_destination_changed_during_binding");
+  });
+
+  test("blocks Pix destination changes while Woovi-backed money is outstanding", () => {
+    const migration = source("supabase/migrations/20260812205500_guard_woovi_pix_destination_change.sql");
+    expect(migration).toContain("coalesce(v_wallet.balance,0) > 0");
+    expect(migration).toContain("coalesce(v_wallet.pending_balance,0) > 0");
+    expect(migration).toContain("c.status in ('pending','processing')");
+    expect(migration).toContain("withdraw_balance_before_pix_change");
+    expect(migration).toContain("now()+interval '24 hours'");
+  });
 });
