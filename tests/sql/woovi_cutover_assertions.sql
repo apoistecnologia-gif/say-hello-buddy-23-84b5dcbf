@@ -24,7 +24,46 @@ begin
   if r.passenger_charge_cents <> 2000 then raise exception 'legacy_charge_changed:%',r.passenger_charge_cents; end if;
 end $$;
 
--- A new Pix ride must be priced for Woovi server-side, including passenger fee.
+-- Installing the Woovi runtime must NOT silently cut over fresh Pix rides while
+-- the operational provider setting still targets Asaas.
+do $$
+declare
+  p text;
+begin
+  select lower(value #>> '{}') into p from public.app_settings where key='finance.target_electronic_payment_provider';
+  if p <> 'asaas' then raise exception 'migration_changed_payment_provider_setting:%',p; end if;
+end $$;
+
+insert into public.rides(
+  id,passenger_id,driver_id,estimated_price,final_price,payment_method,
+  payment_status,provider_payment_id,status,completed_at
+) values (
+  '22222222-2222-4222-8222-222222222221',
+  'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  20.00,20.00,'pix','pending',null,'aguardando_pagamento',null
+);
+
+do $$
+declare
+  r public.rides%rowtype;
+begin
+  select * into r from public.rides where id='22222222-2222-4222-8222-222222222221';
+  if r.payment_provider <> 'asaas' then raise exception 'pre_cutover_fresh_pix_provider_mismatch:%',r.payment_provider; end if;
+  if r.processing_fee_cents <> 0 then raise exception 'pre_cutover_processing_fee_added:%',r.processing_fee_cents; end if;
+  if r.passenger_charge_cents <> 2000 then raise exception 'pre_cutover_charge_changed:%',r.passenger_charge_cents; end if;
+end $$;
+
+delete from public.rides where id='22222222-2222-4222-8222-222222222221';
+
+-- Explicitly activate ONLY the electronic provider inside this ephemeral DB.
+-- Payouts remain disabled until their later assertions.
+update public.app_settings
+set value='"woovi"'::jsonb
+where key='finance.target_electronic_payment_provider';
+
+-- A fresh Pix ride after the explicit switch must be priced for Woovi
+-- server-side, including the passenger processing fee.
 insert into public.rides(
   id,passenger_id,driver_id,estimated_price,final_price,payment_method,
   payment_status,provider_payment_id,status,completed_at
@@ -116,9 +155,8 @@ begin
   if c.id is not null then raise exception 'provider_credit_replayed:%',c.id; end if;
 end $$;
 
--- Activate the provider switches only inside this ephemeral DB and verify both
--- Driver and Admin read the same provider configuration.
-update public.app_settings set value='"woovi"'::jsonb where key='finance.target_electronic_payment_provider';
+-- Activate the payout provider switches only inside this ephemeral DB and
+-- verify Driver and Admin read the same provider configuration.
 update public.app_settings set value='"woovi"'::jsonb where key='finance.target_payout_provider';
 update public.app_settings set value='true'::jsonb where key='finance.driver_payouts_enabled';
 
