@@ -265,24 +265,16 @@ Deno.serve(async (req) => {
 
     if (!response.ok) {
       const reason = `HTTP ${response.status}:${responseText.slice(0, 500)}`;
-      // 5xx can be returned after the provider has already mutated state, so it
-      // is ambiguous. 429/408 are safe to retry because the request was not
-      // accepted for processing. Other explicit 4xx errors require intervention.
-      if (response.status >= 500) {
-        await persistReconciliationRequired(admin, credit.id, `provider_${reason}`);
+      const ambiguousHttpFailure = response.status >= 500 || [408, 425, 429].includes(response.status);
+
+      // The provider's subaccount credit endpoint has no client-supplied
+      // idempotency key. Timeout-like statuses, throttling and 5xx responses can
+      // therefore be observed after the provider has already moved funds. Keep
+      // the credit in processing and reconcile against the subaccount statement
+      // instead of automatically issuing a duplicate credit.
+      if (ambiguousHttpFailure) {
+        await persistReconciliationRequired(admin, credit.id, `provider_http_ambiguous:${reason}`);
         unresolved += 1;
-      } else if (response.status === 408 || response.status === 429) {
-        const { error: retryError } = await admin
-          .from("driver_provider_credits")
-          .update({
-            status: "failed",
-            last_error: `safe_retry:${reason}`.slice(0, 900),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", credit.id)
-          .eq("status", "processing");
-        if (retryError) console.error("[driver-woovi-credit] safe retry persist", credit.id, retryError);
-        failed += 1;
       } else {
         const { error: terminalError } = await admin
           .from("driver_provider_credits")
