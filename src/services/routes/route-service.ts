@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { invokeAuthenticatedFunction } from "@/integrations/supabase/invoke-authenticated";
 import type { RouteRequest, RouteResponse, RouteStep } from "@/types/routes";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -127,7 +127,7 @@ class RouteService {
     this.abortController = controller;
 
     try {
-      const { data: response, error } = await supabase.functions.invoke(
+      const { data: response, error } = await invokeAuthenticatedFunction(
         "passenger-routes-compute",
         { body: request },
       );
