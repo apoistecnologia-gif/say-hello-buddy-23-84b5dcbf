@@ -40,11 +40,19 @@ function constantTimeEqual(left: string, right: string): boolean {
   return diff === 0;
 }
 
+function webhookAuthorization(req: Request): string {
+  return (
+    req.headers.get("x-openpix-authorization") ??
+    req.headers.get("authorization") ??
+    ""
+  ).trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (!WEBHOOK_AUTHORIZATION) return json({ error: "webhook_not_configured" }, 503);
 
-  const supplied = (req.headers.get("authorization") ?? "").trim();
+  const supplied = webhookAuthorization(req);
   if (!supplied || !constantTimeEqual(supplied, WEBHOOK_AUTHORIZATION)) {
     return json({ error: "unauthorized" }, 401);
   }
