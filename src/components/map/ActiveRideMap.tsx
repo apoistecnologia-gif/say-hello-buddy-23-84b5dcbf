@@ -27,6 +27,20 @@ const DARK_MAP_STYLES = [
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#67808c" }] },
 ];
 
+const ROUTE_VIEW_PADDING = {
+  top: 76,
+  right: 28,
+  bottom: 92,
+  left: 28,
+};
+
+const APPROACH_VIEW_PADDING = {
+  top: 72,
+  right: 28,
+  bottom: 86,
+  left: 28,
+};
+
 const validCoordinate = (coordinate: Coordinate): boolean =>
   Number.isFinite(coordinate.lat) &&
   Number.isFinite(coordinate.lng) &&
@@ -167,7 +181,7 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
 
   // Geometria estática da corrida. Este efeito NÃO depende da localização do
   // motorista; assim, cada atualização Realtime move somente o marcador e não
-  // recria polyline/markers nem refaz fitBounds (causa do mapa "pulando").
+  // recria polyline/markers nem refaz fitBounds.
   useEffect(() => {
     if (status !== "ready" || !mapRef.current) return;
     const maps = (window as any).google?.maps;
@@ -239,18 +253,13 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
     addMarker(destination, "Destino", "#FFB800", "square");
 
     if (!bounds.isEmpty()) {
-      mapRef.current.fitBounds(bounds, {
-        top: 132,
-        right: 36,
-        bottom: 265,
-        left: 36,
-      });
+      mapRef.current.fitBounds(bounds, ROUTE_VIEW_PADDING);
     }
   }, [destination, orderedStops, origin, routePoints, status]);
 
-  // Tracking vivo: o mesmo Marker é reaproveitado. Não existe posição
-  // simulada/interpolada; cada setPosition recebe somente coordenada real
-  // persistida no snapshot autorizado da própria corrida do passageiro.
+  // Tracking vivo: o mesmo Marker é reaproveitado. Durante a viagem, o mapa
+  // acompanha a coordenada real do motorista; antes do início, apenas enquadra
+  // motorista + embarque quando necessário.
   useEffect(() => {
     if (status !== "ready" || !mapRef.current) return;
     const maps = (window as any).google?.maps;
@@ -264,17 +273,12 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
     }
 
     const icon = {
-      path: maps.SymbolPath.FORWARD_CLOSED_ARROW,
-      scale: 6,
-      rotation:
-        typeof ride.driver_heading === "number" && Number.isFinite(ride.driver_heading)
-          ? ride.driver_heading
-          : 0,
+      path: maps.SymbolPath.CIRCLE,
+      scale: 7,
       fillColor: "#2563EB",
       fillOpacity: 1,
       strokeColor: "#FFFFFF",
-      strokeWeight: 2,
-      anchor: new maps.Point(0, 2),
+      strokeWeight: 3,
     };
 
     if (!driverMarkerRef.current) {
@@ -291,9 +295,16 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
       driverMarkerRef.current.setPosition(driverLocation);
     }
 
-    // Apenas na primeira coordenada real: se o motorista estiver fora da área
-    // atualmente visível, enquadra embarque + motorista uma única vez. Depois
-    // disso o mapa nunca é recentralizado por updates de GPS.
+    if (ride.status === "em_viagem") {
+      const currentZoom = mapRef.current.getZoom?.();
+      if (!firstDriverViewportRef.current || typeof currentZoom !== "number" || currentZoom < 14) {
+        mapRef.current.setZoom(15);
+      }
+      mapRef.current.panTo(driverLocation);
+      firstDriverViewportRef.current = true;
+      return;
+    }
+
     if (!firstDriverViewportRef.current) {
       firstDriverViewportRef.current = true;
       const currentBounds = mapRef.current.getBounds?.();
@@ -301,15 +312,10 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
         const approachBounds = new maps.LatLngBounds();
         approachBounds.extend(origin);
         approachBounds.extend(driverLocation);
-        mapRef.current.fitBounds(approachBounds, {
-          top: 132,
-          right: 36,
-          bottom: 265,
-          left: 36,
-        });
+        mapRef.current.fitBounds(approachBounds, APPROACH_VIEW_PADDING);
       }
     }
-  }, [driverLocation, origin, ride.driver_heading, status]);
+  }, [driverLocation, origin, ride.status, status]);
 
   const retry = () => {
     googleMapsLoader.reset();
