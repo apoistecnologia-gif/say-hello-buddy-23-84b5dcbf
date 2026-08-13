@@ -26,14 +26,18 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+function normalizeAuthorization(value: string): string {
+  return value.trim().replace(/^Bearer\s+/i, "").trim();
+}
+
 function webhookAuthorization(req: Request): string {
-  return (
+  const supplied =
     req.headers.get("x-apois-webhook-secret") ??
     req.headers.get("x-webhook-secret") ??
     req.headers.get("x-openpix-authorization") ??
     req.headers.get("authorization") ??
-    ""
-  ).trim();
+    "";
+  return normalizeAuthorization(supplied);
 }
 
 function integer(value: unknown): number | null {
@@ -76,6 +80,11 @@ Deno.serve(async (req) => {
   }
 
   const event = String(payload.event ?? "").toUpperCase();
+  const handshake = String(payload.evento ?? "").trim().toLowerCase();
+  if (handshake === "teste_webhook") {
+    return json({ ok: true, test: true, event: event || null });
+  }
+
   if (!["OPENPIX:CHARGE_COMPLETED", "WOOVI:CHARGE_COMPLETED"].includes(event)) {
     return json({ ok: true, ignored: true });
   }
