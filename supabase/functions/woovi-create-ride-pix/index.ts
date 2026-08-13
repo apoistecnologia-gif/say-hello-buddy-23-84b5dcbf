@@ -9,6 +9,17 @@ const PIX_EXPIRES_SECONDS = Math.max(300, Number.parseInt(Deno.env.get("WOOVI_RI
 
 type JsonObject = Record<string, unknown>;
 type AdminClient = ReturnType<typeof createClient<any, "public">>;
+type ExistingPayment = {
+  id: string;
+  provider: string;
+  provider_payment_id: string | null;
+  amount_cents: number;
+  status: string;
+  pix_payload: string | null;
+  pix_expiration_at: string | null;
+  pix_qr_code_base64: string | null;
+  attempt_number: number;
+};
 
 function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
@@ -51,27 +62,31 @@ async function resolvePassenger(admin: AdminClient, authUserId: string) {
   return data;
 }
 
-async function returnExisting(admin: AdminClient, rideId: string, req: Request) {
+async function loadExistingPayment(admin: AdminClient, rideId: string): Promise<ExistingPayment | null> {
   const { data, error } = await admin
     .from("ride_pix_payments")
-    .select("provider_payment_id,amount_cents,status,pix_payload,pix_expiration_at,pix_qr_code_base64,attempt_number")
+    .select("id,provider,provider_payment_id,amount_cents,status,pix_payload,pix_expiration_at,pix_qr_code_base64,attempt_number")
     .eq("ride_id", rideId)
     .in("status", ["creating", "pending", "confirmed", "received"])
     .order("attempt_number", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(`payment_lookup_failed:${error.message}`);
-  if (!data) return null;
+  return (data as ExistingPayment | null) ?? null;
+}
 
+function existingResponse(payment: ExistingPayment, req: Request): Response {
   return json({
     ok: true,
     reused: true,
-    paymentId: data.provider_payment_id,
-    amountCents: Number(data.amount_cents),
-    status: data.status,
-    pixPayload: data.pix_payload,
-    pixQrCodeBase64: data.pix_qr_code_base64,
-    pixExpirationAt: data.pix_expiration_at,
+    legacy: payment.provider === "asaas",
+    provider: payment.provider,
+    paymentId: payment.provider_payment_id,
+    amountCents: Number(payment.amount_cents),
+    status: payment.status,
+    pixPayload: payment.pix_payload,
+    pixQrCodeBase64: payment.pix_qr_code_base64,
+    pixExpirationAt: payment.pix_expiration_at,
   }, 200, req);
 }
 
@@ -121,14 +136,34 @@ Deno.serve(async (req) => {
       return json({ error: "ride_not_awaiting_pix_payment" }, 409, req);
     }
 
-    if (action === "recover") {
-      const existing = await returnExisting(admin, rideId, req);
-      if (existing) return existing;
-    } else {
+    const existingPayment = await loadExistingPayment(admin, rideId);
+
+    if (action === "recover" && existingPayment) {
+      // During cutover an already-issued Asaas QR remains valid and must be
+      // reused. Creating a second Woovi charge would expose two payable Pix
+      // codes for the same ride.
+      return existingResponse(existingPayment, req);
+    }
+
+    if (action === "retry" && existingPayment?.provider === "asaas") {
+      return json({
+        error: "legacy_asaas_charge_active",
+        provider: "asaas",
+        paymentId: existingPayment.provider_payment_id,
+        amountCents: Number(existingPayment.amount_cents),
+        status: existingPayment.status,
+        pixPayload: existingPayment.pix_payload,
+        pixQrCodeBase64: existingPayment.pix_qr_code_base64,
+        pixExpirationAt: existingPayment.pix_expiration_at,
+      }, 409, req);
+    }
+
+    if (action === "retry" && existingPayment?.provider === "woovi") {
       const { error: expireError } = await admin
         .from("ride_pix_payments")
         .update({ status: "expired", updated_at: new Date().toISOString() })
-        .eq("ride_id", rideId)
+        .eq("id", existingPayment.id)
+        .eq("provider", "woovi")
         .in("status", ["creating", "pending", "confirmed"]);
       if (expireError) throw new Error(`previous_payment_expire_failed:${expireError.message}`);
     }
@@ -161,8 +196,8 @@ Deno.serve(async (req) => {
     });
     if (reserveError) {
       if (reserveError.code === "23505") {
-        const existing = await returnExisting(admin, rideId, req);
-        if (existing) return existing;
+        const concurrent = await loadExistingPayment(admin, rideId);
+        if (concurrent) return existingResponse(concurrent, req);
       }
       throw new Error(`payment_reserve_failed:${reserveError.message}`);
     }
@@ -196,7 +231,7 @@ Deno.serve(async (req) => {
       await admin.from("ride_pix_payments").update({
         status: "failed",
         updated_at: new Date().toISOString(),
-      }).eq("ride_id", rideId).eq("attempt_number", attemptNumber);
+      }).eq("ride_id", rideId).eq("attempt_number", attemptNumber).eq("provider", "woovi");
       console.error("[woovi-create-ride-pix] provider error", response.status, rawText.slice(0, 500));
       return json({ error: "payment_provider_error" }, 502, req);
     }
@@ -212,7 +247,7 @@ Deno.serve(async (req) => {
       await admin.from("ride_pix_payments").update({
         status: "failed",
         updated_at: new Date().toISOString(),
-      }).eq("ride_id", rideId).eq("attempt_number", attemptNumber);
+      }).eq("ride_id", rideId).eq("attempt_number", attemptNumber).eq("provider", "woovi");
       return json({ error: "provider_pix_payload_missing" }, 502, req);
     }
 
@@ -223,7 +258,7 @@ Deno.serve(async (req) => {
       pix_payload: pixPayload,
       pix_expiration_at: expiresAt,
       updated_at: new Date().toISOString(),
-    }).eq("ride_id", rideId).eq("attempt_number", attemptNumber);
+    }).eq("ride_id", rideId).eq("attempt_number", attemptNumber).eq("provider", "woovi");
     if (persistError) throw new Error(`payment_persist_failed:${persistError.message}`);
 
     const { error: rideUpdateError } = await admin.from("rides").update({
@@ -236,6 +271,8 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       reused: false,
+      legacy: false,
+      provider: "woovi",
       paymentId: correlationID,
       amountCents,
       status: providerStatus,
