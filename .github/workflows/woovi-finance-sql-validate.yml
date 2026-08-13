@@ -19,6 +19,45 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  validate-safe-schema-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: apois_woovi_foundation_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d apois_woovi_foundation_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGPASSWORD: postgres
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGDATABASE: apois_woovi_foundation_test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Confirm PostgreSQL client
+        run: psql --version
+
+      - name: Build observed pre-cutover financial schema
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_pre_cutover_fixture.sql
+
+      - name: Apply safe Asaas-mode Woovi schema foundation
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260812212000_stage_woovi_schema_foundation.sql
+
+      - name: Execute safe foundation assertions
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_schema_foundation_assertions.sql
+
   validate-cutover-sql:
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -51,12 +90,6 @@ jobs:
 
       - name: Build observed pre-cutover financial schema
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_pre_cutover_fixture.sql
-
-      - name: Apply safe Asaas-mode Woovi schema foundation
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260812212000_stage_woovi_schema_foundation.sql
-
-      - name: Execute safe foundation assertions
-        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_schema_foundation_assertions.sql
 
       - name: Apply consolidated Woovi financial foundation
         run: |
