@@ -11,6 +11,8 @@ interface RidePixPaymentCardProps {
 type PixCheckout = {
   ok?: boolean;
   reused?: boolean;
+  legacy?: boolean;
+  provider?: "asaas" | "woovi" | string;
   paymentId?: string;
   amountCents?: number;
   status?: string;
@@ -30,6 +32,8 @@ function readableError(code: string | undefined) {
       return "Não foi possível localizar esta corrida para cobrança.";
     case "payment_provider_not_configured":
       return "O Pix está temporariamente indisponível. Tente novamente em instantes.";
+    case "legacy_asaas_charge_active":
+      return "Esta corrida ainda possui um Pix anterior ativo. Consulte o pagamento existente antes de gerar uma nova cobrança.";
     default:
       return "Não foi possível gerar ou consultar o Pix agora. Tente novamente.";
   }
@@ -80,6 +84,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
       ? checkout.amountCents / 100
       : officialAmount;
   const expirationLabel = formatExpiration(checkout?.pixExpirationAt);
+  const providerLabel = checkout?.provider === "asaas" ? "Asaas" : checkout?.provider === "woovi" ? "Woovi" : "provedor Pix";
 
   const generate = useCallback(async (action: "recover" | "retry" = "recover") => {
     if (loading || paid) return;
@@ -100,14 +105,14 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
       setCheckout(data);
       if (isBackendPaidStatus(data.status)) {
         setPaid(true);
-        toast.success("Pagamento Pix confirmado pela Woovi.");
+        toast.success("Pagamento Pix confirmado pelo backend.");
         return;
       }
       if (data.pixPayload && !["expired", "overdue"].includes(normalizePaymentStatus(data.status))) {
         toast.success(data.reused ? "Pix pendente recuperado." : "Pix pronto para pagamento.");
       }
     } catch (caughtError) {
-      console.error("[RidePixPaymentCard] Woovi Pix lookup failed", caughtError);
+      console.error("[RidePixPaymentCard] Pix lookup failed", caughtError);
       setError("Não foi possível gerar ou consultar o Pix agora. Tente novamente.");
     } finally {
       setLoading(false);
@@ -142,7 +147,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
           <div>
             <p className="text-sm font-black text-white">Pix confirmado</p>
             <p className="mt-1 text-[11px] text-zinc-400">
-              A Woovi confirmou o pagamento ao backend. A busca de motorista pode começar.
+              O backend confirmou o pagamento. A busca de motorista pode começar.
             </p>
           </div>
         </div>
@@ -159,8 +164,11 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
         <div className="min-w-0 flex-1">
           <p className="text-sm font-black text-white">Pague por Pix para chamar o motorista</p>
           <p className="mt-1 text-[11px] leading-4 text-zinc-400">
-            A corrida só entra na busca depois que a Woovi confirmar o pagamento ao backend.
+            A corrida só entra na busca depois que o pagamento for confirmado pelo backend.
           </p>
+          {checkout?.provider ? (
+            <p className="mt-1 text-[10px] font-bold text-zinc-500">Cobrança processada por {providerLabel}.</p>
+          ) : null}
         </div>
       </div>
 
@@ -169,7 +177,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
           <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">Total do Pix</p>
           <p className="mt-1 text-2xl font-black text-apois-yellow">{formatCurrency(amount)}</p>
           <p className="mt-1 text-[10px] leading-4 text-zinc-500">
-            Total validado pelo backend, incluindo a taxa de processamento exibida na revisão.
+            Total validado pelo backend, incluindo a taxa de processamento exibida na revisão quando aplicável.
           </p>
         </div>
       ) : null}
