@@ -161,6 +161,19 @@ describe("Woovi financial safety contracts", () => {
     expect(cancellation).toContain('.update({ status: "cancelled", updated_at: new Date().toISOString() })');
   });
 
+  test("reuses the same Woovi correlation ID after ambiguous charge creation", () => {
+    const checkout = source("supabase/functions/woovi-create-ride-pix/index.ts");
+    expect(checkout).toContain("return_existing=true");
+    expect(checkout).toContain("REQUEST_TIMEOUT_MS = 15_000");
+    expect(checkout).toContain("response.status >= 500");
+    expect(checkout).toContain("[408, 425, 429].includes(response.status)");
+    expect(checkout).toContain("reconciliationRequired: true");
+    expect(checkout).toContain("createOrRecoverProviderCharge(");
+    expect(checkout).toContain("existingPayment.provider_payment_id");
+    expect(checkout).toContain("Only an explicit provider terminal state authorizes a new attempt");
+    expect(checkout).toContain("Keep the row in `creating`");
+  });
+
   test("never creates a Woovi retry while a legacy Asaas charge is still active", () => {
     const checkout = source("supabase/functions/woovi-create-ride-pix/index.ts");
     expect(checkout).toContain("provider,provider_payment_id");
