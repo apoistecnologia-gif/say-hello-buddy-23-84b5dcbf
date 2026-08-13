@@ -45,6 +45,10 @@ describe("Woovi financial safety contracts", () => {
     expect(payout).toContain("reconciliationRequired: true");
     expect(payout).toContain("Never refund");
     expect(payout).toContain("provider_timeout_reconciliation_required");
+    expect(payout).toContain("response.status >= 500");
+    expect(payout).toContain("[408, 425, 429].includes(response.status)");
+    expect(payout).toContain("provider_http_ambiguous:");
+    expect(payout).toContain("ambiguous HTTP persist");
   });
 
   test("serializes payout reservations and enforces idempotency in the database", () => {
