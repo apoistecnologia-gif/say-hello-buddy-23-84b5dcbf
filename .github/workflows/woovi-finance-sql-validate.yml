@@ -5,6 +5,8 @@ on:
     branches:
       - main
     paths:
+      - "supabase/migrations/2026081216*.sql"
+      - "supabase/migrations/2026081217*.sql"
       - "supabase/migrations/2026081220*.sql"
       - "supabase/migrations/2026081221*.sql"
       - "tests/sql/woovi_*.sql"
@@ -49,28 +51,28 @@ jobs:
       - name: Confirm PostgreSQL client
         run: psql --version
 
-      - name: Build observed pre-cutover financial schema
+      - name: Build observed production financial schema
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_pre_cutover_fixture.sql
 
-      - name: Apply safe Asaas-mode Woovi schema foundation
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260812212000_stage_woovi_schema_foundation.sql
+      - name: Apply early safe Asaas-mode Woovi foundation
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260812165500_stage_woovi_schema_foundation.sql
 
       - name: Execute safe foundation assertions
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_schema_foundation_assertions.sql
 
-  validate-cutover-sql:
+  validate-production-delta-order:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     services:
       postgres:
         image: postgres:16
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: apois_woovi_test
+          POSTGRES_DB: apois_woovi_order_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d apois_woovi_test"
+          --health-cmd "pg_isready -U postgres -d apois_woovi_order_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -79,7 +81,7 @@ jobs:
       PGHOST: 127.0.0.1
       PGPORT: 5432
       PGUSER: postgres
-      PGDATABASE: apois_woovi_test
+      PGDATABASE: apois_woovi_order_test
 
     steps:
       - name: Checkout
@@ -88,27 +90,36 @@ jobs:
       - name: Confirm PostgreSQL client
         run: psql --version
 
-      - name: Build observed pre-cutover financial schema
+      - name: Build observed production financial schema
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_pre_cutover_fixture.sql
 
-      - name: Apply consolidated Woovi financial foundation
+      - name: Apply unapplied Woovi migrations in natural filename order
         run: |
           set -euo pipefail
+          # Production already contains the 1645 pending-balance and 1650
+          # provider-constraint stages. The fixture represents that observed
+          # state, so validate exactly the remaining production delta.
           for file in \
+            supabase/migrations/20260812165500_stage_woovi_schema_foundation.sql \
+            supabase/migrations/20260812170000_harden_woovi_provider_credit_claim.sql \
+            supabase/migrations/20260812170500_harden_driver_withdrawal_idempotency.sql \
+            supabase/migrations/20260812171000_preserve_asaas_pix_cutover_settlement.sql \
             supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql \
             supabase/migrations/20260812205500_guard_woovi_pix_destination_change.sql \
             supabase/migrations/20260812210000_provider_aware_driver_financial_dashboard.sql \
             supabase/migrations/20260812210500_provider_aware_admin_finance_summary.sql \
-            supabase/migrations/20260812211000_preserve_driver_withdrawal_public_facade.sql; do
+            supabase/migrations/20260812211000_preserve_driver_withdrawal_public_facade.sql \
+            supabase/migrations/20260812211500_gate_ride_pix_provider_cutover.sql \
+            supabase/migrations/20260812212000_stage_woovi_schema_foundation.sql; do
             echo "Applying $file"
             psql -v ON_ERROR_STOP=1 -f "$file"
           done
 
-      - name: Execute financial foundation assertions
-        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_cutover_assertions.sql
+      - name: Verify safe foundation survived chronological hardening
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_schema_foundation_assertions.sql
 
-      - name: Apply staged electronic-provider gate
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260812211500_gate_ride_pix_provider_cutover.sql
+      - name: Execute financial cutover assertions
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_cutover_assertions.sql
 
       - name: Execute staged provider-switch assertions
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_switch_gate_assertions.sql
