@@ -5,22 +5,21 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const WOOVI_APP_ID = (Deno.env.get("WOOVI_APP_ID") ?? "").trim();
-const WOOVI_API_BASE_URL = (
-  Deno.env.get("WOOVI_API_BASE_URL")?.trim() || "https://api.woovi.com"
-).replace(/\/+$/, "");
+const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL")?.trim() || "https://api.woovi.com").replace(/\/+$/, "");
 const REQUEST_TIMEOUT_MS = 15_000;
 
-const json = (req: Request, body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...getCorsHeaders(req), "content-type": "application/json" },
-  });
+const json = (req: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...getCorsHeaders(req), "content-type": "application/json" },
+});
 
 type WithdrawalReservation = {
   withdrawalId?: string;
   status?: string;
   provider?: string;
   amountCents?: number;
+  feeCents?: number;
+  netAmountCents?: number;
   idempotent?: boolean;
 };
 
@@ -28,6 +27,8 @@ type Withdrawal = {
   id: string;
   driver_id: string;
   amount: number;
+  provider_fee_amount: number;
+  net_amount: number;
   pix_key: string;
   status: string;
   provider: string | null;
@@ -46,22 +47,16 @@ function normalizeAmountCents(amountCentsValue: unknown, legacyAmountValue: unkn
     if (!Number.isSafeInteger(cents) || cents < 2_000 || cents > 5_000_000) return null;
     return cents;
   }
-
-  // Transitional compatibility only. The canonical mobile/backend contract is
-  // amountCents, matching driver_request_withdrawal and avoiding float money.
   const legacyAmount = Number(legacyAmountValue);
   if (!Number.isFinite(legacyAmount)) return null;
   const cents = Math.round(legacyAmount * 100);
-  if (cents < 2_000 || cents > 5_000_000) return null;
-  return cents;
+  return cents >= 2_000 && cents <= 5_000_000 ? cents : null;
 }
 
 function validUuid(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(normalized)
-    ? normalized
-    : null;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(normalized) ? normalized : null;
 }
 
 function text(value: unknown): string | null {
@@ -85,42 +80,24 @@ Deno.serve(async (req) => {
     if (userError || !userResult.user) return json(req, { error: "unauthorized" }, 401);
 
     let payload: { amountCents?: unknown; amount?: unknown; idempotencyKey?: unknown } = {};
-    try {
-      payload = await req.json();
-    } catch {
-      return json(req, { error: "invalid_json" }, 400);
-    }
+    try { payload = await req.json(); } catch { return json(req, { error: "invalid_json" }, 400); }
 
     const amountCents = normalizeAmountCents(payload.amountCents, payload.amount);
     if (amountCents === null) {
-      return json(req, {
-        error: "invalid_withdrawal_amount",
-        detail: "Informe um valor entre R$ 20,00 e R$ 50.000,00.",
-      }, 422);
+      return json(req, { error: "invalid_withdrawal_amount", detail: "Informe um valor entre R$ 20,00 e R$ 50.000,00." }, 422);
     }
 
     const idempotencyKey = validUuid(payload.idempotencyKey);
     if (!idempotencyKey) {
-      return json(req, {
-        error: "idempotency_key_required",
-        detail: "A solicitação de saque precisa de uma chave UUID estável para impedir duplicidade.",
-      }, 422);
+      return json(req, { error: "idempotency_key_required", detail: "A solicitação de saque precisa de uma chave UUID estável para impedir duplicidade." }, 422);
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false, autoRefreshToken: false },
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data: reservationData, error: reservationError } = await userClient.rpc("driver_request_withdrawal", {
+      _amount_cents: amountCents,
+      _idempotency_key: idempotencyKey,
     });
-
-    const { data: reservationData, error: reservationError } = await userClient.rpc(
-      "driver_request_withdrawal",
-      { _amount_cents: amountCents, _idempotency_key: idempotencyKey },
-    );
-    if (reservationError) {
-      return json(req, {
-        error: "withdrawal_request_failed",
-        detail: reservationError.message,
-      }, 422);
-    }
+    if (reservationError) return json(req, { error: "withdrawal_request_failed", detail: reservationError.message }, 422);
 
     const reservation = (isObject(reservationData) ? reservationData : {}) as WithdrawalReservation;
     const withdrawalId = text(reservation.withdrawalId);
@@ -131,19 +108,27 @@ Deno.serve(async (req) => {
         ok: true,
         idempotent: true,
         withdrawalId,
+        amountCents: reservation.amountCents,
+        feeCents: reservation.feeCents,
+        netAmountCents: reservation.netAmountCents,
         status: "paid",
       });
     }
 
     const { data: withdrawalRow, error: withdrawalError } = await admin
       .from("driver_withdrawals")
-      .select("id,driver_id,amount,pix_key,status,provider,provider_transfer_id")
+      .select("id,driver_id,amount,provider_fee_amount,net_amount,pix_key,status,provider,provider_transfer_id")
       .eq("id", withdrawalId)
       .maybeSingle();
-    if (withdrawalError || !withdrawalRow) {
-      return json(req, { error: "withdrawal_not_found" }, 500);
-    }
+    if (withdrawalError || !withdrawalRow) return json(req, { error: "withdrawal_not_found" }, 500);
     const withdrawal = withdrawalRow as Withdrawal;
+
+    const grossAmountCents = Math.round(Number(withdrawal.amount) * 100);
+    const feeCents = Math.round(Number(withdrawal.provider_fee_amount) * 100);
+    const providerAmountCents = Math.round(Number(withdrawal.net_amount) * 100);
+    if (!Number.isSafeInteger(providerAmountCents) || providerAmountCents <= 0 || grossAmountCents !== providerAmountCents + feeCents) {
+      return json(req, { error: "withdrawal_amount_breakdown_invalid", withdrawalId }, 500);
+    }
 
     if (withdrawal.provider !== "woovi" || !withdrawal.pix_key) {
       await admin.rpc("mark_driver_withdrawal_failed", {
@@ -154,10 +139,6 @@ Deno.serve(async (req) => {
       return json(req, { error: "woovi_payment_account_missing", withdrawalId }, 409);
     }
 
-    // Once a payout has entered processing we never call the provider again for
-    // the same reservation. A missing provider_transfer_id can mean that the
-    // provider accepted the request but our HTTP response was lost. Retrying
-    // the withdraw endpoint in that state could pay the driver twice.
     if (withdrawal.status === "processing") {
       return json(req, {
         ok: true,
@@ -166,16 +147,15 @@ Deno.serve(async (req) => {
         reconciliationRequired: !withdrawal.provider_transfer_id,
         withdrawalId,
         transferId: withdrawal.provider_transfer_id,
+        amountCents: grossAmountCents,
+        feeCents,
+        netAmountCents: providerAmountCents,
         status: "processing",
       }, 202);
     }
 
-    const { error: processingError } = await admin.rpc("mark_driver_withdrawal_processing", {
-      _withdrawal_id: withdrawal.id,
-    });
-    if (processingError) {
-      return json(req, { error: "withdrawal_claim_failed", detail: processingError.message }, 409);
-    }
+    const { error: processingError } = await admin.rpc("mark_driver_withdrawal_processing", { _withdrawal_id: withdrawal.id });
+    if (processingError) return json(req, { error: "withdrawal_claim_failed", detail: processingError.message }, 409);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -183,19 +163,12 @@ Deno.serve(async (req) => {
     let rawText = "";
     let providerBody: JsonObject = {};
     try {
-      response = await fetch(
-        `${WOOVI_API_BASE_URL}/api/v1/subaccount/${encodeURIComponent(withdrawal.pix_key)}/withdraw`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: WOOVI_APP_ID,
-            "content-type": "application/json",
-            accept: "application/json",
-          },
-          body: JSON.stringify({ value: amountCents }),
-          signal: controller.signal,
-        },
-      );
+      response = await fetch(`${WOOVI_API_BASE_URL}/api/v1/subaccount/${encodeURIComponent(withdrawal.pix_key)}/withdraw`, {
+        method: "POST",
+        headers: { Authorization: WOOVI_APP_ID, "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ value: providerAmountCents }),
+        signal: controller.signal,
+      });
       rawText = await response.text();
       try {
         const parsed = rawText ? JSON.parse(rawText) : {};
@@ -207,29 +180,16 @@ Deno.serve(async (req) => {
       const reason = error instanceof DOMException && error.name === "AbortError"
         ? "provider_timeout_reconciliation_required"
         : `provider_transport_unknown:${String(error).slice(0, 350)}`;
-
-      // A transport failure is an ambiguous outcome: the provider may already
-      // have accepted the payout. Keep funds reserved and let the webhook (or
-      // an operational reconciliation) decide the terminal state. Never refund
-      // an ambiguous payout automatically.
-      const { error: persistUnknownError } = await admin
-        .from("driver_withdrawals")
-        .update({
-          failure_reason: reason,
-          provider_response: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", withdrawal.id)
-        .eq("status", "processing");
-      if (persistUnknownError) {
-        console.error("[request-driver-payout] ambiguous outcome persist", persistUnknownError);
-      }
-
+      await admin.from("driver_withdrawals").update({ failure_reason: reason, provider_response: null, updated_at: new Date().toISOString() })
+        .eq("id", withdrawal.id).eq("status", "processing");
       return json(req, {
         ok: true,
         pending: true,
         reconciliationRequired: true,
         withdrawalId,
+        amountCents: grossAmountCents,
+        feeCents,
+        netAmountCents: providerAmountCents,
         status: "processing",
       }, 202);
     } finally {
@@ -239,47 +199,30 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       const reason = `HTTP ${response.status}: ${rawText.slice(0, 400)}`;
       const ambiguousHttpFailure = response.status >= 500 || [408, 425, 429].includes(response.status);
-
-      // Woovi's withdraw endpoint has no client-supplied idempotency key. A
-      // timeout-like HTTP status or any 5xx can therefore arrive after the
-      // provider mutated state. Never refund those cases automatically; keep
-      // the ledger reservation intact until MOVEMENT_* webhook/reconciliation.
       if (ambiguousHttpFailure) {
-        const { error: persistAmbiguousError } = await admin
-          .from("driver_withdrawals")
-          .update({
-            failure_reason: `provider_http_ambiguous:${reason}`.slice(0, 1000),
-            provider_response: providerBody,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", withdrawal.id)
-          .eq("status", "processing");
-        if (persistAmbiguousError) {
-          console.error("[request-driver-payout] ambiguous HTTP persist", persistAmbiguousError);
-        }
-
+        await admin.from("driver_withdrawals").update({
+          failure_reason: `provider_http_ambiguous:${reason}`.slice(0, 1000),
+          provider_response: providerBody,
+          updated_at: new Date().toISOString(),
+        }).eq("id", withdrawal.id).eq("status", "processing");
         return json(req, {
           ok: true,
           pending: true,
           reconciliationRequired: true,
           withdrawalId,
+          amountCents: grossAmountCents,
+          feeCents,
+          netAmountCents: providerAmountCents,
           status: "processing",
         }, 202);
       }
 
-      // Explicit, non-ambiguous 4xx rejection means the provider declined the
-      // operation before a movement was accepted, so the reserved balance may
-      // be returned exactly once by the database reconciliation RPC.
       await admin.rpc("mark_driver_withdrawal_failed", {
         _withdrawal_id: withdrawal.id,
         _reason: reason,
         _response: providerBody as never,
       });
-      return json(req, {
-        error: "provider_withdrawal_failed",
-        withdrawalId,
-        detail: reason,
-      }, 502);
+      return json(req, { error: "provider_withdrawal_failed", withdrawalId, detail: reason }, 502);
     }
 
     const transaction = isObject(providerBody.transaction) ? providerBody.transaction : {};
@@ -288,22 +231,13 @@ Deno.serve(async (req) => {
     const providerStatus = (text(transaction.status) ?? "created").toLowerCase();
     const providerValue = Number(transaction.value);
 
-    if (Number.isFinite(providerValue) && Math.round(providerValue) !== amountCents) {
-      // A successful HTTP response with an unexpected amount is also ambiguous:
-      // do not refund automatically because a real movement may already exist.
-      const { error: mismatchPersistError } = await admin
-        .from("driver_withdrawals")
-        .update({
-          provider_transfer_id: transferId,
-          failure_reason: "provider_amount_mismatch_reconciliation_required",
-          provider_response: providerBody,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", withdrawal.id)
-        .eq("status", "processing");
-      if (mismatchPersistError) {
-        console.error("[request-driver-payout] amount mismatch persist", mismatchPersistError);
-      }
+    if (Number.isFinite(providerValue) && Math.round(providerValue) !== providerAmountCents) {
+      await admin.from("driver_withdrawals").update({
+        provider_transfer_id: transferId,
+        failure_reason: "provider_amount_mismatch_reconciliation_required",
+        provider_response: providerBody,
+        updated_at: new Date().toISOString(),
+      }).eq("id", withdrawal.id).eq("status", "processing");
       return json(req, {
         ok: true,
         pending: true,
@@ -311,24 +245,20 @@ Deno.serve(async (req) => {
         error: "provider_amount_mismatch",
         withdrawalId,
         transferId,
+        amountCents: grossAmountCents,
+        feeCents,
+        netAmountCents: providerAmountCents,
         status: "processing",
       }, 202);
     }
 
-    const { error: metadataError } = await admin
-      .from("driver_withdrawals")
-      .update({
-        provider: "woovi",
-        provider_transfer_id: transferId,
-        failure_reason: transferId ? null : "provider_correlation_missing_reconciliation_required",
-        provider_response: providerBody,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", withdrawal.id)
-      .eq("status", "processing");
-    if (metadataError) {
-      console.error("[request-driver-payout] provider metadata", metadataError);
-    }
+    await admin.from("driver_withdrawals").update({
+      provider: "woovi",
+      provider_transfer_id: transferId,
+      failure_reason: transferId ? null : "provider_correlation_missing_reconciliation_required",
+      provider_response: providerBody,
+      updated_at: new Date().toISOString(),
+    }).eq("id", withdrawal.id).eq("status", "processing");
 
     if (["confirmed", "approved", "paid", "completed"].includes(providerStatus)) {
       const { error: paidError } = await admin.rpc("mark_driver_withdrawal_paid", {
@@ -343,6 +273,9 @@ Deno.serve(async (req) => {
         withdrawalId,
         transferId,
         endToEndId,
+        amountCents: grossAmountCents,
+        feeCents,
+        netAmountCents: providerAmountCents,
         status: "paid",
       });
     }
@@ -353,6 +286,9 @@ Deno.serve(async (req) => {
       reconciliationRequired: !transferId,
       withdrawalId,
       transferId,
+      amountCents: grossAmountCents,
+      feeCents,
+      netAmountCents: providerAmountCents,
       status: providerStatus,
     }, 202);
   } catch (error) {
