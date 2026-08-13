@@ -89,6 +89,19 @@ describe("Woovi financial safety contracts", () => {
     expect(webhook).toContain('_provider: "woovi"');
   });
 
+  test("lets provider webhooks reach custom secret validation without a user JWT", () => {
+    const config = source("supabase/config.toml");
+    const chargeWebhook = source("supabase/functions/woovi-webhook/index.ts");
+    const payoutWebhook = source("supabase/functions/woovi-payout-webhook/index.ts");
+    expect(config).toContain("[functions.woovi-webhook]\nverify_jwt = false");
+    expect(config).toContain("[functions.woovi-payout-webhook]\nverify_jwt = false");
+    expect(config).toContain("[functions.woovi-create-ride-pix]\nverify_jwt = true");
+    expect(config).toContain("[functions.driver-woovi-payment-account]\nverify_jwt = true");
+    expect(chargeWebhook).toContain('req.headers.get("x-openpix-authorization")');
+    expect(payoutWebhook).toContain('req.headers.get("x-openpix-authorization")');
+    expect(chargeWebhook).toContain('"WOOVI:CHARGE_COMPLETED"');
+  });
+
   test("consolidates on the existing wallet, settlement and payout destination", () => {
     const migration = source("supabase/migrations/20260812205000_consolidate_woovi_financial_cutover.sql");
     expect(migration).toContain("public.driver_payout_destinations");
