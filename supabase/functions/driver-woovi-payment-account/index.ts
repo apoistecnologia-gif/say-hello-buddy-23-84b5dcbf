@@ -20,7 +20,7 @@ function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function cleanPixKey(value: unknown): string | null {
+function optionalPixKey(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const key = value.trim();
   return key.length >= 5 && key.length <= 160 ? key : null;
@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
   const authUser = authData.user;
   if (authError || !authUser) return json({ error: "unauthorized" }, 401, req);
 
-  let input: JsonObject;
+  let input: JsonObject = {};
   try {
     const parsed = await req.json();
     input = isObject(parsed) ? parsed : {};
@@ -69,8 +69,9 @@ Deno.serve(async (req) => {
     return json({ error: "invalid_json" }, 400, req);
   }
 
-  const pixKey = cleanPixKey(input.pixKey);
-  if (!pixKey) return json({ error: "invalid_pix_key" }, 422, req);
+  // Compatibility only: callers may still send pixKey, but it is never
+  // authoritative. The canonical key comes from driver_payout_destinations.
+  const requestedPixKey = optionalPixKey(input.pixKey);
 
   try {
     const { data: userRow, error: userError } = await admin
@@ -90,6 +91,39 @@ Deno.serve(async (req) => {
     if (!driver) return json({ error: "driver_profile_missing" }, 404, req);
     if (driver.approval_status !== "aprovado") return json({ error: "driver_not_approved" }, 403, req);
 
+    const { data: destination, error: destinationError } = await admin
+      .from("driver_payout_destinations")
+      .select("driver_id,pix_key,pix_key_type,confirmed_at,payout_available_at")
+      .eq("driver_id", driver.id)
+      .maybeSingle();
+    if (destinationError) throw new Error(`payout_destination_lookup_failed:${destinationError.message}`);
+    if (!destination || !destination.pix_key || !destination.confirmed_at) {
+      return json({
+        error: "pix_payout_destination_required",
+        message: "Confirme primeiro sua chave Pix na carteira do motorista.",
+      }, 409, req);
+    }
+
+    if (requestedPixKey && requestedPixKey !== destination.pix_key) {
+      return json({
+        error: "pix_key_must_match_payout_destination",
+        message: "A subconta só pode usar a chave Pix confirmada na carteira.",
+      }, 409, req);
+    }
+
+    if (destination.payout_available_at) {
+      const availableAt = new Date(destination.payout_available_at).getTime();
+      if (Number.isFinite(availableAt) && availableAt > Date.now()) {
+        return json({
+          error: "pix_payout_destination_cooldown",
+          payoutAvailableAt: destination.payout_available_at,
+          message: "Aguarde o período de segurança da alteração da chave Pix antes de vinculá-la à Woovi.",
+        }, 409, req);
+      }
+    }
+
+    const pixKey = String(destination.pix_key);
+
     const { data: existing, error: existingError } = await admin
       .from("driver_payment_accounts")
       .select("id,pix_key,status,provider_subaccount_id,verified_at")
@@ -98,16 +132,13 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (existingError) throw new Error(`payment_account_lookup_failed:${existingError.message}`);
 
-    if (existing) {
-      if (existing.pix_key !== pixKey) {
-        return json({
-          error: "pix_key_change_requires_support",
-          message: "Por segurança, a alteração de uma chave Pix já vinculada deve ser confirmada pelo suporte APOIS.",
-        }, 409, req);
-      }
-      if (existing.status === "active") {
-        await attachPendingCredits(admin, driver.id, existing.id);
-      }
+    if (
+      existing &&
+      existing.pix_key === pixKey &&
+      existing.status === "active" &&
+      existing.provider_subaccount_id
+    ) {
+      await attachPendingCredits(admin, driver.id, existing.id);
       return json({ ok: true, reused: true, status: existing.status, verifiedAt: existing.verified_at }, 200, req);
     }
 
@@ -141,24 +172,55 @@ Deno.serve(async (req) => {
     const returnedPixKey = typeof subAccount?.pixKey === "string" ? subAccount.pixKey : pixKey;
     if (returnedPixKey !== pixKey) throw new Error("provider_pix_key_mismatch");
 
-    const { data: created, error: insertError } = await admin
-      .from("driver_payment_accounts")
-      .insert({
-        driver_id: driver.id,
-        provider: "woovi",
-        pix_key: pixKey,
-        provider_subaccount_id: returnedPixKey,
-        status: "active",
-        verified_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select("id,status,verified_at")
-      .single();
-    if (insertError) throw new Error(`payment_account_insert_failed:${insertError.message}`);
+    // Re-check the canonical destination after the external call. If the user
+    // changed the key concurrently, never bind the old provider account.
+    const { data: destinationAfter, error: destinationAfterError } = await admin
+      .from("driver_payout_destinations")
+      .select("pix_key,confirmed_at,payout_available_at")
+      .eq("driver_id", driver.id)
+      .maybeSingle();
+    if (destinationAfterError) throw new Error(`payout_destination_recheck_failed:${destinationAfterError.message}`);
+    if (!destinationAfter || destinationAfter.pix_key !== pixKey || !destinationAfter.confirmed_at) {
+      return json({ error: "payout_destination_changed_during_binding" }, 409, req);
+    }
 
-    await attachPendingCredits(admin, driver.id, created.id);
+    const binding = {
+      driver_id: driver.id,
+      provider: "woovi",
+      pix_key: pixKey,
+      provider_subaccount_id: returnedPixKey,
+      status: "active",
+      verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-    return json({ ok: true, reused: false, status: created.status, verifiedAt: created.verified_at }, 200, req);
+    let accountId: string;
+    let verifiedAt: string;
+    if (existing) {
+      const { data: updated, error: updateError } = await admin
+        .from("driver_payment_accounts")
+        .update(binding)
+        .eq("id", existing.id)
+        .eq("driver_id", driver.id)
+        .select("id,status,verified_at")
+        .single();
+      if (updateError) throw new Error(`payment_account_update_failed:${updateError.message}`);
+      accountId = updated.id;
+      verifiedAt = updated.verified_at;
+    } else {
+      const { data: created, error: insertError } = await admin
+        .from("driver_payment_accounts")
+        .insert(binding)
+        .select("id,status,verified_at")
+        .single();
+      if (insertError) throw new Error(`payment_account_insert_failed:${insertError.message}`);
+      accountId = created.id;
+      verifiedAt = created.verified_at;
+    }
+
+    await attachPendingCredits(admin, driver.id, accountId);
+
+    return json({ ok: true, reused: false, status: "active", verifiedAt }, 200, req);
   } catch (error) {
     console.error("[driver-woovi-payment-account]", error);
     return json({ error: "driver_payment_account_failed" }, 500, req);
