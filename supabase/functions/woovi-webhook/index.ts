@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
   const { data: existingReceipt, error: receiptLookupError } = await admin
     .from("payment_webhook_receipts")
     .select("id,status")
-    .eq("provider_event_id", eventId)
+    .eq("event_key", eventId)
     .maybeSingle();
   if (receiptLookupError) {
     console.error("[woovi-webhook] receipt lookup", receiptLookupError);
@@ -109,10 +109,9 @@ Deno.serve(async (req) => {
   if (!existingReceipt) {
     const { error: insertReceiptError } = await admin.from("payment_webhook_receipts").insert({
       provider: "woovi",
-      provider_event_id: eventId,
-      event_key: correlationID,
+      event_key: eventId,
       request_id: req.headers.get("x-request-id"),
-      status: "pending",
+      status: "processing",
       raw_payload: payload,
     });
     if (insertReceiptError && insertReceiptError.code !== "23505") {
@@ -147,7 +146,7 @@ Deno.serve(async (req) => {
         status: "processed",
         detail: "stale_charge_ignored",
         processed_at: new Date().toISOString(),
-      }).eq("provider_event_id", eventId);
+      }).eq("event_key", eventId);
       return json({ ok: true, stale: true });
     }
 
@@ -167,6 +166,7 @@ Deno.serve(async (req) => {
     const { data: activation, error: activationError } = await admin.rpc("activate_prepaid_pix_ride", {
       _ride_id: payment.ride_id,
       _provider_payment_id: correlationID,
+      _provider: "woovi",
     });
     if (activationError) throw new Error(`ride_activation_failed:${activationError.message}`);
 
@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
       status: "processed",
       detail: "ride_pix_confirmed",
       processed_at: new Date().toISOString(),
-    }).eq("provider_event_id", eventId);
+    }).eq("event_key", eventId);
     if (completeReceiptError) console.error("[woovi-webhook] receipt complete", completeReceiptError);
 
     return json({ ok: true });
@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
       status: "error",
       detail,
       processed_at: new Date().toISOString(),
-    }).eq("provider_event_id", eventId);
+    }).eq("event_key", eventId);
     return json({ error: "webhook_processing_failed" }, 500);
   }
 });
