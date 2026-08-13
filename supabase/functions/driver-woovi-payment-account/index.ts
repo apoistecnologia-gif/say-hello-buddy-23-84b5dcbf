@@ -26,6 +26,11 @@ function optionalPixKey(value: unknown): string | null {
   return key.length >= 5 && key.length <= 160 ? key : null;
 }
 
+function jsonSettingString(value: unknown): string {
+  if (typeof value === "string") return value.trim().toLowerCase();
+  return "";
+}
+
 async function attachPendingCredits(
   admin: AdminClient,
   driverId: string,
@@ -69,11 +74,22 @@ Deno.serve(async (req) => {
     return json({ error: "invalid_json" }, 400, req);
   }
 
-  // Compatibility only: callers may still send pixKey, but it is never
-  // authoritative. The canonical key comes from driver_payout_destinations.
   const requestedPixKey = optionalPixKey(input.pixKey);
 
   try {
+    // Provisioning a provider account is a provider-side mutation. It is only
+    // allowed after the staged payout switch explicitly targets Woovi. Payouts
+    // themselves may still remain disabled while accounts are prepared.
+    const { data: providerSetting, error: providerSettingError } = await admin
+      .from("app_settings")
+      .select("value")
+      .eq("key", "finance.target_payout_provider")
+      .maybeSingle();
+    if (providerSettingError) throw new Error(`payout_provider_setting_failed:${providerSettingError.message}`);
+    if (jsonSettingString(providerSetting?.value) !== "woovi") {
+      return json({ error: "payout_provider_not_woovi" }, 409, req);
+    }
+
     const { data: userRow, error: userError } = await admin
       .from("users")
       .select("id,deleted_at")
@@ -172,8 +188,6 @@ Deno.serve(async (req) => {
     const returnedPixKey = typeof subAccount?.pixKey === "string" ? subAccount.pixKey : pixKey;
     if (returnedPixKey !== pixKey) throw new Error("provider_pix_key_mismatch");
 
-    // Re-check the canonical destination after the external call. If the user
-    // changed the key concurrently, never bind the old provider account.
     const { data: destinationAfter, error: destinationAfterError } = await admin
       .from("driver_payout_destinations")
       .select("pix_key,confirmed_at,payout_available_at")
