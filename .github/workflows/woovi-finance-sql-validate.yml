@@ -52,6 +52,12 @@ jobs:
       - name: Build observed pre-cutover financial schema
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_pre_cutover_fixture.sql
 
+      - name: Apply safe Asaas-mode Woovi schema foundation
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260812212000_stage_woovi_schema_foundation.sql
+
+      - name: Execute safe foundation assertions
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/woovi_schema_foundation_assertions.sql
+
       - name: Apply consolidated Woovi financial foundation
         run: |
           set -euo pipefail
