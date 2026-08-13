@@ -41,18 +41,23 @@ function integer(value: unknown): number | null {
   return Number.isSafeInteger(n) && n >= 0 ? n : null;
 }
 
-async function invokeDispatch(): Promise<void> {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/process-ride-dispatch`, {
+async function dispatchPaidPix(rideId: string): Promise<void> {
+  // Keep the same post-payment dispatch boundary used by the production Asaas
+  // webhook. passenger-ride-request owns the initial-dispatch claim and the
+  // canonical driver eligibility logic, so the Woovi webhook must not claim
+  // the dispatch separately before invoking it.
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/passenger-ride-request`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${SERVICE_ROLE}`,
       apikey: SERVICE_ROLE,
       "content-type": "application/json",
     },
-    body: JSON.stringify({ source: "woovi_webhook" }),
+    body: JSON.stringify({ action: "dispatch_paid_pix", ride_id: rideId }),
   });
   if (!response.ok) {
-    console.error("[woovi-webhook] dispatch invoke failed", response.status, (await response.text()).slice(0, 500));
+    const detail = await response.text();
+    throw new Error(`prepaid_pix_dispatch_failed:${response.status}:${detail.slice(0, 200)}`);
   }
 }
 
@@ -174,13 +179,7 @@ Deno.serve(async (req) => {
     if (activationError) throw new Error(`ride_activation_failed:${activationError.message}`);
 
     const result = isObject(activation) ? activation : {};
-    if (result.should_dispatch === true) {
-      const { data: claimed, error: claimError } = await admin.rpc("claim_prepaid_pix_initial_dispatch", {
-        _ride_id: payment.ride_id,
-      });
-      if (claimError) throw new Error(`dispatch_claim_failed:${claimError.message}`);
-      if (claimed === true) await invokeDispatch();
-    }
+    if (result.should_dispatch === true) await dispatchPaidPix(payment.ride_id);
 
     const { error: completeReceiptError } = await admin.from("payment_webhook_receipts").update({
       status: "processed",
