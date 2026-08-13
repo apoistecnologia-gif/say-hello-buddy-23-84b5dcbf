@@ -30,6 +30,7 @@ function webhookAuthorization(req: Request): string {
   return (
     req.headers.get("x-apois-webhook-secret") ??
     req.headers.get("x-webhook-secret") ??
+    req.headers.get("x-openpix-authorization") ??
     req.headers.get("authorization") ??
     ""
   ).trim();
@@ -69,8 +70,10 @@ Deno.serve(async (req) => {
     return json({ error: "invalid_json" }, 400);
   }
 
-  const event = String(payload.event ?? "");
-  if (event !== "OPENPIX:CHARGE_COMPLETED") return json({ ok: true, ignored: true });
+  const event = String(payload.event ?? "").toUpperCase();
+  if (!["OPENPIX:CHARGE_COMPLETED", "WOOVI:CHARGE_COMPLETED"].includes(event)) {
+    return json({ ok: true, ignored: true });
+  }
 
   const charge = isObject(payload.charge) ? payload.charge : null;
   const pix = isObject(payload.pix) ? payload.pix : null;
