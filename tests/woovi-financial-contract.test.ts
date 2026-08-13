@@ -51,6 +51,15 @@ describe("Woovi financial safety contracts", () => {
     expect(payout).toContain("ambiguous HTTP persist");
   });
 
+  test("keeps payout amounts in integer cents across the driver and backend contract", () => {
+    const payout = source("supabase/functions/request-driver-payout/index.ts");
+    expect(payout).toContain("amountCents?: unknown");
+    expect(payout).toContain("normalizeAmountCents(payload.amountCents, payload.amount)");
+    expect(payout).toContain("Number.isSafeInteger(cents)");
+    expect(payout).toContain("_amount_cents: amountCents");
+    expect(payout).toContain("JSON.stringify({ value: amountCents })");
+  });
+
   test("serializes payout reservations and enforces idempotency in the database", () => {
     const migration = source("supabase/migrations/20260812170500_harden_driver_withdrawal_idempotency.sql");
     expect(migration).toContain("driver_withdrawals_driver_idempotency_uidx");
