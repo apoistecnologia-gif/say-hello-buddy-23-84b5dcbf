@@ -3,8 +3,8 @@
 -- This migration is intentionally written against the observed production
 -- schema. It preserves the existing settlement/wallet/withdrawal ledger and
 -- legacy Asaas rides, while preparing new ride Pix charges and driver payouts
--- for Woovi. It does NOT enable payouts and does NOT switch the operational
--- payout provider setting.
+-- for Woovi. It does NOT enable payouts and does NOT switch either operational
+-- provider setting. Fresh Pix rides follow finance.target_electronic_payment_provider.
 
 -- ---------------------------------------------------------------------------
 -- 1. Passenger charge breakdown (server authoritative)
@@ -36,7 +36,7 @@ where passenger_charge_cents is null
 comment on column public.rides.processing_fee_cents is
   'Passenger-facing Taxa de processamento in integer cents. Server authoritative.';
 comment on column public.rides.passenger_charge_cents is
-  'Authoritative amount charged to passenger in cents. New Pix rides include processing fee.';
+  'Authoritative amount charged to passenger in cents. New Woovi Pix rides include processing fee.';
 
 -- Keep historical Asaas rows and permit new Woovi rows.
 alter table public.ride_pix_payments drop constraint if exists ride_pix_payments_provider_check;
@@ -228,7 +228,10 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 4. Canonical server-side processing fee for NEW Pix rides.
+-- 4. Canonical server-side processing fee for fresh Pix rides. The migration
+--    is safe to install while Asaas remains active: provider selection is read
+--    from finance.target_electronic_payment_provider instead of being implied
+--    merely by installing this schema/runtime foundation.
 -- ---------------------------------------------------------------------------
 
 create or replace function private.calculate_pix_processing_fee_cents(_fare_cents bigint)
@@ -264,25 +267,45 @@ set search_path = ''
 as $$
 declare
   v_fare_cents bigint;
-  v_preserve_legacy_asaas boolean := false;
+  v_preserve_existing_provider boolean := false;
+  v_target_provider text := 'asaas';
 begin
   if new.estimated_price is null or new.estimated_price < 0 then return new; end if;
   v_fare_cents := round(new.estimated_price * 100)::bigint;
 
   if lower(coalesce(new.payment_method,'')) = 'pix' then
     if tg_op='UPDATE' then
-      v_preserve_legacy_asaas := lower(coalesce(old.payment_provider,''))='asaas'
+      v_preserve_existing_provider := lower(coalesce(old.payment_provider,'')) in ('asaas','woovi')
         and (old.provider_payment_id is not null or old.payment_status='paid');
     end if;
 
-    if v_preserve_legacy_asaas then
+    if v_preserve_existing_provider then
+      new.payment_provider := lower(old.payment_provider);
+      if lower(old.payment_provider)='woovi' then
+        new.processing_fee_cents := coalesce(old.processing_fee_cents,private.calculate_pix_processing_fee_cents(v_fare_cents));
+        new.passenger_charge_cents := coalesce(old.passenger_charge_cents,v_fare_cents+new.processing_fee_cents);
+      else
+        new.processing_fee_cents := 0;
+        new.passenger_charge_cents := v_fare_cents;
+      end if;
+      return new;
+    end if;
+
+    select lower(coalesce(value #>> '{}','asaas')) into v_target_provider
+    from public.app_settings
+    where key='finance.target_electronic_payment_provider';
+    v_target_provider := coalesce(v_target_provider,'asaas');
+
+    if v_target_provider='woovi' then
+      new.processing_fee_cents := private.calculate_pix_processing_fee_cents(v_fare_cents);
+      new.passenger_charge_cents := v_fare_cents + new.processing_fee_cents;
+      new.payment_provider := 'woovi';
+    elsif v_target_provider='asaas' then
       new.processing_fee_cents := 0;
       new.passenger_charge_cents := v_fare_cents;
       new.payment_provider := 'asaas';
     else
-      new.processing_fee_cents := private.calculate_pix_processing_fee_cents(v_fare_cents);
-      new.passenger_charge_cents := v_fare_cents + new.processing_fee_cents;
-      new.payment_provider := 'woovi';
+      raise exception 'electronic_payment_provider_not_supported' using errcode='55000';
     end if;
   else
     new.processing_fee_cents := 0;
@@ -885,6 +908,7 @@ revoke all on function public.mark_driver_withdrawal_failed(uuid,text,jsonb) fro
 grant execute on function public.mark_driver_withdrawal_failed(uuid,text,jsonb) to service_role;
 
 -- Operational switches deliberately remain unchanged here:
+--   finance.target_electronic_payment_provider remains its pre-cutover value until activation.
 --   finance.driver_payouts_enabled remains false until E2E homologation.
 --   finance.target_payout_provider remains its pre-cutover value until activation.
 
