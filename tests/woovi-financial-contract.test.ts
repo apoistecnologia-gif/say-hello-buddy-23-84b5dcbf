@@ -131,4 +131,24 @@ describe("Woovi financial safety contracts", () => {
     expect(cancellation).toContain("provider_delete_failed:");
     expect(cancellation).toContain('.update({ status: "cancelled", updated_at: new Date().toISOString() })');
   });
+
+  test("never creates a Woovi retry while a legacy Asaas charge is still active", () => {
+    const checkout = source("supabase/functions/woovi-create-ride-pix/index.ts");
+    expect(checkout).toContain("provider,provider_payment_id");
+    expect(checkout).toContain('existingPayment?.provider === "asaas"');
+    expect(checkout).toContain('error: "legacy_asaas_charge_active"');
+    expect(checkout).toContain('legacy: payment.provider === "asaas"');
+    expect(checkout).toContain('provider: payment.provider');
+    expect(checkout).toContain('existingPayment?.provider === "woovi"');
+    expect(checkout).toContain('.eq("provider", "woovi")');
+  });
+
+  test("passenger UI labels recovered legacy provider without claiming Woovi confirmed it", () => {
+    const card = source("src/components/payments/RidePixPaymentCard.tsx");
+    expect(card).toContain('provider?: "asaas" | "woovi" | string');
+    expect(card).toContain('case "legacy_asaas_charge_active"');
+    expect(card).toContain('toast.success("Pagamento Pix confirmado pelo backend.")');
+    expect(card).toContain('Cobrança processada por {providerLabel}.');
+    expect(card).not.toContain("Pagamento Pix confirmado pela Woovi.");
+  });
 });
