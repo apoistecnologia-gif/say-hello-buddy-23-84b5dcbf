@@ -120,4 +120,15 @@ describe("Woovi financial safety contracts", () => {
     expect(migration).toContain("withdraw_balance_before_pix_change");
     expect(migration).toContain("now()+interval '24 hours'");
   });
+
+  test("cancels unpaid provider charges without pretending an ambiguous provider failure succeeded", () => {
+    const cancellation = source("supabase/functions/cancel-ride/index.ts");
+    expect(cancellation).toContain('`${ASAAS_BASE_URL}/payments/${encodeURIComponent(paymentId)}`');
+    expect(cancellation).toContain('`${WOOVI_API_BASE_URL}/api/v1/charge/${encodeURIComponent(paymentId)}`');
+    expect(cancellation).toContain('.in("status", ["creating", "pending", "confirmed"])');
+    expect(cancellation).toContain('action: "ride_payment_cancel_reconciliation_required"');
+    expect(cancellation).toContain("payment_reconciliation_required");
+    expect(cancellation).toContain("provider_delete_failed:");
+    expect(cancellation).toContain('.update({ status: "cancelled", updated_at: new Date().toISOString() })');
+  });
 });
