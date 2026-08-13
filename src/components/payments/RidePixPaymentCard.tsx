@@ -12,6 +12,8 @@ type PixCheckout = {
   ok?: boolean;
   reused?: boolean;
   legacy?: boolean;
+  pending?: boolean;
+  reconciliationRequired?: boolean;
   provider?: "asaas" | "woovi" | string;
   paymentId?: string;
   amountCents?: number;
@@ -44,7 +46,7 @@ function normalizePaymentStatus(value: string | undefined): string {
 }
 
 function isBackendPaidStatus(value: string | undefined): boolean {
-  return ["received", "confirmed", "paid"].includes(normalizePaymentStatus(value));
+  return ["received", "paid"].includes(normalizePaymentStatus(value));
 }
 
 function formatCurrency(value: number): string {
@@ -85,6 +87,8 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
       : officialAmount;
   const expirationLabel = formatExpiration(checkout?.pixExpirationAt);
   const providerLabel = checkout?.provider === "asaas" ? "Asaas" : checkout?.provider === "woovi" ? "Woovi" : "provedor Pix";
+  const providerConfirmed = normalizePaymentStatus(checkout?.status) === "confirmed";
+  const reconciliationPending = checkout?.reconciliationRequired === true || checkout?.pending === true;
 
   const generate = useCallback(async (action: "recover" | "retry" = "recover") => {
     if (loading || paid) return;
@@ -178,6 +182,24 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
           <p className="mt-1 text-2xl font-black text-apois-yellow">{formatCurrency(amount)}</p>
           <p className="mt-1 text-[10px] leading-4 text-zinc-500">
             Total validado pelo backend, incluindo a taxa de processamento exibida na revisão quando aplicável.
+          </p>
+        </div>
+      ) : null}
+
+      {providerConfirmed ? (
+        <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/8 p-3">
+          <p className="text-sm font-black text-amber-200">Pagamento identificado</p>
+          <p className="mt-1 text-[11px] leading-4 text-zinc-400">
+            O provedor identificou o pagamento. A APOIS está aguardando a confirmação segura do webhook antes de liberar a corrida.
+          </p>
+        </div>
+      ) : null}
+
+      {reconciliationPending && !checkout?.pixPayload && !providerConfirmed ? (
+        <div className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-400/8 p-3">
+          <p className="text-sm font-black text-sky-200">Recuperando cobrança Pix</p>
+          <p className="mt-1 text-[11px] leading-4 text-zinc-400">
+            A cobrança pode ter sido criada no provedor. Vamos reutilizar a mesma identificação para evitar dois Pix ativos para a mesma corrida.
           </p>
         </div>
       ) : null}
