@@ -103,6 +103,7 @@ jobs:
             supabase/functions/driver-woovi-payment-account/index.ts
             supabase/functions/request-driver-payout/index.ts
             supabase/functions/driver-ride-action/index.ts
+            supabase/functions/cancel-ride/index.ts
           )
           failed=0
           : > /tmp/woovi-deno.log
