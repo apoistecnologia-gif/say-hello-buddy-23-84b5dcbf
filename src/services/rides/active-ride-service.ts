@@ -1,0 +1,465 @@
+import { supabase } from "@/integrations/supabase/client";
+import type { RealtimeChannel, RealtimeChannelSendResponse } from "@supabase/supabase-js";
+import type {
+  ActiveRide,
+  ActiveRideIntermediate,
+  RideActionAvailability,
+  RideStatus,
+} from "@/types/rides/active-ride";
+
+const ACTIVE_STATUSES = [
+  "aguardando_pagamento",
+  "procurar_motorista",
+  "motorista_a_caminho",
+  "motorista_chegou",
+  "em_viagem",
+] as const;
+
+const SHAREABLE_STATUSES: RideStatus[] = [
+  "motorista_a_caminho",
+  "motorista_chegou",
+  "em_viagem",
+];
+
+const PIN_VISIBLE_STATUSES: RideStatus[] = ["motorista_a_caminho", "motorista_chegou"];
+
+const TERMINAL_STATUSES: RideStatus[] = [
+  "finalizada",
+  "cancelada_passageiro",
+  "cancelada_motorista",
+  "expired",
+];
+
+const STATUS_ORDER: Record<RideStatus, number> = {
+  agendada: 0,
+  aguardando_pagamento: 1,
+  procurar_motorista: 2,
+  motorista_a_caminho: 3,
+  motorista_chegou: 4,
+  em_viagem: 5,
+  finalizada: 6,
+  cancelada_passageiro: 6,
+  cancelada_motorista: 6,
+  expired: 6,
+};
+
+type OptionalStringRideKey =
+  | "driver_id"
+  | "encoded_polyline"
+  | "driver_name"
+  | "driver_photo"
+  | "driver_phone"
+  | "driver_vehicle_model"
+  | "driver_vehicle_color"
+  | "driver_vehicle_plate"
+  | "security_code"
+  | "payment_status"
+  | "payment_provider"
+  | "provider_payment_id"
+  | "cancellation_reason"
+  | "cancelled_by"
+  | "accepted_at"
+  | "driver_arrived_at"
+  | "started_at"
+  | "completed_at"
+  | "share_token"
+  | "share_expires_at"
+  | "share_revoked_at"
+  | "queued_after_ride_id"
+  | "queued_at";
+
+type OptionalNumberRideKey =
+  | "final_price"
+  | "distance_km"
+  | "duration_min"
+  | "driver_rating"
+  | "driver_latitude"
+  | "driver_longitude"
+  | "driver_heading"
+  | "cancellation_fee"
+  | "passenger_rating";
+
+type RpcError = { message?: string };
+type RpcClient = {
+  rpc: (
+    functionName: string,
+    args?: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: RpcError | null }>;
+};
+
+type CachedDriverPhoto = {
+  url: string;
+  expiresAt: number;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function readRequiredString(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  if (typeof value !== "string" || !value.trim()) throw new Error("invalid_ride_response");
+  return value;
+}
+
+function readOptionalString(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function readRequiredNumber(record: Record<string, unknown>, key: string): number {
+  const value = toFiniteNumber(record[key]);
+  if (value === null) throw new Error("invalid_ride_response");
+  return value;
+}
+
+function readOptionalNumber(record: Record<string, unknown>, key: string): number | undefined {
+  return toFiniteNumber(record[key]) ?? undefined;
+}
+
+function parseJsonValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    throw new Error("invalid_ride_response");
+  }
+}
+
+function readCoordinatesValue(value: unknown): { lat: number; lng: number } | null {
+  const parsed = parseJsonValue(value);
+  if (!isRecord(parsed)) return null;
+
+  const lat = toFiniteNumber(parsed["lat"]);
+  const lng = toFiniteNumber(parsed["lng"]);
+  if (lat === null || lng === null) return null;
+  return { lat, lng };
+}
+
+function readRideCoordinates(
+  record: Record<string, unknown>,
+  jsonKey: "origin" | "destination",
+): { lat: number; lng: number } {
+  const fromJson = readCoordinatesValue(record[jsonKey]);
+  if (fromJson) return fromJson;
+
+  const lat = toFiniteNumber(record[`${jsonKey}_lat`]);
+  const lng = toFiniteNumber(record[`${jsonKey}_lng`]);
+  if (lat !== null && lng !== null) return { lat, lng };
+
+  throw new Error("invalid_ride_response");
+}
+
+function readIntermediates(value: unknown): ActiveRideIntermediate[] {
+  const parsed = parseJsonValue(value);
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed.flatMap((item, index) => {
+    if (!isRecord(item)) return [];
+    const lat = toFiniteNumber(item["lat"]);
+    const lng = toFiniteNumber(item["lng"]);
+    if (lat === null || lng === null) return [];
+
+    const intermediate: ActiveRideIntermediate = { lat, lng, order: index };
+    const optionalStrings = ["label", "address", "place_id", "source"] as const;
+    for (const key of optionalStrings) {
+      const field = item[key];
+      if (typeof field === "string" && field.trim()) intermediate[key] = field;
+    }
+    const order = toFiniteNumber(item["order"]);
+    if (order !== null) intermediate.order = Math.max(0, Math.floor(order));
+    return [intermediate];
+  });
+}
+
+function readStatus(value: unknown): RideStatus {
+  const allowed = Object.keys(STATUS_ORDER) as RideStatus[];
+  if (typeof value === "string" && allowed.includes(value as RideStatus)) {
+    return value as RideStatus;
+  }
+  throw new Error("invalid_ride_response");
+}
+
+class ActiveRideService {
+  private static instance: ActiveRideService;
+  private channel: RealtimeChannel | null = null;
+  private lastUpdateTimestamp = 0;
+  private lastStatus: RideStatus | null = null;
+  private readonly driverPhotoCache = new Map<string, CachedDriverPhoto>();
+
+  private constructor() {}
+
+  public static getInstance(): ActiveRideService {
+    if (!ActiveRideService.instance) ActiveRideService.instance = new ActiveRideService();
+    return ActiveRideService.instance;
+  }
+
+  private async hydratePassengerSecurityCode(ride: ActiveRide): Promise<ActiveRide> {
+    if (!PIN_VISIBLE_STATUSES.includes(ride.status)) {
+      if (ride.security_code === undefined) return ride;
+      const { security_code: _securityCode, ...withoutCode } = ride;
+      return withoutCode as ActiveRide;
+    }
+
+    try {
+      const rpcClient = supabase as unknown as RpcClient;
+      const { data, error } = await rpcClient.rpc("get_passenger_ride_security_code", {
+        _ride_id: ride.id,
+      });
+
+      if (error) {
+        console.warn("[ActiveRide] Protected PIN lookup failed", error.message ?? "unknown");
+        return ride;
+      }
+
+      if (!isRecord(data) || data["ok"] !== true) return ride;
+      const code = data["security_code"];
+      if (typeof code !== "string" || !/^\d{4}$/.test(code)) return ride;
+
+      return { ...ride, security_code: code };
+    } catch (error) {
+      console.warn("[ActiveRide] Protected PIN lookup unavailable", error);
+      return ride;
+    }
+  }
+
+  private async hydrateDriverPhoto(ride: ActiveRide): Promise<ActiveRide> {
+    const photo = ride.driver_photo?.trim() ?? "";
+    if (!photo || isHttpUrl(photo)) return ride;
+
+    const cached = this.driverPhotoCache.get(photo);
+    if (cached && cached.expiresAt > Date.now() + 30_000) {
+      return { ...ride, driver_photo: cached.url };
+    }
+
+    try {
+      const { data, error } = await supabase.storage.from("profile-photos").createSignedUrl(photo, 600);
+      if (error || !data?.signedUrl) {
+        console.warn("[ActiveRide] Driver photo unavailable", error?.message ?? "unknown");
+        const { driver_photo: _driverPhoto, ...withoutPhoto } = ride;
+        return withoutPhoto as ActiveRide;
+      }
+
+      this.driverPhotoCache.set(photo, {
+        url: data.signedUrl,
+        expiresAt: Date.now() + 9 * 60_000,
+      });
+      return { ...ride, driver_photo: data.signedUrl };
+    } catch (error) {
+      console.warn("[ActiveRide] Driver photo signing unavailable", error);
+      const { driver_photo: _driverPhoto, ...withoutPhoto } = ride;
+      return withoutPhoto as ActiveRide;
+    }
+  }
+
+  private async hydratePassengerRide(ride: ActiveRide): Promise<ActiveRide> {
+    const withPin = await this.hydratePassengerSecurityCode(ride);
+    return this.hydrateDriverPhoto(withPin);
+  }
+
+  public async getRideById(rideId: string, passengerId: string): Promise<ActiveRide> {
+    const { data, error } = await supabase
+      .from("rides")
+      .select("*")
+      .eq("id", rideId)
+      .eq("passenger_id", passengerId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error("not_found");
+    return this.hydratePassengerRide(this.normalizeRide(data));
+  }
+
+  public async getActiveRide(passengerId: string): Promise<ActiveRide | null> {
+    const { data, error } = await supabase
+      .from("rides")
+      .select("*")
+      .eq("passenger_id", passengerId)
+      .in("status", ACTIVE_STATUSES)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data ? this.hydratePassengerRide(this.normalizeRide(data)) : null;
+  }
+
+  public subscribeToRide(
+    rideId: string,
+    onUpdate: (ride: ActiveRide) => void,
+    onConnectionChange?: (connected: boolean) => void,
+  ): RealtimeChannel {
+    void this.unsubscribe();
+    this.lastUpdateTimestamp = 0;
+    this.lastStatus = null;
+
+    this.channel = supabase
+      .channel(`ride_active_${rideId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "rides",
+          filter: `id=eq.${rideId}`,
+        },
+        (payload) => {
+          try {
+            const updatedRide = this.normalizeRide(payload.new);
+            if (updatedRide.id !== rideId) return;
+
+            void this.hydratePassengerRide(updatedRide)
+              .then((hydratedRide) => {
+                const parsedTimestamp = Date.parse(hydratedRide.updated_at);
+                const updateTimestamp = Number.isFinite(parsedTimestamp)
+                  ? parsedTimestamp
+                  : Date.now();
+                const isNewer = updateTimestamp > this.lastUpdateTimestamp;
+                const isSameUpdate = updateTimestamp === this.lastUpdateTimestamp;
+                const isForwardTransition =
+                  !this.lastStatus ||
+                  STATUS_ORDER[hydratedRide.status] >= STATUS_ORDER[this.lastStatus];
+
+                if (isNewer || (isSameUpdate && isForwardTransition)) {
+                  this.lastUpdateTimestamp = updateTimestamp;
+                  this.lastStatus = hydratedRide.status;
+                  onUpdate(hydratedRide);
+                }
+              })
+              .catch((error) => {
+                console.error("[Realtime] Ride hydration failed:", error);
+              });
+          } catch (error) {
+            console.error("[Realtime] Invalid ride update ignored:", error);
+          }
+        },
+      )
+      .subscribe((status) => {
+        const connected = status === "SUBSCRIBED";
+        onConnectionChange?.(connected);
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          console.warn(`[Realtime] Ride channel status: ${status}`);
+        }
+      });
+
+    return this.channel;
+  }
+
+  public async unsubscribe(): Promise<RealtimeChannelSendResponse | void> {
+    if (!this.channel) return;
+
+    const channel = this.channel;
+    this.channel = null;
+    this.lastUpdateTimestamp = 0;
+    this.lastStatus = null;
+    return supabase.removeChannel(channel);
+  }
+
+  private normalizeRide(value: unknown): ActiveRide {
+    if (!isRecord(value)) throw new Error("invalid_ride_response");
+    const data = value;
+
+    const ride: ActiveRide = {
+      id: readRequiredString(data, "id"),
+      passenger_id: readRequiredString(data, "passenger_id"),
+      status: readStatus(data["status"]),
+      category: readRequiredString(data, "category"),
+      origin_name: readRequiredString(data, "origin_name"),
+      destination_name: readRequiredString(data, "destination_name"),
+      origin: readRideCoordinates(data, "origin"),
+      destination: readRideCoordinates(data, "destination"),
+      intermediates: readIntermediates(data["intermediates"]),
+      estimated_price: readRequiredNumber(data, "estimated_price"),
+      payment_method: readRequiredString(data, "payment_method"),
+      created_at: readRequiredString(data, "created_at"),
+      updated_at: readRequiredString(data, "updated_at"),
+    };
+
+    const optionalStrings: Array<[OptionalStringRideKey, string]> = [
+      ["driver_id", "driver_id"],
+      ["encoded_polyline", "encoded_polyline"],
+      ["driver_name", "driver_name"],
+      ["driver_photo", "driver_photo"],
+      ["driver_phone", "driver_phone"],
+      ["driver_vehicle_model", "driver_vehicle_model"],
+      ["driver_vehicle_color", "driver_vehicle_color"],
+      ["driver_vehicle_plate", "driver_vehicle_plate"],
+      ["security_code", "security_code"],
+      ["payment_status", "payment_status"],
+      ["payment_provider", "payment_provider"],
+      ["provider_payment_id", "provider_payment_id"],
+      ["cancellation_reason", "cancellation_reason"],
+      ["cancelled_by", "cancelled_by"],
+      ["accepted_at", "accepted_at"],
+      ["driver_arrived_at", "driver_arrived_at"],
+      ["started_at", "started_at"],
+      ["completed_at", "completed_at"],
+      ["share_token", "share_token"],
+      ["share_expires_at", "share_expires_at"],
+      ["share_revoked_at", "share_revoked_at"],
+      ["queued_after_ride_id", "queued_after_ride_id"],
+      ["queued_at", "queued_at"],
+    ];
+
+    for (const [targetKey, sourceKey] of optionalStrings) {
+      const field = readOptionalString(data, sourceKey);
+      if (field !== undefined) ride[targetKey] = field;
+    }
+
+    const optionalNumbers: Array<[OptionalNumberRideKey, string]> = [
+      ["final_price", "final_price"],
+      ["distance_km", "distance_km"],
+      ["duration_min", "duration_min"],
+      ["driver_rating", "driver_rating"],
+      ["driver_latitude", "driver_latitude"],
+      ["driver_longitude", "driver_longitude"],
+      ["driver_heading", "driver_heading"],
+      ["cancellation_fee", "cancellation_fee"],
+      ["passenger_rating", "passenger_rating"],
+    ];
+
+    for (const [targetKey, sourceKey] of optionalNumbers) {
+      const field = readOptionalNumber(data, sourceKey);
+      if (field !== undefined) ride[targetKey] = field;
+    }
+
+    const serviceDetails = parseJsonValue(data["service_details"]);
+    if (isRecord(serviceDetails)) ride.service_details = serviceDetails;
+
+    return ride;
+  }
+
+  public getActionAvailability(status: RideStatus, ride: ActiveRide): RideActionAvailability {
+    const isTerminal = TERMINAL_STATUSES.includes(status);
+
+    return {
+      canCancel: ["aguardando_pagamento", "procurar_motorista", "motorista_a_caminho"].includes(status),
+      canContactDriver:
+        Boolean(ride.driver_id) &&
+        (["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status) ||
+          (status === "procurar_motorista" && Boolean(ride.queued_after_ride_id))),
+      canOpenSafety: SHAREABLE_STATUSES.includes(status),
+      canRate: status === "finalizada" && ride.passenger_rating === undefined,
+      canRequestAgain: isTerminal,
+      canReturnHome: isTerminal,
+      canViewReceipt: status === "finalizada",
+      canShareRide: SHAREABLE_STATUSES.includes(status),
+    };
+  }
+}
+
+export const activeRideService = ActiveRideService.getInstance();
