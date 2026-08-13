@@ -37,6 +37,9 @@ describe("Woovi financial safety contracts", () => {
     expect(worker).toContain("creditDescription(credit.ride_id)");
     expect(worker).toContain('entryType === "CREDIT" || operationType === "CREDIT"');
     expect(worker).toContain("Number(entry.value) === expectedAmount");
+    expect(worker).toContain("response.status >= 500");
+    expect(worker).toContain("[408, 425, 429].includes(response.status)");
+    expect(worker).toContain("provider_http_ambiguous:");
   });
 
   test("does not refund or replay ambiguous payouts", () => {
