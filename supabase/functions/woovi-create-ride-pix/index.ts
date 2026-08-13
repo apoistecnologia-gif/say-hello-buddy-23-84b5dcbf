@@ -51,7 +51,9 @@ function cleanAction(value: unknown): "recover" | "retry" {
 
 function normalizeProviderStatus(value: unknown): string {
   const status = String(value ?? "").trim().toUpperCase();
-  if (status === "COMPLETED") return "received";
+  // Provider API completion is not the APOIS source of truth for releasing a
+  // ride. Until the authenticated webhook is processed, keep it as confirmed.
+  if (status === "COMPLETED") return "confirmed";
   if (["EXPIRED", "OVERDUE"].includes(status)) return "expired";
   if (["CANCELLED", "CANCELED"].includes(status)) return "cancelled";
   if (["FAILED", "ERROR"].includes(status)) return "failed";
