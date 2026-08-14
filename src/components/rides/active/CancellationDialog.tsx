@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useActiveRide } from "@/hooks/rides/use-active-ride";
 import { useCancellationPolicy } from "@/hooks/rides/use-cancellation-policy";
 import { useRideRequest } from "@/hooks/rides/use-ride-request";
 import { formatCurrency } from "@/lib/utils";
@@ -46,6 +47,7 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
   onSuccess,
 }) => {
   const { cancelRide } = useRideRequest();
+  const { ride: activeRide } = useActiveRide();
   const { policy, isLoading: isPolicyLoading, error: policyError, refresh } =
     useCancellationPolicy();
   const [selectedReason, setSelectedReason] = useState<string>("");
@@ -68,14 +70,23 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
     return () => window.clearInterval(intervalId);
   }, [isOpen]);
 
-  const elapsedSeconds = useMemo(() => {
-    const createdAt = Date.parse(rideCreatedAt ?? "");
-    if (!Number.isFinite(createdAt)) return 0;
-    return Math.max(0, Math.floor((now - createdAt) / 1_000));
-  }, [now, rideCreatedAt]);
+  const matchingRide = activeRide?.id === rideId ? activeRide : null;
+  const feeEligibleStage = matchingRide?.status === "motorista_a_caminho";
+  const feeReferenceAt = feeEligibleStage
+    ? matchingRide?.accepted_at ?? rideCreatedAt
+    : null;
 
-  const freeSecondsRemaining = Math.max(0, policy.freeSeconds - elapsedSeconds);
-  const feeWouldApply = policy.enabled && policy.amount > 0 && freeSecondsRemaining === 0;
+  const elapsedSeconds = useMemo(() => {
+    const referenceAt = Date.parse(feeReferenceAt ?? "");
+    if (!Number.isFinite(referenceAt)) return 0;
+    return Math.max(0, Math.floor((now - referenceAt) / 1_000));
+  }, [feeReferenceAt, now]);
+
+  const freeSecondsRemaining = feeEligibleStage
+    ? Math.max(0, policy.freeSeconds - elapsedSeconds)
+    : policy.freeSeconds;
+  const feeWouldApply =
+    feeEligibleStage && policy.enabled && policy.amount > 0 && freeSecondsRemaining === 0;
 
   const reason =
     selectedReason === "Outro motivo" ? customReason.trim() : selectedReason.trim();
@@ -160,7 +171,7 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
                     Multa atual: {formatCurrency(policy.amount)}
                   </p>
                   <p className="mt-1 text-xs leading-5 text-zinc-400">
-                    O período gratuito de cancelamento já terminou. O valor será registrado na sua carteira ao confirmar.
+                    O período gratuito após o aceite do motorista já terminou. O valor será registrado na sua carteira ao confirmar.
                   </p>
                 </div>
               </div>
@@ -170,9 +181,11 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
                 <div>
                   <p className="text-sm font-black text-white">Cancelamento sem multa</p>
                   <p className="mt-1 text-xs leading-5 text-zinc-400">
-                    {policy.enabled && policy.amount > 0
-                      ? `Restam aproximadamente ${formatRemainingTime(freeSecondsRemaining)} do período gratuito.`
-                      : "A cobrança de multa está desativada no momento."}
+                    {!feeEligibleStage
+                      ? "Nenhuma multa é aplicada nesta etapa da solicitação."
+                      : policy.enabled && policy.amount > 0
+                        ? `Restam aproximadamente ${formatRemainingTime(freeSecondsRemaining)} do período gratuito após o aceite do motorista.`
+                        : "A cobrança de multa está desativada no momento."}
                   </p>
                 </div>
               </div>
