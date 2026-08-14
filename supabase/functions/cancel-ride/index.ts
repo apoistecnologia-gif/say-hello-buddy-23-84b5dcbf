@@ -22,6 +22,7 @@ function statusForError(errorCode: string): number {
       return 422;
     case "cancellation_not_allowed":
     case "invalid_ride_status":
+    case "paid_pix_cancellation_policy_required":
       return 409;
     default:
       return 500;
