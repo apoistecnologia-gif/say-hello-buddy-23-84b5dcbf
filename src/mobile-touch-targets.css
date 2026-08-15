@@ -16,6 +16,35 @@ button[aria-label="Ocultar senha"] {
 }
 
 /*
+ * Ações visuais do app precisam continuar tocáveis mesmo quando o componente
+ * legado usa apenas padding/texto, sem utilitário explícito de altura.
+ */
+button.app-pressable,
+a.app-pressable {
+  min-height: 44px;
+}
+
+button.app-pressable[aria-label],
+a.app-pressable[aria-label] {
+  min-width: 44px;
+}
+
+/* Links legais aparecem dentro de texto corrido no cadastro e precisam de alvo
+ * de toque próprio sem depender da pequena altura da linha de texto. */
+a[href$="/termos"],
+a[href$="/privacidade"] {
+  min-height: 44px;
+  align-items: center;
+}
+
+/* Ações textuais compactas herdadas, como “Ver todas”, não podem ficar com
+ * área de toque do tamanho da fonte. */
+button[class~="text-[11px]"][class~="font-black"][class~="text-apois-yellow"] {
+  min-height: 44px;
+  padding-inline: 8px;
+}
+
+/*
  * O app é mobile-first. Alguns fluxos antigos ainda usam utilitários Tailwind
  * de 32, 36 ou 40 px em controles interativos. Mantemos o desenho original,
  * mas garantimos área mínima de toque de 44 px sem alterar regras de negócio.
@@ -45,4 +74,12 @@ a.w-8,
 a.w-9,
 a.w-10 {
   min-width: 44px;
+}
+
+/* Textos de 7–9 px ficavam abaixo de um patamar legível em telas Android
+ * pequenas. Elevamos somente esses tokens antigos para 10 px. */
+[class~="text-[7px]"],
+[class~="text-[8px]"],
+[class~="text-[9px]"] {
+  font-size: 10px;
 }
