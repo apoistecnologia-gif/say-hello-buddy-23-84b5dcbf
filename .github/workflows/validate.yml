@@ -91,11 +91,17 @@ jobs:
       - name: Check Supabase push function
         run: deno check --node-modules-dir=auto supabase/functions/send-ride-push/index.ts
 
-      - name: Check Woovi Edge Functions
+      - name: Check payment and ride Edge Functions
         shell: bash
         run: |
           set +e
           files=(
+            supabase/functions/ride-pix-checkout/index.ts
+            supabase/functions/asaas-create-ride-pix/index.ts
+            supabase/functions/pagbank-create-ride-pix/index.ts
+            supabase/functions/pagbank-webhook/index.ts
+            supabase/functions/passenger-ride-request/index.ts
+            supabase/functions/request-ride/index.ts
             supabase/functions/woovi-create-ride-pix/index.ts
             supabase/functions/woovi-webhook/index.ts
             supabase/functions/woovi-payout-webhook/index.ts
@@ -106,19 +112,19 @@ jobs:
             supabase/functions/cancel-ride/index.ts
           )
           failed=0
-          : > /tmp/woovi-deno.log
+          : > /tmp/payment-edge-deno.log
           for file in "${files[@]}"; do
-            echo "=== $file ===" | tee -a /tmp/woovi-deno.log
-            deno check --node-modules-dir=auto "$file" 2>&1 | tee -a /tmp/woovi-deno.log
+            echo "=== $file ===" | tee -a /tmp/payment-edge-deno.log
+            deno check --node-modules-dir=auto "$file" 2>&1 | tee -a /tmp/payment-edge-deno.log
             status=${PIPESTATUS[0]}
             if [ "$status" -ne 0 ]; then failed=1; fi
           done
           if [ "$failed" -ne 0 ]; then
             python3 - <<'PY'
           from pathlib import Path
-          text = Path('/tmp/woovi-deno.log').read_text(errors='replace')
+          text = Path('/tmp/payment-edge-deno.log').read_text(errors='replace')
           message = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')[-12000:]
-          print(f'::error title=Woovi Deno diagnostics::{message}')
+          print(f'::error title=Payment Edge Deno diagnostics::{message}')
           PY
             exit 1
           fi
@@ -166,7 +172,7 @@ jobs:
           grep -F 'walletState === "blocked"' src/routes/_authenticated.revisar-solicitacao.tsx
           grep -F 'canCancel && status !== "em_viagem"' src/components/rides/active/ActiveJourneyScreen.tsx
           grep -F 'HOMOLOGATED_ELECTRONIC_METHODS' src/services/payments/payment-service.ts
-          grep -F 'woovi-create-ride-pix' src/components/payments/RidePixPaymentCard.tsx
+          grep -F 'ride-pix-checkout' src/components/payments/RidePixPaymentCard.tsx
           grep -F 'processingFee' src/hooks/use-checkout-preparation.tsx
           grep -F 'Taxa de processamento' src/routes/_authenticated.revisar-solicitacao.tsx
           python3 - <<'PY'
