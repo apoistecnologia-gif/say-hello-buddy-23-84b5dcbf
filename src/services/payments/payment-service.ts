@@ -60,9 +60,7 @@ function normalizePaymentMethod(value: unknown): PaymentMethod | null {
     description: readOptionalString(value, "description"),
     icon: readOptionalString(value, "icon"),
     isActive,
-    // The canonical RPC only returns methods that are currently active. A method
-    // returned by this RPC is therefore selectable by the passenger.
-    enabled: isActive,
+    enabled: value["enabled"] === true,
     sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
     requiresBalance: value["requires_balance"] === true,
   };
