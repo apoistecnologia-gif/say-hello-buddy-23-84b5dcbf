@@ -10,7 +10,7 @@ import {
 interface RidePixPaymentCardProps {
   rideId: string;
   provider: string | null;
-  onPaid: () => void | Promise<void>;
+  onPaid?: () => void | Promise<void>;
 }
 
 function friendlyError(error: unknown): string {
@@ -64,7 +64,7 @@ export function RidePixPaymentCard({ rideId, provider, onPaid }: RidePixPaymentC
       if (next.paid && !paidNotifiedRef.current) {
         paidNotifiedRef.current = true;
         toast.success("PIX confirmado. Buscando motorista.");
-        await onPaid();
+        await onPaid?.();
       }
     } catch (caughtError: unknown) {
       setError(friendlyError(caughtError));
@@ -98,7 +98,7 @@ export function RidePixPaymentCard({ rideId, provider, onPaid }: RidePixPaymentC
       if (next.paid) {
         paidNotifiedRef.current = true;
         toast.success("PIX confirmado. Buscando motorista.");
-        await onPaid();
+        await onPaid?.();
       }
     } catch (caughtError: unknown) {
       setError(friendlyError(caughtError));
