@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
   try {
     let paymentQuery = admin
       .from("ride_pix_payments")
-      .select("id,ride_id,provider,provider_payment_id,amount_cents,status,external_reference")
+      .select("id,ride_id,provider,provider_payment_id,amount_cents,status,external_reference,refunded_amount_cents")
       .eq("provider", "pagbank");
 
     if (referenceId) paymentQuery = paymentQuery.eq("external_reference", referenceId);
@@ -168,6 +168,40 @@ Deno.serve(async (req) => {
     const paidCents = Number(charge?.amount?.summary?.paid ?? 0);
     const refundedCents = Number(charge?.amount?.summary?.refunded ?? 0);
 
+    if (!Number.isSafeInteger(refundedCents) || refundedCents < 0 || refundedCents > Number(payment.amount_cents)) {
+      throw new Error(`pagbank_refunded_amount_invalid:${refundedCents}:${payment.amount_cents}`);
+    }
+
+    // PagBank keeps a partially-refunded charge in PAID status. The cumulative
+    // amount.summary.refunded is therefore authoritative and must be handled
+    // before the PAID branch. The RPC stores the cumulative refund and debits
+    // only the driver-fare portion, once, if a settlement already exists.
+    if (refundedCents > 0) {
+      const { data: refundResult, error: refundError } = await admin.rpc("reconcile_pagbank_ride_refund", {
+        _ride_id: payment.ride_id,
+        _provider_payment_id: orderId,
+        _refunded_amount_cents: refundedCents,
+      });
+      if (refundError) throw refundError;
+
+      const fullRefund = refundedCents === Number(payment.amount_cents);
+      await admin
+        .from("payment_webhook_receipts")
+        .update({
+          status: "processed",
+          detail: fullRefund ? "ride_payment_refunded" : "ride_payment_partially_refunded",
+          processed_at: nowIso,
+        })
+        .eq("id", receipt.id);
+      return json({
+        ok: true,
+        kind: "ride_payment",
+        status: fullRefund ? "refunded" : "partially_refunded",
+        refundedAmountCents: refundedCents,
+        reconciliation: refundResult,
+      });
+    }
+
     if (chargeStatus === "PAID") {
       if (paidCents > 0 && paidCents !== Number(payment.amount_cents)) {
         throw new Error(`pagbank_paid_amount_mismatch:${paidCents}:${payment.amount_cents}`);
@@ -196,28 +230,6 @@ Deno.serve(async (req) => {
         .update({ status: "processed", detail: "ride_payment_received", processed_at: nowIso })
         .eq("id", receipt.id);
       return json({ ok: true, kind: "ride_payment", status: "received", dispatch: Boolean(activation?.should_dispatch) });
-    }
-
-    if (chargeStatus === "CANCELED" && refundedCents > 0) {
-      const { error: paymentUpdateError } = await admin
-        .from("ride_pix_payments")
-        .update({ status: "refunded", updated_at: nowIso })
-        .eq("id", payment.id);
-      if (paymentUpdateError) throw paymentUpdateError;
-
-      const { error: reversalError } = await admin.rpc("reverse_refunded_ride_payment", {
-        _ride_id: payment.ride_id,
-        _provider: "pagbank",
-        _provider_payment_id: orderId,
-        _refunded_amount: refundedCents / 100,
-      });
-      if (reversalError) throw reversalError;
-
-      await admin
-        .from("payment_webhook_receipts")
-        .update({ status: "processed", detail: "ride_payment_refunded", processed_at: nowIso })
-        .eq("id", receipt.id);
-      return json({ ok: true, kind: "ride_payment", status: "refunded" });
     }
 
     if (chargeStatus === "CANCELED" || chargeStatus === "DECLINED") {
