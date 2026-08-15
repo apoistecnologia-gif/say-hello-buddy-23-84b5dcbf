@@ -68,7 +68,7 @@ export function MainHamburgerMenu() {
             className="absolute inset-0 bg-black/72 backdrop-blur-[2px]"
           />
 
-          <aside className="app-main-menu-drawer relative z-10 flex h-[100dvh] w-[min(88vw,360px)] flex-col border-l border-white/10 bg-[#0b0c0f] shadow-[-24px_0_70px_rgba(0,0,0,0.55)]">
+          <aside className="app-main-menu-drawer app-safe-top app-safe-bottom relative z-10 flex h-[100dvh] w-[min(88vw,360px)] flex-col border-l border-white/10 bg-[#0b0c0f] shadow-[-24px_0_70px_rgba(0,0,0,0.55)]">
             <div className="flex items-center justify-between border-b border-white/8 px-5 pb-4">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-apois-yellow">APOIS Passageiro</p>
