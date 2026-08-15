@@ -121,10 +121,9 @@ a.w-10 {
   min-width: 44px;
 }
 
-/* Dialogs portados pelo Radix precisam respeitar notch, barra de gestos e
- * rolagem interna. Evita conteúdo/CTA fora da viewport em Android compacto. */
-.app-dialog-content,
-[role="dialog"] {
+/* Somente o DialogContent shadcn recebe estas restrições. O menu lateral também
+ * usa role=dialog, então um seletor global de role quebraria o drawer full-screen. */
+.app-dialog-content {
   max-width: calc(100vw - 24px);
   max-height: calc(100dvh - var(--app-safe-top, env(safe-area-inset-top)) - var(--app-safe-bottom, env(safe-area-inset-bottom)) - 24px);
   overflow-y: auto;
