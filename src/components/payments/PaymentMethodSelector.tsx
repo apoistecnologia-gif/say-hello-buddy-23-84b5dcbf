@@ -36,7 +36,7 @@ export function PaymentMethodSelector({ onOpenList }: { onOpenList: () => void }
         <button
           type="button"
           onClick={() => void refresh()}
-          className="app-pressable mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/20 text-xs font-black text-white"
+          className="app-pressable mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/20 text-xs font-black text-white"
         >
           <RefreshCw size={15} />
           Carregar novamente
@@ -100,7 +100,7 @@ export function PaymentMethodList({
         role="dialog"
         aria-modal="true"
         aria-labelledby="payment-method-title"
-        className="w-full max-w-lg rounded-t-[32px] border-t border-zinc-800 bg-black p-6 shadow-2xl animate-in slide-in-from-bottom duration-300"
+        className="w-full max-w-lg rounded-t-[32px] border-t border-zinc-800 bg-black px-6 pt-6 pb-[max(24px,env(safe-area-inset-bottom))] shadow-2xl animate-in slide-in-from-bottom duration-300"
       >
         <div className="mb-6 flex items-center justify-between gap-4">
           <h2 id="payment-method-title" className="text-xl font-black text-white">
@@ -110,7 +110,7 @@ export function PaymentMethodList({
             type="button"
             onClick={onClose}
             aria-label="Fechar formas de pagamento"
-            className="app-pressable flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-900 text-zinc-400"
+            className="app-pressable flex h-11 w-11 items-center justify-center rounded-xl bg-zinc-900 text-zinc-400"
           >
             <X size={18} />
           </button>
