@@ -24,6 +24,11 @@ a.app-pressable {
   min-height: 44px;
 }
 
+a.app-pressable:not([class~="flex"]):not([class~="inline-flex"]) {
+  display: inline-flex;
+  align-items: center;
+}
+
 button.app-pressable[aria-label],
 a.app-pressable[aria-label] {
   min-width: 44px;
@@ -33,6 +38,7 @@ a.app-pressable[aria-label] {
  * de toque próprio sem depender da pequena altura da linha de texto. */
 a[href$="/termos"],
 a[href$="/privacidade"] {
+  display: inline-flex;
   min-height: 44px;
   align-items: center;
 }
