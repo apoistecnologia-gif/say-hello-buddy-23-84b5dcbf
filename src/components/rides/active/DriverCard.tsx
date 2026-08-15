@@ -94,7 +94,7 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
         <a
           href={`tel:${ride.driver_phone}`}
           aria-label={`Ligar para ${driverName}`}
-          className="app-pressable flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-apois-yellow text-black"
+          className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-apois-yellow text-black"
         >
           <Phone size={17} />
         </a>
