@@ -1,5 +1,8 @@
 project_id = "vqtucstyduxrqjgyigfk"
 
+[functions.activate-scheduled-rides]
+verify_jwt = false
+
 [functions.admin-actions]
 verify_jwt = true
 
@@ -28,6 +31,18 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.dispatch-broadcast-test]
+verify_jwt = true
+
+[functions.dispatch-ride]
+verify_jwt = true
+
+[functions.driver-cancel-redispatch]
+verify_jwt = true
+
+[functions.driver-finish-redispatch]
+verify_jwt = true
+
+[functions.driver-reject-redispatch]
 verify_jwt = true
 
 [functions.driver-ride-action]
