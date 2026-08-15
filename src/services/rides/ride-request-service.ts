@@ -39,7 +39,7 @@ function normalizeCreateResponse(data: unknown): RideRequestResponse {
   const rideId = readOptionalString(data, "rideId") ?? readOptionalString(data, "ride_id");
   const status = readOptionalString(data, "status");
   const message = readOptionalString(data, "message");
-  const errorCode = readOptionalString(data, "error_code");
+  const errorCode = readOptionalString(data, "error_code") ?? readOptionalString(data, "error");
   const candidates = readOptionalNumber(data, "candidates");
   const estimatedPrice = readOptionalNumber(data, "estimated_price");
 
@@ -79,7 +79,7 @@ function normalizeCancellationResponse(data: unknown): RideCancellationResponse 
   };
 
   const message = readOptionalString(data, "message");
-  const errorCode = readOptionalString(data, "error_code");
+  const errorCode = readOptionalString(data, "error_code") ?? readOptionalString(data, "error");
   const status = readOptionalString(data, "status");
   const cancellationFee = readOptionalNumber(data, "cancellation_fee");
 
@@ -94,7 +94,7 @@ function normalizeCancellationResponse(data: unknown): RideCancellationResponse 
 class RideRequestService {
   async createRide(payload: RideRequestPayload): Promise<RideRequestResponse> {
     try {
-      const { data, error } = await supabase.functions.invoke("request-ride", {
+      const { data, error } = await supabase.functions.invoke("passenger-ride-request", {
         body: payload,
       });
 
