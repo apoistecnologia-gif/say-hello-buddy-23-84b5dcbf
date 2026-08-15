@@ -63,7 +63,7 @@ export const BottomNavigation = () => {
 
           <aside
             aria-label="Menu principal"
-            className="app-main-menu-drawer absolute inset-y-0 right-0 flex w-[86vw] max-w-[360px] flex-col border-l border-white/10 bg-[#0b0c0f] px-4 shadow-[-24px_0_70px_rgba(0,0,0,0.55)]"
+            className="app-main-menu-drawer app-safe-top app-safe-bottom absolute inset-y-0 right-0 flex w-[86vw] max-w-[360px] flex-col border-l border-white/10 bg-[#0b0c0f] px-4 shadow-[-24px_0_70px_rgba(0,0,0,0.55)]"
           >
             <div className="flex items-center justify-between px-2 pb-5 pt-2">
               <div>
