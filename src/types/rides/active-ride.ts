@@ -1,5 +1,6 @@
 export type RideStatus =
   | "agendada"
+  | "aguardando_pagamento"
   | "procurar_motorista"
   | "motorista_a_caminho"
   | "motorista_chegou"
@@ -57,8 +58,11 @@ export interface ActiveRide {
   distance_km?: number;
   duration_min?: number;
   payment_method: string;
+  payment_status?: string;
+  payment_provider?: string;
   service_details?: Record<string, unknown>;
   encoded_polyline?: string;
+  scheduled_for?: string;
 
   driver_name?: string;
   driver_photo?: string;
