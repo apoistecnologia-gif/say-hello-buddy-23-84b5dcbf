@@ -36,6 +36,12 @@ verify_jwt = true
 [functions.mercadopago-webhook]
 verify_jwt = false
 
+[functions.pagbank-connect-callback]
+verify_jwt = false
+
+[functions.pagbank-apois-logo]
+verify_jwt = false
+
 [functions.passenger-geocode-reverse]
 verify_jwt = true
 
