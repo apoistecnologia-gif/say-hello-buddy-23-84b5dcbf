@@ -1,4 +1,6 @@
 /* APOIS Passageiro — alvos mínimos para controles críticos no mobile. */
+button[aria-label],
+a[aria-label],
 button[aria-label="Atualizar corrida"],
 button[aria-label="Atualizar busca"],
 button[aria-label="Atualizar perfil"],
@@ -82,10 +84,56 @@ a.w-10 {
   min-width: 44px;
 }
 
-/* Textos de 7–9 px ficavam abaixo de um patamar legível em telas Android
- * pequenas. Elevamos somente esses tokens antigos para 10 px. */
+/* Textos antigos abaixo de 10px ficavam ilegíveis em telas Android pequenas. */
 [class~="text-[7px]"],
 [class~="text-[8px]"],
-[class~="text-[9px]"] {
+[class~="text-[8.5px]"],
+[class~="text-[9px]"],
+[class~="text-[9.5px]"] {
   font-size: 10px;
+}
+
+/* Evita zoom de foco em WebViews móveis e mantém campos legíveis. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Em 320–359px, grids utilitários e truncamentos antigos escondiam conteúdo
+ * operacional como endereços, favoritos, valores e ações. */
+@media (max-width: 359px) {
+  .app-scroll .grid.grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-scroll .grid.grid-cols-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-scroll .grid.grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-scroll .truncate {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .app-scroll .flex.justify-between,
+  .app-scroll .flex.items-center.justify-between,
+  .app-scroll .flex.items-end.justify-between,
+  .app-scroll .flex.items-start.justify-between {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .app-scroll p,
+  .app-scroll span {
+    overflow-wrap: anywhere;
+  }
 }
