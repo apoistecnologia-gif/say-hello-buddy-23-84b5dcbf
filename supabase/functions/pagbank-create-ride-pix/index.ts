@@ -304,9 +304,10 @@ Deno.serve(async (req) => {
       notification_urls: [WEBHOOK_URL],
     };
 
+    const idempotencyKey = `apois${active.id.replace(/-/g, "")}`;
     const order = await pagbankFetch<PagBankOrder>("/orders", {
       method: "POST",
-      headers: { "x-idempotency-key": active.id },
+      headers: { "x-idempotency-key": idempotencyKey },
       body: JSON.stringify(orderPayload),
     });
     const orderId = String(order.id ?? "").trim();
