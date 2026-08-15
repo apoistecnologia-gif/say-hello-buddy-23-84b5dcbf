@@ -45,6 +45,18 @@ verify_jwt = true
 [functions.mercadopago-webhook]
 verify_jwt = false
 
+[functions.pagbank-apois-logo]
+verify_jwt = false
+
+[functions.pagbank-connect-callback]
+verify_jwt = false
+
+[functions.pagbank-create-ride-pix]
+verify_jwt = true
+
+[functions.pagbank-webhook]
+verify_jwt = false
+
 [functions.passenger-geocode-reverse]
 verify_jwt = true
 
@@ -75,16 +87,18 @@ verify_jwt = true
 [functions.request-ride]
 verify_jwt = true
 
+[functions.ride-pix-checkout]
+verify_jwt = true
+
 [functions.send-ride-push]
 verify_jwt = true
 
 [functions.woovi-create-ride-pix]
 verify_jwt = true
 
-# Provider webhooks authenticate with the secret echoed by Woovi in the
-# Authorization/x-openpix-authorization header. They must reach the function
-# without a Supabase user JWT and then pass the function's constant-time secret
-# check before any financial mutation is performed.
+# Provider webhooks authenticate with provider-specific secrets/signatures. They
+# must reach the function without a Supabase user JWT and then pass the
+# function's own authentication check before any financial mutation.
 [functions.woovi-webhook]
 verify_jwt = false
 
