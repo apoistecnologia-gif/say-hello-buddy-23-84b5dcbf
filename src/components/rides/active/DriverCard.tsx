@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Phone, Star, User } from "lucide-react";
 import type { ActiveRide } from "@/types/rides/active-ride";
 import { supabase } from "@/integrations/supabase/client";
+import { RidePixPaymentCard } from "@/components/rides/active/RidePixPaymentCard";
 
 interface DriverCardProps {
   ride: ActiveRide;
@@ -46,6 +47,10 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
       cancelled = true;
     };
   }, [ride.driver_photo]);
+
+  if (ride.status === "aguardando_pagamento" && ride.payment_method === "pix") {
+    return <RidePixPaymentCard rideId={ride.id} provider={ride.payment_provider ?? null} />;
+  }
 
   if (!ride.driver_id && !ride.driver_name) return null;
 
