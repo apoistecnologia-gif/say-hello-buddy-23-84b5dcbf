@@ -98,7 +98,7 @@ export function RideSafetyDialog({
               type="button"
               aria-label="Fechar central de segurança"
               onClick={() => onOpenChange(false)}
-              className="app-pressable flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-zinc-900"
+              className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-zinc-900"
             >
               <X size={18} />
             </button>
