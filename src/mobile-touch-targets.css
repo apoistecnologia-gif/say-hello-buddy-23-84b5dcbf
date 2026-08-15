@@ -1,0 +1,10 @@
+/* APOIS Passageiro — alvos mínimos para controles icon-only críticos no mobile. */
+button[aria-label="Atualizar corrida"],
+button[aria-label="Atualizar busca"],
+button[aria-label="Voltar"],
+button[aria-label="Voltar para a busca"],
+button[aria-label="Fechar central de segurança"],
+button[aria-label="Fechar formas de pagamento"] {
+  min-width: 44px;
+  min-height: 44px;
+}
