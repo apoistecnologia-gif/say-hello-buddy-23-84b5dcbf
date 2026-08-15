@@ -147,7 +147,7 @@ export const CancellationDialog: React.FC<CancellationDialogProps> = ({
                 <button
                   type="button"
                   onClick={() => void refresh()}
-                  className="app-pressable mt-3 min-h-10 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-xs font-black text-white"
+                  className="app-pressable mt-3 min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-xs font-black text-white"
                 >
                   Carregar novamente
                 </button>
