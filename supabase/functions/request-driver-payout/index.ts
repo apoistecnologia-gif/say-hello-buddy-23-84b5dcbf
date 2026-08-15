@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -37,6 +37,7 @@ type Withdrawal = {
 
 type JsonObject = Record<string, unknown>;
 type FinanceSettingRow = { key: string; value: unknown };
+type AdminClient = SupabaseClient<any, "public", any>;
 
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -71,7 +72,7 @@ function settingScalar(value: unknown): unknown {
   try { return JSON.parse(trimmed); } catch { return trimmed; }
 }
 
-async function loadPayoutGate(admin: ReturnType<typeof createClient>): Promise<{ enabled: boolean; provider: string }> {
+async function loadPayoutGate(admin: AdminClient): Promise<{ enabled: boolean; provider: string }> {
   const { data, error } = await admin
     .from("app_settings")
     .select("key,value")
