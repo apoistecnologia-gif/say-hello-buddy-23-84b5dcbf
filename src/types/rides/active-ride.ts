@@ -96,15 +96,19 @@ export interface ActiveRide {
   driver_arrived_at?: string;
   started_at?: string;
   completed_at?: string;
+  passenger_rated_at?: string;
+  driver_rated_at?: string;
   updated_at: string;
 
   share_token?: string;
   share_expires_at?: string;
   share_revoked_at?: string;
 
-  /** Avaliação feita pelo motorista sobre o passageiro. */
+  /** Nota dada pelo passageiro ao motorista nesta corrida. */
   passenger_rating?: number;
-  /** Avaliação feita pelo passageiro sobre o motorista. */
+  /** Nota dada pelo motorista ao passageiro nesta corrida. */
+  driver_to_passenger_rating?: number;
+  /** @deprecated Alias legado de passenger_rating. */
   passenger_driver_rating?: number;
 }
 
