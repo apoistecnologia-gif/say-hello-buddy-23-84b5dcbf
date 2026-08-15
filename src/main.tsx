@@ -12,6 +12,7 @@ import "./styles.css";
 import "./android-system-bars.css";
 import "./app-layout.css";
 import "./native-intro.css";
+import "./mobile-touch-targets.css";
 
 const queryClient = new QueryClient();
 const hashHistory = createHashHistory();
