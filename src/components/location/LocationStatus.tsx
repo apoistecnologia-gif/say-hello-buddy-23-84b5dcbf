@@ -26,7 +26,7 @@ export const LocationStatus: React.FC = () => {
         <Button
           onClick={requestPermission}
           disabled={isLoading}
-          className="h-10 rounded-xl bg-apois-yellow text-black font-black text-[10px] uppercase tracking-widest"
+          className="min-h-11 rounded-xl bg-apois-yellow text-black font-black text-[10px] uppercase tracking-widest"
         >
           {isLoading ? <RefreshCw className="animate-spin" size={14} /> : "Permitir localização"}
         </Button>
@@ -46,7 +46,7 @@ export const LocationStatus: React.FC = () => {
         <Button
           onClick={requestPermission}
           variant="destructive"
-          className="h-10 rounded-xl font-black text-[10px] uppercase tracking-widest"
+          className="min-h-11 rounded-xl font-black text-[10px] uppercase tracking-widest"
         >
           Tentar novamente
         </Button>
@@ -65,7 +65,7 @@ export const LocationStatus: React.FC = () => {
         </div>
         <Button
           onClick={openSettings}
-          className="h-10 rounded-xl bg-zinc-800 text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
+          className="min-h-11 rounded-xl bg-zinc-800 text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
         >
           <Settings size={14} />
           Abrir configurações
@@ -87,7 +87,8 @@ export const LocationStatus: React.FC = () => {
           onClick={refreshLocation}
           variant="ghost"
           size="icon"
-          className="h-10 w-10 text-apois-yellow hover:bg-white/5"
+          aria-label="Tentar localizar novamente"
+          className="h-11 w-11 shrink-0 text-apois-yellow hover:bg-white/5"
         >
           <RefreshCw size={18} />
         </Button>
