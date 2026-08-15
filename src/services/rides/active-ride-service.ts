@@ -54,6 +54,8 @@ type OptionalStringRideKey =
   | "driver_arrived_at"
   | "started_at"
   | "completed_at"
+  | "passenger_rated_at"
+  | "driver_rated_at"
   | "share_token"
   | "share_expires_at"
   | "share_revoked_at"
@@ -70,6 +72,7 @@ type OptionalNumberRideKey =
   | "driver_heading"
   | "cancellation_fee"
   | "passenger_rating"
+  | "driver_to_passenger_rating"
   | "passenger_driver_rating";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -311,6 +314,8 @@ class ActiveRideService {
       ["driver_arrived_at", "driver_arrived_at"],
       ["started_at", "started_at"],
       ["completed_at", "completed_at"],
+      ["passenger_rated_at", "passenger_rated_at"],
+      ["driver_rated_at", "driver_rated_at"],
       ["share_token", "share_token"],
       ["share_expires_at", "share_expires_at"],
       ["share_revoked_at", "share_revoked_at"],
@@ -333,7 +338,8 @@ class ActiveRideService {
       ["driver_heading", "driver_heading"],
       ["cancellation_fee", "cancellation_fee"],
       ["passenger_rating", "passenger_rating"],
-      ["passenger_driver_rating", "passenger_driver_rating"],
+      ["driver_to_passenger_rating", "driver_to_passenger_rating"],
+      ["passenger_driver_rating", "passenger_rating"],
     ];
 
     for (const [targetKey, sourceKey] of optionalNumbers) {
@@ -357,7 +363,7 @@ class ActiveRideService {
         (["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status) ||
           (status === "procurar_motorista" && Boolean(ride.queued_after_ride_id))),
       canOpenSafety: ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status),
-      canRate: status === "finalizada" && ride.passenger_driver_rating === undefined,
+      canRate: status === "finalizada" && !ride.passenger_rated_at,
       canRequestAgain: isTerminal,
       canReturnHome: isTerminal,
       canViewReceipt: status === "finalizada",
