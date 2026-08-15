@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
   ASAAS_ENVIRONMENT,
   type AsaasPixQr,
@@ -15,6 +15,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+type AdminClient = SupabaseClient<any, "public", any>;
 
 type PixPaymentRow = {
   id: string;
@@ -100,7 +102,7 @@ async function dispatchIfNeeded(rideId: string) {
   }
 }
 
-async function loadActivePayment(admin: ReturnType<typeof createClient>, rideId: string): Promise<PixPaymentRow | null> {
+async function loadActivePayment(admin: AdminClient, rideId: string): Promise<PixPaymentRow | null> {
   const { data, error } = await admin
     .from("ride_pix_payments")
     .select("id,ride_id,provider_payment_id,amount_cents,status,pix_payload,pix_qr_code_base64,pix_expiration_at,attempt_number,external_reference")
@@ -122,7 +124,7 @@ async function recoverAsaasPaymentByReference(reference: string) {
   return id ? { id } : null;
 }
 
-async function hydratePix(admin: ReturnType<typeof createClient>, payment: PixPaymentRow): Promise<PixPaymentRow> {
+async function hydratePix(admin: AdminClient, payment: PixPaymentRow): Promise<PixPaymentRow> {
   if (!payment.provider_payment_id) return payment;
   if (payment.pix_payload && payment.pix_qr_code_base64) return payment;
   const pix = await asaasFetch<AsaasPixQr>(
@@ -165,7 +167,7 @@ function responseFor(payment: PixPaymentRow, rideStatus: string, paymentStatus: 
 }
 
 async function reconcileProviderPayment(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   payment: PixPaymentRow,
   ride: { id: string },
 ) {
@@ -204,14 +206,16 @@ async function reconcileProviderPayment(
     _provider_payment_id: payment.provider_payment_id,
   });
   if (activationError) throw activationError;
-  if (activation?.should_dispatch) await dispatchIfNeeded(payment.ride_id);
+  const activationResult = activation as { should_dispatch?: boolean } | null;
+  if (activationResult?.should_dispatch) await dispatchIfNeeded(payment.ride_id);
 
-  const { data: refreshedRide, error: refreshedRideError } = await admin
+  const { data: refreshedRideData, error: refreshedRideError } = await admin
     .from("rides")
     .select("id,status,payment_status,dispatch_attempts")
     .eq("id", ride.id)
     .single();
   if (refreshedRideError) throw refreshedRideError;
+  const refreshedRide = refreshedRideData as { status: string; payment_status: string | null };
   return responseFor(received as PixPaymentRow, refreshedRide.status, refreshedRide.payment_status, true);
 }
 
