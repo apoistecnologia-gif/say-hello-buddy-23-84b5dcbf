@@ -3,6 +3,7 @@ import {
   PAGBANK_ENVIRONMENT,
   pagbankAccessToken,
   pagbankConfigured,
+  pagbankFetch,
   secureEqualHex,
   sha256Hex,
 } from "../_shared/pagbank.ts";
@@ -74,19 +75,36 @@ Deno.serve(async (req) => {
   if (!pagbankConfigured()) return json({ error: "pagbank_not_configured", environment: PAGBANK_ENVIRONMENT }, 503);
 
   const rawBody = await req.text();
-  const incomingSignature = (req.headers.get("x-authenticity-token") ?? "").trim();
-  if (!incomingSignature) return json({ error: "missing_authenticity_token" }, 401);
-
-  const expectedSignature = await sha256Hex(`${pagbankAccessToken()}-${rawBody}`);
-  if (!secureEqualHex(incomingSignature, expectedSignature)) {
-    return json({ error: "invalid_authenticity_token" }, 401);
-  }
-
-  let payload: PagBankOrder;
+  let incomingPayload: PagBankOrder;
   try {
-    payload = JSON.parse(rawBody) as PagBankOrder;
+    incomingPayload = JSON.parse(rawBody) as PagBankOrder;
   } catch {
     return json({ error: "invalid_json" }, 400);
+  }
+
+  const incomingOrderId = String(incomingPayload.id ?? "").trim();
+  if (!incomingOrderId.startsWith("ORDE_")) return json({ error: "invalid_order_id" }, 400);
+
+  const incomingSignature = (req.headers.get("x-authenticity-token") ?? "").trim();
+  const expectedSignature = await sha256Hex(`${pagbankAccessToken()}-${rawBody}`);
+  const signatureValid = Boolean(incomingSignature) && secureEqualHex(incomingSignature, expectedSignature);
+
+  let payload = incomingPayload;
+  let authenticationMode = "sha256";
+  if (!signatureValid) {
+    if (PAGBANK_ENVIRONMENT !== "sandbox") {
+      return json({ error: incomingSignature ? "invalid_authenticity_token" : "missing_authenticity_token" }, 401);
+    }
+    try {
+      const canonical = await pagbankFetch<PagBankOrder>(`/orders/${encodeURIComponent(incomingOrderId)}`, { method: "GET" });
+      if (String(canonical.id ?? "").trim() !== incomingOrderId) throw new Error("sandbox_order_identity_mismatch");
+      payload = canonical;
+      authenticationMode = incomingSignature ? "sandbox_api_fallback_invalid_signature" : "sandbox_api_fallback_missing_signature";
+      console.warn(`[pagbank-webhook] ${authenticationMode} order=${incomingOrderId}`);
+    } catch (error) {
+      console.error("[pagbank-webhook] sandbox authenticity fallback failed", String(error));
+      return json({ error: "sandbox_authenticity_verification_failed" }, 401);
+    }
   }
 
   const orderId = String(payload.id ?? "").trim();
@@ -117,7 +135,7 @@ Deno.serve(async (req) => {
       event_key: eventKey,
       request_id: req.headers.get("x-product-id") ?? orderId,
       status: "processing",
-      detail: null,
+      detail: authenticationMode === "sha256" ? null : authenticationMode,
       raw_payload: payload,
       processed_at: null,
     }, { onConflict: "event_key" })
@@ -140,7 +158,7 @@ Deno.serve(async (req) => {
     if (!payment) {
       await admin
         .from("payment_webhook_receipts")
-        .update({ status: "ignored", detail: "ride_payment_not_found", processed_at: nowIso })
+        .update({ status: "ignored", detail: `ride_payment_not_found:${authenticationMode}`, processed_at: nowIso })
         .eq("id", receipt.id);
       return json({ ok: true, ignored: true });
     }
@@ -172,10 +190,6 @@ Deno.serve(async (req) => {
       throw new Error(`pagbank_refunded_amount_invalid:${refundedCents}:${payment.amount_cents}`);
     }
 
-    // PagBank keeps a partially-refunded charge in PAID status. The cumulative
-    // amount.summary.refunded is therefore authoritative and must be handled
-    // before the PAID branch. The RPC stores the cumulative refund and debits
-    // only the driver-fare portion, once, if a settlement already exists.
     if (refundedCents > 0) {
       const { data: refundResult, error: refundError } = await admin.rpc("reconcile_pagbank_ride_refund", {
         _ride_id: payment.ride_id,
@@ -189,7 +203,7 @@ Deno.serve(async (req) => {
         .from("payment_webhook_receipts")
         .update({
           status: "processed",
-          detail: fullRefund ? "ride_payment_refunded" : "ride_payment_partially_refunded",
+          detail: `${fullRefund ? "ride_payment_refunded" : "ride_payment_partially_refunded"}:${authenticationMode}`,
           processed_at: nowIso,
         })
         .eq("id", receipt.id);
@@ -227,7 +241,7 @@ Deno.serve(async (req) => {
 
       await admin
         .from("payment_webhook_receipts")
-        .update({ status: "processed", detail: "ride_payment_received", processed_at: nowIso })
+        .update({ status: "processed", detail: `ride_payment_received:${authenticationMode}`, processed_at: nowIso })
         .eq("id", receipt.id);
       return json({ ok: true, kind: "ride_payment", status: "received", dispatch: Boolean(activation?.should_dispatch) });
     }
@@ -253,14 +267,14 @@ Deno.serve(async (req) => {
 
       await admin
         .from("payment_webhook_receipts")
-        .update({ status: "processed", detail: `ride_payment_${canonicalStatus}`, processed_at: nowIso })
+        .update({ status: "processed", detail: `ride_payment_${canonicalStatus}:${authenticationMode}`, processed_at: nowIso })
         .eq("id", receipt.id);
       return json({ ok: true, kind: "ride_payment", status: canonicalStatus });
     }
 
     await admin
       .from("payment_webhook_receipts")
-      .update({ status: "processed", detail: chargeStatus ? `ride_payment_${chargeStatus.toLowerCase()}` : "ride_order_update", processed_at: nowIso })
+      .update({ status: "processed", detail: `${chargeStatus ? `ride_payment_${chargeStatus.toLowerCase()}` : "ride_order_update"}:${authenticationMode}`, processed_at: nowIso })
       .eq("id", receipt.id);
     return json({ ok: true, kind: "ride_payment", status: chargeStatus || "order_update" });
   } catch (error) {
@@ -268,7 +282,7 @@ Deno.serve(async (req) => {
     console.error("[pagbank-webhook]", detail);
     await admin
       .from("payment_webhook_receipts")
-      .update({ status: "failed", detail, processed_at: nowIso })
+      .update({ status: "failed", detail: `${detail}:${authenticationMode}`, processed_at: nowIso })
       .eq("id", receipt.id);
     return json({ error: "processing_failed" }, 500);
   }
