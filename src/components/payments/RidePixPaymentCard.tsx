@@ -14,9 +14,14 @@ type PixCheckout = {
   legacy?: boolean;
   pending?: boolean;
   reconciliationRequired?: boolean;
-  provider?: "asaas" | "woovi" | string;
+  provider?: "asaas" | "pagbank" | "woovi" | string;
   paymentId?: string;
   amountCents?: number;
+  fareCents?: number;
+  processingFeeCents?: number;
+  passengerChargeCents?: number;
+  legacyFinancialSnapshot?: boolean;
+  paid?: boolean;
   status?: string;
   pixPayload?: string | null;
   pixQrCodeBase64?: string | null;
@@ -33,7 +38,14 @@ function readableError(code: string | undefined) {
     case "ride_not_found":
       return "Não foi possível localizar esta corrida para cobrança.";
     case "payment_provider_not_configured":
+    case "asaas_not_configured":
+    case "pagbank_not_configured":
       return "O Pix está temporariamente indisponível. Tente novamente em instantes.";
+    case "payment_provider_not_supported":
+    case "ride_payment_provider_mismatch":
+      return "O provedor Pix desta corrida não está disponível para esta cobrança.";
+    case "payment_amount_mismatch":
+      return "O valor do Pix não confere com o total oficial da corrida. Nenhuma cobrança foi liberada.";
     case "legacy_asaas_charge_active":
       return "Esta corrida ainda possui um Pix anterior ativo. Consulte o pagamento existente antes de gerar uma nova cobrança.";
     default:
@@ -47,6 +59,10 @@ function normalizePaymentStatus(value: string | undefined): string {
 
 function isBackendPaidStatus(value: string | undefined): boolean {
   return ["received", "paid"].includes(normalizePaymentStatus(value));
+}
+
+function validCents(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 function formatCurrency(value: number): string {
@@ -81,12 +97,25 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
     return Number.isFinite(expiration) && expiration <= Date.now();
   }, [checkout?.pixExpirationAt, checkout?.status]);
 
-  const amount =
-    typeof checkout?.amountCents === "number" && Number.isFinite(checkout.amountCents)
+  const fareAmount = validCents(checkout?.fareCents)
+    ? checkout.fareCents / 100
+    : officialAmount;
+  const processingFeeAmount = validCents(checkout?.processingFeeCents)
+    ? checkout.processingFeeCents / 100
+    : null;
+  const passengerChargeAmount = validCents(checkout?.passengerChargeCents)
+    ? checkout.passengerChargeCents / 100
+    : validCents(checkout?.amountCents)
       ? checkout.amountCents / 100
-      : officialAmount;
+      : null;
   const expirationLabel = formatExpiration(checkout?.pixExpirationAt);
-  const providerLabel = checkout?.provider === "asaas" ? "Asaas" : checkout?.provider === "woovi" ? "Woovi" : "provedor Pix";
+  const providerLabel = checkout?.provider === "asaas"
+    ? "Asaas"
+    : checkout?.provider === "pagbank"
+      ? "PagBank"
+      : checkout?.provider === "woovi"
+        ? "Woovi"
+        : "provedor Pix";
   const providerConfirmed = normalizePaymentStatus(checkout?.status) === "confirmed";
   const reconciliationPending = checkout?.reconciliationRequired === true || checkout?.pending === true;
 
@@ -96,7 +125,7 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
     setError(null);
     try {
       const { data, error: invokeError } = await supabase.functions.invoke<PixCheckout>(
-        "woovi-create-ride-pix",
+        "ride-pix-checkout",
         { body: { rideId, action } },
       );
       if (invokeError) throw invokeError;
@@ -106,8 +135,18 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
         return;
       }
 
+      if (
+        validCents(data.passengerChargeCents) &&
+        validCents(data.amountCents) &&
+        data.passengerChargeCents !== data.amountCents
+      ) {
+        console.error("[RidePixPaymentCard] backend amount mismatch", data);
+        setError(readableError("payment_amount_mismatch"));
+        return;
+      }
+
       setCheckout(data);
-      if (isBackendPaidStatus(data.status)) {
+      if (data.paid === true || isBackendPaidStatus(data.status)) {
         setPaid(true);
         toast.success("Pagamento Pix confirmado pelo backend.");
         return;
@@ -176,13 +215,28 @@ export function RidePixPaymentCard({ rideId, officialAmount }: RidePixPaymentCar
         </div>
       </div>
 
-      {typeof amount === "number" && Number.isFinite(amount) ? (
+      {typeof fareAmount === "number" && Number.isFinite(fareAmount) ? (
         <div className="mt-4 rounded-2xl border border-white/8 bg-black/35 p-3">
-          <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">Total do Pix</p>
-          <p className="mt-1 text-2xl font-black text-apois-yellow">{formatCurrency(amount)}</p>
-          <p className="mt-1 text-[10px] leading-4 text-zinc-500">
-            Total validado pelo backend, incluindo a taxa de processamento exibida na revisão quando aplicável.
-          </p>
+          <div className="flex items-center justify-between gap-3 text-[11px]">
+            <span className="text-zinc-400">Valor da corrida</span>
+            <span className="font-black text-white">{formatCurrency(fareAmount)}</span>
+          </div>
+          {processingFeeAmount !== null ? (
+            <div className="mt-2 flex items-center justify-between gap-3 text-[11px]">
+              <span className="text-zinc-400">Taxa de processamento</span>
+              <span className="font-black text-white">{formatCurrency(processingFeeAmount)}</span>
+            </div>
+          ) : (
+            <p className="mt-2 text-[10px] leading-4 text-zinc-500">
+              A taxa de processamento e o total são validados pelo backend antes da geração do Pix.
+            </p>
+          )}
+          {passengerChargeAmount !== null ? (
+            <div className="mt-3 flex items-end justify-between gap-3 border-t border-white/8 pt-3">
+              <span className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">Total do Pix</span>
+              <span className="text-2xl font-black text-apois-yellow">{formatCurrency(passengerChargeAmount)}</span>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
