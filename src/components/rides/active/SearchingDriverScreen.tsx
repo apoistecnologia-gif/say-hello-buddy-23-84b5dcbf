@@ -51,7 +51,7 @@ export function SearchingDriverScreen({
             type="button"
             onClick={canCancel ? onCancel : onRefresh}
             aria-label={canCancel ? "Cancelar corrida" : "Atualizar corrida"}
-            className="app-pressable flex h-10 w-10 items-center justify-center rounded-full text-apois-yellow"
+            className="app-pressable flex h-11 w-11 items-center justify-center rounded-full text-apois-yellow"
           >
             {canCancel ? <X size={25} strokeWidth={2.4} /> : <RefreshCw size={20} className={isRefreshing ? "animate-spin" : ""} />}
           </button>
@@ -122,7 +122,7 @@ export function SearchingDriverScreen({
                 type="button"
                 onClick={onRefresh}
                 disabled={isRefreshing}
-                className="app-pressable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/8 bg-white/5 text-zinc-400 disabled:opacity-50"
+                className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/8 bg-white/5 text-zinc-400 disabled:opacity-50"
                 aria-label="Atualizar busca"
               >
                 <RefreshCw size={15} className={isRefreshing ? "animate-spin" : ""} />
