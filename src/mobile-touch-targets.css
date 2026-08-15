@@ -36,6 +36,37 @@ a.app-pressable[aria-label] {
   min-width: 44px;
 }
 
+/* Botões comuns herdados de componentes shadcn não podem ficar abaixo de 44px.
+ * Switch/checkbox/radio mantêm o trilho compacto e sua própria hit-area. */
+button:not([role="switch"]):not([role="checkbox"]):not([role="radio"]) {
+  min-height: 44px;
+}
+
+button[role="combobox"],
+[role="option"],
+[role="menuitem"],
+[role="tab"] {
+  min-height: 44px;
+}
+
+[role="option"],
+[role="menuitem"] {
+  display: flex;
+  align-items: center;
+}
+
+[role="tablist"] {
+  height: auto;
+  min-height: 44px;
+  flex-wrap: wrap;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 /* Links legais aparecem dentro de texto corrido no cadastro e precisam de alvo
  * de toque próprio sem depender da pequena altura da linha de texto. */
 a[href$="/termos"],
@@ -43,6 +74,12 @@ a[href$="/privacidade"] {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
+}
+
+/* Links estruturais renderizados como botões também recebem alvo mínimo. */
+a.flex,
+a.inline-flex {
+  min-height: 44px;
 }
 
 /* Ações textuais compactas herdadas, como “Ver todas”, não podem ficar com
@@ -84,6 +121,46 @@ a.w-10 {
   min-width: 44px;
 }
 
+/* Dialogs portados pelo Radix precisam respeitar notch, barra de gestos e
+ * rolagem interna. Evita conteúdo/CTA fora da viewport em Android compacto. */
+.app-dialog-content,
+[role="dialog"] {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - var(--app-safe-top, env(safe-area-inset-top)) - var(--app-safe-bottom, env(safe-area-inset-bottom)) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* PassengerProfileCenter já desenha um close próprio no cabeçalho. O close
+ * automático do DialogContent ficava duplicado por cima dele. */
+.app-dialog-content:has(button[aria-label="Fechar"]) > button.absolute.right-3.top-3 {
+  display: none;
+}
+
+/* Textos gerados por backend/e-mail/IDs não devem alargar cards ou dialogs. */
+.app-screen p,
+.app-screen span,
+.app-screen code,
+.app-screen strong,
+.app-dialog-content p,
+.app-dialog-content span,
+.app-dialog-content code,
+.app-dialog-content strong {
+  overflow-wrap: anywhere;
+}
+
+/* O skeleton e o erro da corrida ativa usam 100dvh com padding puro. Soma as
+ * safe-areas sem reestruturar a lógica da rota. */
+[class~="h-[100dvh]"][class~="bg-black"][class~="p-5"] {
+  padding-top: calc(1.25rem + var(--app-safe-top, env(safe-area-inset-top)));
+  padding-bottom: calc(1.25rem + var(--app-safe-bottom, env(safe-area-inset-bottom)));
+}
+
+[class~="h-[100dvh]"][class~="bg-black"][class~="p-8"] {
+  padding-top: calc(2rem + var(--app-safe-top, env(safe-area-inset-top)));
+  padding-bottom: calc(2rem + var(--app-safe-bottom, env(safe-area-inset-bottom)));
+}
+
 /* Textos antigos abaixo de 10px ficavam ilegíveis em telas Android pequenas. */
 [class~="text-[7px]"],
 [class~="text-[8px]"],
@@ -93,23 +170,71 @@ a.w-10 {
   font-size: 10px;
 }
 
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(255, 184, 0, 0.95);
+  outline-offset: 2px;
+}
+
+.app-scroll {
+  overscroll-behavior-y: contain;
+  scroll-padding-bottom: calc(1rem + var(--app-safe-bottom, env(safe-area-inset-bottom)));
+}
+
 /* Evita zoom de foco em WebViews móveis e mantém campos legíveis. */
 @media (max-width: 767px) {
   input:not([type="checkbox"]):not([type="radio"]),
   select,
   textarea {
+    min-height: 44px;
     font-size: max(16px, 1em);
+  }
+
+  /* Mapas/skeletons com altura fixa não devem dominar telas baixas/landscape. */
+  .app-screen [class~="h-[330px]"] {
+    height: min(330px, 48dvh);
+    min-height: 220px;
+  }
+
+  .app-screen [class~="h-[210px]"],
+  .app-screen [class~="h-[190px]"] {
+    height: min(210px, 38dvh);
+    min-height: 170px;
+  }
+}
+
+@media (max-width: 430px) {
+  /* Notificação/data, nome/badge e outros pares deixam de esmagar o texto. */
+  .app-scroll .flex.items-start.justify-between.gap-3,
+  .app-dialog-content .flex.items-start.justify-between.gap-3 {
+    flex-wrap: wrap;
+  }
+
+  /* Cabeçalho de busca de destino: endereço de partida não deve virar reticências
+   * quando o aparelho ainda tem largura útil para uma segunda linha. */
+  .app-dialog-content .truncate,
+  .app-screen header .truncate,
+  .app-screen .sticky .truncate {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 
 /* Em 320–359px, grids utilitários e truncamentos antigos escondiam conteúdo
  * operacional como endereços, favoritos, valores e ações. */
 @media (max-width: 359px) {
-  .app-scroll .grid.grid-cols-2 {
+  .app-scroll .grid.grid-cols-2,
+  .app-dialog-content .grid.grid-cols-2 {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .app-scroll .grid.grid-cols-3 {
+  .app-scroll .grid.grid-cols-3,
+  .app-dialog-content .grid.grid-cols-3 {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -117,7 +242,8 @@ a.w-10 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .app-scroll .truncate {
+  .app-scroll .truncate,
+  .app-dialog-content .truncate {
     overflow: visible;
     text-overflow: clip;
     white-space: normal;
@@ -127,13 +253,37 @@ a.w-10 {
   .app-scroll .flex.justify-between,
   .app-scroll .flex.items-center.justify-between,
   .app-scroll .flex.items-end.justify-between,
-  .app-scroll .flex.items-start.justify-between {
+  .app-scroll .flex.items-start.justify-between,
+  .app-dialog-content .flex.justify-between,
+  .app-dialog-content .flex.items-center.justify-between,
+  .app-dialog-content .flex.items-end.justify-between,
+  .app-dialog-content .flex.items-start.justify-between {
     flex-wrap: wrap;
     gap: 0.75rem;
   }
 
+  /* Preferências e contatos: switch/ações passam para a linha seguinte sem
+   * reduzir nome, telefone ou descrição a poucos caracteres. */
+  .app-dialog-content .flex.items-center.gap-4 {
+    flex-wrap: wrap;
+  }
+
+  .app-dialog-content .flex.items-center.gap-4 > button[role="switch"] {
+    margin-left: auto;
+  }
+
+  .app-dialog-content .flex.gap-2 {
+    flex-wrap: wrap;
+  }
+
+  .app-dialog-content .flex.gap-2 > button {
+    flex: 1 1 100%;
+  }
+
   .app-scroll p,
-  .app-scroll span {
+  .app-scroll span,
+  .app-dialog-content p,
+  .app-dialog-content span {
     overflow-wrap: anywhere;
   }
 }
