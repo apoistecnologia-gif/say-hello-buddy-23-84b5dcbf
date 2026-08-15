@@ -44,6 +44,8 @@ function statusLabel(ride: RideHistoryItem): string {
       return "Expirada";
     case "agendada":
       return "Agendada";
+    case "aguardando_pagamento":
+      return "Aguardando pagamento";
     case "procurar_motorista":
       return "Procurando motorista";
     case "motorista_a_caminho":
