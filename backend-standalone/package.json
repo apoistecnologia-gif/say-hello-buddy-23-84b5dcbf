@@ -13,8 +13,8 @@
     "verify:launch": "node scripts/verify-launch-invariants.mjs",
     "start": "node server.mjs",
     "verify:parity": "node scripts/verify-parity.mjs",
-    "supabase:link": "supabase link --project-ref zjphbuvcapwyuynadgdt",
-    "supabase:deploy": "supabase functions deploy --project-ref zjphbuvcapwyuynadgdt"
+    "supabase:link": "supabase link --project-ref vqtucstyduxrqjgyigfk",
+    "supabase:deploy": "supabase functions deploy --project-ref vqtucstyduxrqjgyigfk"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
