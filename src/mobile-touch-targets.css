@@ -1,9 +1,11 @@
 /* APOIS Passageiro — alvos mínimos para controles críticos no mobile. */
 button[aria-label="Atualizar corrida"],
 button[aria-label="Atualizar busca"],
+button[aria-label="Atualizar perfil"],
 button[aria-label="Voltar"],
 button[aria-label="Voltar para a busca"],
 button[aria-label="Limpar busca"],
+button[aria-label="Fechar"],
 button[aria-label="Fechar central de segurança"],
 button[aria-label="Fechar formas de pagamento"] {
   min-width: 44px;
