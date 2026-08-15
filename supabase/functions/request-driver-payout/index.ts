@@ -36,6 +36,7 @@ type Withdrawal = {
 };
 
 type JsonObject = Record<string, unknown>;
+type FinanceSettingRow = { key: string; value: unknown };
 
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -63,10 +64,29 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function settingScalar(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  try { return JSON.parse(trimmed); } catch { return trimmed; }
+}
+
+async function loadPayoutGate(admin: ReturnType<typeof createClient>): Promise<{ enabled: boolean; provider: string }> {
+  const { data, error } = await admin
+    .from("app_settings")
+    .select("key,value")
+    .in("key", ["finance.driver_payouts_enabled", "finance.target_payout_provider"]);
+  if (error) throw new Error(`payout_settings_lookup_failed:${error.message}`);
+  const settings = new Map((data as FinanceSettingRow[] | null ?? []).map((row) => [row.key, settingScalar(row.value)]));
+  const enabledValue = settings.get("finance.driver_payouts_enabled");
+  const enabled = enabledValue === true || String(enabledValue ?? "").toLowerCase() === "true";
+  const provider = String(settings.get("finance.target_payout_provider") ?? "disabled").trim().toLowerCase() || "disabled";
+  return { enabled, provider };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
   if (req.method !== "POST") return json(req, { error: "method_not_allowed" }, 405);
-  if (!WOOVI_APP_ID) return json(req, { error: "payment_provider_not_configured" }, 503);
 
   try {
     const auth = req.headers.get("Authorization") ?? "";
@@ -78,6 +98,19 @@ Deno.serve(async (req) => {
     });
     const { data: userResult, error: userError } = await userClient.auth.getUser();
     if (userError || !userResult.user) return json(req, { error: "unauthorized" }, 401);
+
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
+    const payoutGate = await loadPayoutGate(admin);
+    if (!payoutGate.enabled) {
+      return json(req, { error: "driver_payouts_disabled", provider: payoutGate.provider }, 503);
+    }
+    if (payoutGate.provider === "pagbank") {
+      return json(req, { error: "pagbank_payout_not_homologated", provider: "pagbank" }, 503);
+    }
+    if (payoutGate.provider !== "woovi") {
+      return json(req, { error: "payout_provider_adapter_unavailable", provider: payoutGate.provider }, 503);
+    }
+    if (!WOOVI_APP_ID) return json(req, { error: "payment_provider_not_configured", provider: "woovi" }, 503);
 
     let payload: { amountCents?: unknown; amount?: unknown; idempotencyKey?: unknown } = {};
     try { payload = await req.json(); } catch { return json(req, { error: "invalid_json" }, 400); }
@@ -92,7 +125,6 @@ Deno.serve(async (req) => {
       return json(req, { error: "idempotency_key_required", detail: "A solicitação de saque precisa de uma chave UUID estável para impedir duplicidade." }, 422);
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false, autoRefreshToken: false } });
     const { data: reservationData, error: reservationError } = await userClient.rpc("driver_request_withdrawal", {
       _amount_cents: amountCents,
       _idempotency_key: idempotencyKey,
