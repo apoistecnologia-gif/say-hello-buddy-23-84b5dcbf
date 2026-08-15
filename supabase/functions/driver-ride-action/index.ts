@@ -3,6 +3,7 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type DriverAction = "accept" | "reject" | "arrive" | "start" | "finish";
@@ -37,7 +38,7 @@ async function callDriverWorkflow(
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
-      apikey: token,
+      apikey: ANON_KEY,
       "content-type": "application/json",
     },
     body: JSON.stringify(body),
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json(req, { error: "method_not_allowed" }, 405);
 
   try {
-    if (!SUPABASE_URL || !SERVICE_ROLE) {
+    if (!SUPABASE_URL || !SERVICE_ROLE || !ANON_KEY) {
       return json(req, { error: "server_configuration_missing" }, 500);
     }
 
