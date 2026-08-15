@@ -33,6 +33,13 @@ export function RideStatusHeader({
 
   const getStatusConfig = () => {
     switch (status) {
+      case "aguardando_pagamento":
+        return {
+          title: "Aguardando pagamento",
+          subtitle: "Confirme o PIX para iniciar a busca por motorista.",
+          icon: <Search className="animate-pulse text-apois-yellow" size={20} />,
+          color: "bg-apois-yellow/10 border-apois-yellow/20",
+        };
       case "procurar_motorista":
         if (isQueuedRide) {
           return {
