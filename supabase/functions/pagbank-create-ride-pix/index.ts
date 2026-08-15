@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import {
   PAGBANK_ENVIRONMENT,
   onlyDigits,
@@ -16,6 +16,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+type AdminClient = SupabaseClient<any, "public", any>;
 
 type RideRow = {
   id: string;
@@ -102,7 +104,7 @@ function base64Link(order: PagBankOrder): string | null {
   return typeof link?.href === "string" && link.href.startsWith("https://") ? link.href : null;
 }
 
-async function loadActivePayment(admin: ReturnType<typeof createClient>, rideId: string): Promise<PixRow | null> {
+async function loadActivePayment(admin: AdminClient, rideId: string): Promise<PixRow | null> {
   const { data, error } = await admin
     .from("ride_pix_payments")
     .select("id,ride_id,provider,provider_payment_id,amount_cents,status,pix_payload,pix_qr_code_base64,pix_expiration_at,attempt_number,external_reference")
