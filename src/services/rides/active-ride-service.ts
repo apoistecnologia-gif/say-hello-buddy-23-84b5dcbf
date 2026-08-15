@@ -8,6 +8,7 @@ import type {
 } from "@/types/rides/active-ride";
 
 const ACTIVE_STATUSES = [
+  "aguardando_pagamento",
   "procurar_motorista",
   "motorista_a_caminho",
   "motorista_chegou",
@@ -23,14 +24,15 @@ const TERMINAL_STATUSES: RideStatus[] = [
 
 const STATUS_ORDER: Record<RideStatus, number> = {
   agendada: 0,
-  procurar_motorista: 1,
-  motorista_a_caminho: 2,
-  motorista_chegou: 3,
-  em_viagem: 4,
-  finalizada: 5,
-  cancelada_passageiro: 5,
-  cancelada_motorista: 5,
-  expired: 5,
+  aguardando_pagamento: 1,
+  procurar_motorista: 2,
+  motorista_a_caminho: 3,
+  motorista_chegou: 4,
+  em_viagem: 5,
+  finalizada: 6,
+  cancelada_passageiro: 6,
+  cancelada_motorista: 6,
+  expired: 6,
 };
 
 type OptionalStringRideKey =
@@ -43,6 +45,9 @@ type OptionalStringRideKey =
   | "driver_vehicle_color"
   | "driver_vehicle_plate"
   | "security_code"
+  | "payment_status"
+  | "payment_provider"
+  | "scheduled_for"
   | "cancellation_reason"
   | "cancelled_by"
   | "accepted_at"
@@ -297,6 +302,9 @@ class ActiveRideService {
       ["driver_vehicle_color", "driver_vehicle_color"],
       ["driver_vehicle_plate", "driver_vehicle_plate"],
       ["security_code", "security_code"],
+      ["payment_status", "payment_status"],
+      ["payment_provider", "payment_provider"],
+      ["scheduled_for", "scheduled_for"],
       ["cancellation_reason", "cancellation_reason"],
       ["cancelled_by", "cancelled_by"],
       ["accepted_at", "accepted_at"],
@@ -343,7 +351,7 @@ class ActiveRideService {
     const isTerminal = TERMINAL_STATUSES.includes(status);
 
     return {
-      canCancel: ["procurar_motorista", "motorista_a_caminho"].includes(status),
+      canCancel: ["aguardando_pagamento", "procurar_motorista", "motorista_a_caminho"].includes(status),
       canContactDriver:
         Boolean(ride.driver_id) &&
         (["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status) ||
