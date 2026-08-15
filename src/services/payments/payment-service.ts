@@ -51,6 +51,7 @@ function normalizePaymentMethod(value: unknown): PaymentMethod | null {
   if (!code || !id || !name.trim()) return null;
 
   const sortOrder = Number(value["sort_order"]);
+  const isActive = value["is_active"] !== false;
   return {
     id,
     code,
@@ -58,8 +59,10 @@ function normalizePaymentMethod(value: unknown): PaymentMethod | null {
     label: name,
     description: readOptionalString(value, "description"),
     icon: readOptionalString(value, "icon"),
-    isActive: true,
-    enabled: value["enabled"] === true,
+    isActive,
+    // The canonical RPC only returns methods that are currently active. A method
+    // returned by this RPC is therefore selectable by the passenger.
+    enabled: isActive,
     sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
     requiresBalance: value["requires_balance"] === true,
   };
@@ -78,11 +81,11 @@ class PaymentService {
       throw new Error("payment_methods_unavailable");
     }
 
-    if (!isRecord(data) || data["ok"] !== true || !Array.isArray(data["methods"])) {
+    if (!Array.isArray(data)) {
       throw new Error("payment_methods_invalid_response");
     }
 
-    return data["methods"]
+    return data
       .flatMap((method) => {
         const normalized = normalizePaymentMethod(method);
         return normalized ? [normalized] : [];
