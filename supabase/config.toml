@@ -15,6 +15,12 @@ verify_jwt = true
 [functions.approve-driver-and-create-mercadopago-subscription]
 verify_jwt = true
 
+[functions.asaas-create-ride-pix]
+verify_jwt = true
+
+[functions.asaas-webhook]
+verify_jwt = false
+
 [functions.cancel-ride]
 verify_jwt = true
 
