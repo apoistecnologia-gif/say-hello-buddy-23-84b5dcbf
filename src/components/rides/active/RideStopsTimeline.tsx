@@ -14,8 +14,8 @@ export const RideStopsTimeline: React.FC<RideStopsTimelineProps> = ({ ride }) =>
         <div className="flex shrink-0 flex-col items-center py-1" aria-hidden="true">
           <div className="h-2.5 w-2.5 rounded-full bg-apois-yellow shadow-[0_0_8px_rgba(255,184,0,0.4)]" />
           <div className="my-1 w-px flex-1 bg-zinc-800" />
-          {stops.map((stop) => (
-            <React.Fragment key={stop.id}>
+          {stops.map((stop, i) => (
+            <React.Fragment key={`${stop.address || stop.label || "parada"}-${i}`}>
               <div className="h-2.5 w-2.5 rounded-full border border-zinc-600 bg-zinc-900" />
               <div className="my-1 w-px flex-1 bg-zinc-800" />
             </React.Fragment>
@@ -32,7 +32,7 @@ export const RideStopsTimeline: React.FC<RideStopsTimelineProps> = ({ ride }) =>
           </div>
 
           {stops.map((stop, i) => (
-            <div key={stop.id} className="min-w-0">
+            <div key={`${stop.address || stop.label || "parada"}-${i}`} className="min-w-0">
               <p className="mb-0.5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
                 Parada {i + 1}
               </p>
