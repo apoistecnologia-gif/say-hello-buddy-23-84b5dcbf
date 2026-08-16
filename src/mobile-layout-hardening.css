@@ -1,0 +1,224 @@
+/* APOIS Passageiro — segunda camada de hardening para aparelhos compactos. */
+
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+.app-screen,
+.app-scroll,
+.app-dialog-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-screen > *,
+.app-scroll > * {
+  min-width: 0;
+}
+
+/* Valores, nomes e endereços dinâmicos não podem expandir cards. */
+.app-screen [class*="font-black"],
+.app-dialog-content [class*="font-black"] {
+  overflow-wrap: anywhere;
+}
+
+/* Campos desabilitados continuam legíveis e não somem visualmente. */
+.app-screen input:disabled,
+.app-dialog-content input:disabled,
+.app-screen button:disabled,
+.app-dialog-content button:disabled {
+  cursor: not-allowed;
+}
+
+/* Carrosséis horizontais ganham respiro nas bordas e não cortam o último item. */
+.app-screen [class*="overflow-x-auto"] {
+  scroll-padding-inline: 12px;
+  overscroll-behavior-x: contain;
+}
+
+/* Botões com ícone + texto não podem deixar o ícone encolher. */
+.app-screen button svg,
+.app-dialog-content button svg,
+.app-screen a svg,
+.app-dialog-content a svg {
+  flex-shrink: 0;
+}
+
+/* Rodapés fixos respeitam a largura útil do WebView. */
+.app-screen [class*="fixed"][class*="inset-x-0"],
+.app-screen [class*="absolute"][class*="inset-x-0"] {
+  max-width: 100vw;
+}
+
+/* Preços grandes se adaptam sem quebrar o card. */
+.app-screen [class~="text-[34px]"],
+.app-screen [class~="text-[32px]"],
+.app-screen [class~="text-[30px]"] {
+  font-size: clamp(1.75rem, 8vw, 2.125rem);
+  overflow-wrap: anywhere;
+}
+
+/* Cabeçalhos com ação lateral podem quebrar em duas linhas. */
+@media (max-width: 430px) {
+  .app-screen header .flex.items-center.justify-between,
+  .app-screen .sticky .flex.items-center.justify-between,
+  .app-screen section .flex.items-center.justify-between {
+    min-width: 0;
+  }
+
+  .app-screen header .flex.items-center.justify-between > :first-child,
+  .app-screen .sticky .flex.items-center.justify-between > :first-child {
+    min-width: 0;
+  }
+
+  /* Pílulas de rota/tempo não podem ultrapassar o mapa. */
+  .app-screen [class*="-translate-x-1/2"][class*="rounded-full"] {
+    max-width: calc(100vw - 32px);
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* O aviso flutuante de localização precisa caber na tela. */
+  .app-screen button[class*="max-w-[190px]"] {
+    max-width: min(190px, calc(100vw - 32px));
+  }
+
+  /* Saldo do cabeçalho não empurra saudação para fora. */
+  .app-screen header button[class*="shrink-0"] span[class*="font-black"] {
+    max-width: 30vw;
+    overflow-wrap: anywhere;
+  }
+
+  /* Linha de título + ação em categoria/serviço pode quebrar. */
+  .app-screen section .flex.items-center.justify-between.px-1 {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Listas de sugestões preservam endereço em duas linhas. */
+  .app-screen button .min-w-0.flex-1 .truncate {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 359px) {
+  /* Checkout: forma de pagamento e preço deixam de disputar a mesma linha. */
+  .app-screen .grid[class*="grid-cols-[1fr_auto]"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-screen .grid[class*="grid-cols-[1fr_auto]"] > [class*="min-w-[116px]"] {
+    min-width: 0;
+    width: 100%;
+    min-height: 64px;
+  }
+
+  /* Atalhos Casa/Trabalho/Favoritos/Adicionar passam para duas colunas. */
+  .app-screen .grid.grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Categorias: arte, descrição e preço deixam de esmagar um ao outro. */
+  .app-screen button[class*="min-h-[92px]"] {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .app-screen button[class*="min-h-[92px]"] > span[class*="w-[102px]"] {
+    width: 82px;
+    height: 60px;
+  }
+
+  .app-screen button[class*="min-h-[92px]"] > span[class*="min-w-[78px]"] {
+    min-width: 0;
+    width: 100%;
+    align-items: flex-start;
+    padding-left: 0;
+  }
+
+  .app-screen button[class*="min-h-[92px]"] > span[class*="min-w-[78px]"] span {
+    text-align: left;
+  }
+
+  .app-screen button[class*="min-h-[92px]"] > span.absolute {
+    bottom: 8px;
+    right: 8px;
+  }
+
+  /* Editor de paradas: cabeçalho e limite não se sobrepõem. */
+  .app-screen section.space-y-4.px-4.py-3 > .flex.items-center.justify-between.gap-3 {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .app-screen section.space-y-4.px-4.py-3 > .flex.items-center.justify-between.gap-3 > * {
+    max-width: 100%;
+  }
+
+  /* Linha de parada começa no topo para endereços multilinha. */
+  .app-screen [class*="relative z-10 flex items-center gap-3"] {
+    align-items: flex-start;
+  }
+
+  /* Botões Descartar/Salvar ocupam a largura inteira. */
+  .app-screen section.space-y-4.px-4.py-3 .grid.grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Endereços das paradas não são truncados. */
+  .app-screen section.space-y-4.px-4.py-3 .truncate {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+
+  /* Navegação inferior mantém rótulos dentro de cada célula. */
+  .app-screen nav .grid.grid-cols-5 > button,
+  .app-screen nav .grid.grid-cols-5 > a {
+    min-width: 0;
+    padding-inline: 2px;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+
+  /* Mensagens de erro/rota não deixam ícone e texto se comprimirem. */
+  .app-screen .flex.items-start.gap-2 > svg {
+    flex-shrink: 0;
+  }
+
+  .app-screen .flex.items-start.gap-2 > p,
+  .app-screen .flex.items-start.gap-2 > span {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-height: 560px) and (orientation: landscape) {
+  /* Home em landscape: mapa e bottom sheet dividem a altura disponível. */
+  .app-screen section[class*="max-h-[54dvh]"] {
+    max-height: 48dvh;
+  }
+
+  .app-screen [class*="h-[164px]"] {
+    height: min(164px, 38dvh);
+  }
+
+  .app-screen [class*="top-[360px]"] {
+    top: auto;
+    bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+}
