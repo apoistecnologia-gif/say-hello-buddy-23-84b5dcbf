@@ -264,18 +264,14 @@ function NotificacoesPage() {
   }, [identityKey, loadNotifications]);
 
   return (
-    <div className="app-screen min-h-[100dvh] bg-black text-white">
-      <header className="sticky top-0 z-20 border-b border-white/8 bg-black/92 px-5 pb-4 pt-safe-area-inset-top backdrop-blur-xl">
-        <div className="flex items-start justify-between gap-4 pt-5">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-apois-yellow">
-              Central APOIS
-            </p>
-            <h1 className="mt-1 text-2xl font-black tracking-[-0.04em]">Notificações</h1>
-            <p className="mt-1 text-sm text-zinc-500">
-              {unreadCount > 0
-                ? `${unreadCount} não lida${unreadCount === 1 ? "" : "s"}`
-                : "Tudo em dia"}
+    <div className="app-screen min-h-[100dvh] min-w-0 bg-black text-white">
+      <header className="sticky top-0 z-20 border-b border-white/8 bg-black/92 px-4 pb-4 pt-safe-area-inset-top backdrop-blur-xl sm:px-5">
+        <div className="flex min-w-0 items-start justify-between gap-4 pt-5">
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-[10px] font-black uppercase tracking-[0.18em] text-apois-yellow sm:tracking-[0.22em]">Central APOIS</p>
+            <h1 className="mt-1 break-words text-2xl font-black tracking-[-0.04em]">Notificações</h1>
+            <p className="mt-1 break-words text-sm text-zinc-500">
+              {unreadCount > 0 ? `${unreadCount} não lida${unreadCount === 1 ? "" : "s"}` : "Tudo em dia"}
             </p>
           </div>
 
@@ -283,15 +279,16 @@ function NotificacoesPage() {
             type="button"
             onClick={() => void loadNotifications(true)}
             disabled={isRefreshing}
-            aria-label="Atualizar notificações"
-            className="app-pressable flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-zinc-900 disabled:opacity-50"
+            aria-label={isRefreshing ? "Atualizando notificações" : "Atualizar notificações"}
+            aria-busy={isRefreshing}
+            className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-zinc-900 disabled:opacity-50"
           >
-            <RefreshCw size={18} className={isRefreshing ? "animate-spin" : ""} />
+            <RefreshCw size={18} aria-hidden="true" className={isRefreshing ? "animate-spin" : ""} />
           </button>
         </div>
       </header>
 
-      <main className="app-scroll px-5 pb-8 pt-5">
+      <main className="app-scroll min-w-0 px-4 pb-8 pt-5 sm:px-5">
         <PushStatusCard />
 
         {unreadCount > 0 && state === "ready" ? (
@@ -299,56 +296,40 @@ function NotificacoesPage() {
             type="button"
             onClick={() => void markAllAsRead()}
             disabled={isMarkingAll}
-            className="app-pressable mb-4 mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-apois-yellow/20 bg-apois-yellow/10 px-4 text-xs font-black text-apois-yellow disabled:opacity-50"
+            aria-busy={isMarkingAll}
+            className="app-pressable mb-4 mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-apois-yellow/20 bg-apois-yellow/10 px-4 py-2 text-center text-xs font-black leading-5 text-apois-yellow disabled:opacity-50"
           >
-            {isMarkingAll ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <CheckCheck size={16} />
-            )}
+            {isMarkingAll ? <Loader2 size={16} className="shrink-0 animate-spin" aria-hidden="true" /> : <CheckCheck size={16} className="shrink-0" aria-hidden="true" />}
             Marcar todas como lidas
           </button>
         ) : null}
 
         {state === "loading" ? (
-          <div className="flex min-h-[45vh] items-center justify-center">
-            <Loader2 className="animate-spin text-apois-yellow" size={32} />
+          <div className="flex min-h-[45vh] items-center justify-center" role="status" aria-label="Carregando notificações">
+            <Loader2 className="animate-spin text-apois-yellow" size={32} aria-hidden="true" />
           </div>
         ) : null}
 
         {state === "failed" ? (
-          <div className="flex min-h-[45vh] flex-col items-center justify-center gap-4 text-center">
-            <Bell size={40} className="text-zinc-700" />
-            <div>
-              <h2 className="font-black">Não foi possível carregar</h2>
-              <p className="mt-1 text-sm text-zinc-500">Verifique a conexão e tente novamente.</p>
+          <div className="flex min-h-[45vh] min-w-0 flex-col items-center justify-center gap-4 text-center" role="alert">
+            <Bell size={40} className="text-zinc-700" aria-hidden="true" />
+            <div className="min-w-0">
+              <h2 className="break-words font-black">Não foi possível carregar</h2>
+              <p className="mt-1 break-words text-sm leading-5 text-zinc-500">Verifique a conexão e tente novamente.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => void loadNotifications()}
-              className="app-pressable rounded-xl bg-apois-yellow px-5 py-3 text-sm font-black text-black"
-            >
-              Tentar novamente
-            </button>
+            <button type="button" onClick={() => void loadNotifications()} className="app-pressable min-h-11 rounded-xl bg-apois-yellow px-5 py-3 text-sm font-black text-black">Tentar novamente</button>
           </div>
         ) : null}
 
         {state === "ready" && notifications.length === 0 ? (
-          <div className="flex min-h-[45vh] flex-col items-center justify-center gap-4 text-center">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-900">
-              <Bell size={34} className="text-zinc-600" />
-            </div>
-            <div>
-              <h2 className="font-black">Nenhuma notificação</h2>
-              <p className="mt-1 text-sm text-zinc-500">
-                Atualizações de corridas, pagamentos e segurança aparecerão aqui.
-              </p>
-            </div>
+          <div className="flex min-h-[45vh] min-w-0 flex-col items-center justify-center gap-4 text-center" role="status">
+            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-900" aria-hidden="true"><Bell size={34} className="text-zinc-600" /></div>
+            <div className="min-w-0"><h2 className="break-words font-black">Nenhuma notificação</h2><p className="mt-1 break-words text-sm leading-5 text-zinc-500">Atualizações de corridas, pagamentos e segurança aparecerão aqui.</p></div>
           </div>
         ) : null}
 
         {state === "ready" && notifications.length > 0 ? (
-          <div className="mt-4 space-y-3">
+          <div className="mt-4 min-w-0 space-y-3" aria-label="Lista de notificações">
             {notifications.map((notification) => {
               const unread = notification.read_at === null;
               const category = readDataString(notification.data, "category");
@@ -360,38 +341,18 @@ function NotificacoesPage() {
                   key={notification.id}
                   type="button"
                   onClick={() => void openNotification(notification)}
-                  className={`app-pressable w-full rounded-3xl border p-4 text-left transition-colors ${
-                    unread
-                      ? "border-apois-yellow/25 bg-apois-yellow/10"
-                      : "border-white/8 bg-zinc-950"
-                  }`}
+                  aria-label={`${unread ? "Não lida. " : ""}${notification.title}${target ? ". Abrir detalhes" : ""}`}
+                  className={`app-pressable w-full min-w-0 rounded-3xl border p-4 text-left transition-colors ${unread ? "border-apois-yellow/25 bg-apois-yellow/10" : "border-white/8 bg-zinc-950"}`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
-                        unread
-                          ? "bg-apois-yellow text-black"
-                          : "bg-zinc-900 text-zinc-500"
-                      }`}
-                    >
-                      <Icon size={19} />
-                    </div>
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${unread ? "bg-apois-yellow text-black" : "bg-zinc-900 text-zinc-500"}`} aria-hidden="true"><Icon size={19} /></div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <h2 className="text-sm font-black text-white">{notification.title}</h2>
-                        <time className="shrink-0 text-[10px] font-bold text-zinc-600">
-                          {formatNotificationDate(notification.created_at)}
-                        </time>
+                      <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                        <h2 className="min-w-[150px] flex-1 break-words text-sm font-black leading-5 text-white">{notification.title}</h2>
+                        <time className="break-words text-[10px] font-bold leading-4 text-zinc-600">{formatNotificationDate(notification.created_at)}</time>
                       </div>
-                      {notification.body ? (
-                        <p className="mt-1 text-xs leading-5 text-zinc-400">{notification.body}</p>
-                      ) : null}
-                      {target ? (
-                        <p className="mt-3 flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.12em] text-apois-yellow">
-                          Abrir detalhes
-                          <ChevronRight size={13} />
-                        </p>
-                      ) : null}
+                      {notification.body ? <p className="mt-1 break-words text-xs leading-5 text-zinc-400">{notification.body}</p> : null}
+                      {target ? <p className="mt-3 flex min-h-6 items-center gap-1 break-words text-[10px] font-black uppercase tracking-[0.12em] text-apois-yellow">Abrir detalhes<ChevronRight size={13} className="shrink-0" aria-hidden="true" /></p> : null}
                     </div>
                   </div>
                 </button>
