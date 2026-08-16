@@ -15,6 +15,7 @@ import "./native-intro.css";
 import "./mobile-touch-targets.css";
 import "./mobile-layout-hardening.css";
 import "./mobile-ux-hardening-round4.css";
+import "./mobile-ux-hardening-round5.css";
 
 const queryClient = new QueryClient();
 const hashHistory = createHashHistory();
