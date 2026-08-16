@@ -1,6 +1,5 @@
 import React from "react";
 import { ActiveRide } from "@/types/rides/active-ride";
-import { MapPin } from "lucide-react";
 
 interface RideStopsTimelineProps {
   ride: ActiveRide;
@@ -10,44 +9,44 @@ export const RideStopsTimeline: React.FC<RideStopsTimelineProps> = ({ ride }) =>
   const stops = ride.intermediates || [];
 
   return (
-    <div className="bg-zinc-900/30 rounded-2xl p-4 border border-white/5 space-y-4">
-      <div className="flex gap-4">
-        <div className="flex flex-col items-center py-1 shrink-0">
-          <div className="w-2.5 h-2.5 rounded-full bg-apois-yellow shadow-[0_0_8px_rgba(255,184,0,0.4)]" />
-          <div className="w-px flex-1 bg-zinc-800 my-1" />
-          {stops.map((_, i) => (
-            <React.Fragment key={i}>
-              <div className="w-2.5 h-2.5 rounded-full border border-zinc-600 bg-zinc-900" />
-              <div className="w-px flex-1 bg-zinc-800 my-1" />
+    <div className="space-y-4 rounded-2xl border border-white/5 bg-zinc-900/30 p-4">
+      <div className="flex gap-3 sm:gap-4">
+        <div className="flex shrink-0 flex-col items-center py-1" aria-hidden="true">
+          <div className="h-2.5 w-2.5 rounded-full bg-apois-yellow shadow-[0_0_8px_rgba(255,184,0,0.4)]" />
+          <div className="my-1 w-px flex-1 bg-zinc-800" />
+          {stops.map((stop) => (
+            <React.Fragment key={stop.id}>
+              <div className="h-2.5 w-2.5 rounded-full border border-zinc-600 bg-zinc-900" />
+              <div className="my-1 w-px flex-1 bg-zinc-800" />
             </React.Fragment>
           ))}
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
+          <div className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]" />
         </div>
 
-        <div className="flex-1 space-y-5 py-0.5">
+        <div className="min-w-0 flex-1 space-y-5 py-0.5">
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">
+            <p className="mb-0.5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
               Embarque
             </p>
-            <p className="text-xs font-bold text-zinc-300 truncate">{ride.origin_name}</p>
+            <p className="break-words text-xs font-bold leading-5 text-zinc-300">{ride.origin_name}</p>
           </div>
 
           {stops.map((stop, i) => (
-            <div key={i} className="min-w-0">
-              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">
+            <div key={stop.id} className="min-w-0">
+              <p className="mb-0.5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
                 Parada {i + 1}
               </p>
-              <p className="text-xs font-bold text-zinc-300 truncate">
+              <p className="break-words text-xs font-bold leading-5 text-zinc-300">
                 {stop.address || stop.label}
               </p>
             </div>
           ))}
 
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">
-              Destino Final
+            <p className="mb-0.5 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+              Destino final
             </p>
-            <p className="text-xs font-bold text-zinc-300 truncate">{ride.destination_name}</p>
+            <p className="break-words text-xs font-bold leading-5 text-zinc-300">{ride.destination_name}</p>
           </div>
         </div>
       </div>
