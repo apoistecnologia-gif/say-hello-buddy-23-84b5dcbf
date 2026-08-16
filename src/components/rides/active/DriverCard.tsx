@@ -7,8 +7,8 @@ interface DriverCardProps {
   ride: ActiveRide;
 }
 
-function isHttpUrl(value: string) {
-  return /^https?:\/\//i.test(value);
+function isHttpsUrl(value: string) {
+  return /^https:\/\//i.test(value);
 }
 
 function firstName(value: string | null | undefined, fallback: string) {
@@ -18,6 +18,10 @@ function firstName(value: string | null | undefined, fallback: string) {
 
 function normalizedPhone(value: string): string {
   return value.trim().replace(/[^\d+]/g, "");
+}
+
+function isCallablePhone(value: string): boolean {
+  return /^\+?\d{8,15}$/.test(value);
 }
 
 export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
@@ -32,7 +36,7 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
       return;
     }
 
-    if (isHttpUrl(photo)) {
+    if (isHttpsUrl(photo)) {
       setDriverPhotoUrl(photo);
       return;
     }
@@ -43,7 +47,7 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
       .createSignedUrl(photo, 600)
       .then(({ data, error }) => {
         if (cancelled) return;
-        if (error || !data?.signedUrl) {
+        if (error || !data?.signedUrl || !isHttpsUrl(data.signedUrl)) {
           console.warn("[APOIS Passageiro] foto do motorista indisponível", error?.message);
           setDriverPhotoUrl(null);
           return;
@@ -59,17 +63,26 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
   if (!ride.driver_id && !ride.driver_name) return null;
 
   const driverName = firstName(ride.driver_name, "Motorista");
-  const hasRating =
-    typeof ride.driver_rating === "number" && Number.isFinite(ride.driver_rating);
+  const rating = Number(ride.driver_rating);
+  const hasRating = Number.isFinite(rating) && rating >= 0 && rating <= 5;
   const phone = ride.driver_phone ? normalizedPhone(ride.driver_phone) : "";
+  const canCall = isCallablePhone(phone);
+  const ratingLabel = hasRating ? rating.toFixed(1).replace(".", ",") : "";
 
   return (
-    <section className="app-surface flex min-w-0 items-center gap-3 rounded-2xl p-3 animate-in fade-in slide-in-from-bottom duration-500">
+    <section
+      className="app-surface flex min-w-0 items-center gap-3 rounded-2xl p-3 animate-in fade-in slide-in-from-bottom duration-500 motion-reduce:animate-none max-[339px]:items-start"
+      aria-label={`Motorista ${driverName}`}
+    >
       <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-apois-yellow/20 bg-zinc-800">
         {driverPhotoUrl ? (
           <img
             src={driverPhotoUrl}
             alt={`Foto de ${driverName}`}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={() => setDriverPhotoUrl(null)}
             className="h-full w-full object-cover"
           />
         ) : (
@@ -81,9 +94,9 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
         <h4 className="break-words text-sm font-black leading-5 text-white">{driverName}</h4>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
           {hasRating ? (
-            <div className="flex items-center gap-1 text-apois-yellow" aria-label={`Nota ${ride.driver_rating?.toFixed(1).replace(".", ",")} de 5`}>
+            <div className="flex items-center gap-1 text-apois-yellow" aria-label={`Nota ${ratingLabel} de 5`}>
               <Star size={11} fill="currentColor" aria-hidden="true" />
-              <span className="text-[11px] font-black">{ride.driver_rating?.toFixed(1).replace(".", ",")}</span>
+              <span className="text-[11px] font-black tabular-nums">{ratingLabel}</span>
             </div>
           ) : (
             <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
@@ -93,7 +106,7 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
         </div>
       </div>
 
-      {phone ? (
+      {canCall ? (
         <a
           href={`tel:${phone}`}
           aria-label={`Ligar para ${driverName}`}
