@@ -15,21 +15,21 @@ export function PushStatusCard() {
   const content =
     status === "granted"
       ? {
-          icon: <Bell size={16} className="text-apois-yellow" />,
+          icon: <Bell size={16} className="text-apois-yellow" aria-hidden="true" />,
           text: "Notificações ativas neste dispositivo.",
         }
       : status === "denied"
         ? {
-            icon: <BellOff size={16} className="text-zinc-400" />,
+            icon: <BellOff size={16} className="text-zinc-400" aria-hidden="true" />,
             text: "Notificações desativadas. Ative nas configurações do celular e depois verifique novamente.",
           }
         : status === "error"
           ? {
-              icon: <BellOff size={16} className="text-zinc-400" />,
+              icon: <BellOff size={16} className="text-zinc-400" aria-hidden="true" />,
               text: lastError || "Não foi possível ativar as notificações neste dispositivo.",
             }
           : {
-              icon: <Smartphone size={16} className="text-zinc-400" />,
+              icon: <Smartphone size={16} className="text-zinc-400" aria-hidden="true" />,
               text: "Avisos em tempo real ficam disponíveis no aplicativo instalado no celular.",
             };
 
@@ -44,10 +44,14 @@ export function PushStatusCard() {
   };
 
   return (
-    <div className="mb-4 rounded-2xl border border-white/10 bg-zinc-900/70 px-4 py-3">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5">{content.icon}</span>
-        <p className="flex-1 text-xs leading-relaxed text-zinc-400">{content.text}</p>
+    <section
+      className="mb-4 min-w-0 rounded-2xl border border-white/10 bg-zinc-900/70 px-4 py-3"
+      role={status === "error" || status === "denied" ? "alert" : "status"}
+      aria-live="polite"
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="mt-0.5 shrink-0">{content.icon}</span>
+        <p className="min-w-0 flex-1 break-words text-xs leading-5 text-zinc-400">{content.text}</p>
       </div>
 
       {canRetry ? (
@@ -55,16 +59,17 @@ export function PushStatusCard() {
           type="button"
           onClick={() => void retry()}
           disabled={isRetrying || !user?.id}
-          className="app-pressable mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/30 px-4 text-xs font-black text-white disabled:opacity-50"
+          aria-busy={isRetrying}
+          className="app-pressable mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-center text-xs font-black leading-5 text-white disabled:opacity-50"
         >
           {isRetrying ? (
-            <Loader2 size={15} className="animate-spin" />
+            <Loader2 size={15} className="shrink-0 animate-spin" aria-hidden="true" />
           ) : (
-            <RefreshCw size={15} />
+            <RefreshCw size={15} className="shrink-0" aria-hidden="true" />
           )}
           {isRetrying ? "Verificando..." : "Verificar novamente"}
         </button>
       ) : null}
-    </div>
+    </section>
   );
 }
