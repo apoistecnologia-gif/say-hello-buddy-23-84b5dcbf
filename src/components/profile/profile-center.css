@@ -1,29 +1,33 @@
 .profile-input {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 3.25rem;
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.38);
   padding: 0.8rem 1rem;
   color: #fff;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 700;
+  line-height: 1.35;
   outline: none;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .profile-input::placeholder {
-  color: #52525b;
+  color: #71717a;
 }
 
-.profile-input:focus {
+.profile-input:focus,
+.profile-input:focus-visible {
   border-color: rgba(255, 184, 0, 0.62);
   box-shadow: 0 0 0 3px rgba(255, 184, 0, 0.1);
 }
 
 .profile-input:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.6;
 }
 
 /* Menu descriptions may use two lines on narrow phones instead of ellipsis. */
@@ -34,6 +38,52 @@
   text-overflow: clip;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+/* Header profile values are user data and must not force horizontal overflow. */
+.app-screen header h1,
+.app-screen header > p,
+.app-screen header p.text-sm {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* The profile refresh button and dialog/contact actions were 36–40px in source. */
+.app-screen header button[class*="h-10"][class*="w-10"],
+.app-screen [role="dialog"] button[class*="h-10"][class*="w-10"],
+.app-screen [role="dialog"] button[class*="h-9"][class*="w-9"] {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Read-only e-mail/CPF and emergency-contact names must remain readable. */
+.app-screen [role="dialog"] p.truncate {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+/* Profile/contact dialog button pairs must not squeeze labels on 320px devices. */
+@media (max-width: 359px) {
+  .app-screen [role="dialog"] .grid.grid-cols-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .app-screen [role="dialog"] [class*="p-5"] {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Long preference/security/support copy should never create a hidden x-scroll. */
+.app-screen [role="dialog"] p,
+.app-screen [role="dialog"] span,
+.app-screen [role="dialog"] label,
+.app-screen [role="dialog"] button {
+  overflow-wrap: anywhere;
 }
 
 html.apois-large-text {
