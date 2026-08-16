@@ -1,0 +1,108 @@
+/* APOIS Passageiro — rodada 9: 25 correções de estados, formulários e navegação mobile. */
+
+/* 01 — detalhes expansíveis não preservam largura intrínseca excessiva. */
+.app-screen details,
+.app-dialog-content details { max-width: 100%; min-width: 0; }
+
+/* 02 — conteúdo aberto de details pode quebrar textos longos. */
+.app-screen details[open],
+.app-dialog-content details[open] { overflow-wrap: anywhere; }
+
+/* 03 — meter respeita a largura útil de cards compactos. */
+.app-screen meter,
+.app-dialog-content meter { width: 100%; max-width: 100%; }
+
+/* 04 — progress ganha largura fluida quando não definida pelo componente. */
+.app-screen progress,
+.app-dialog-content progress { width: 100%; }
+
+/* 05 — optgroups/selects não dependem de largura intrínseca do conteúdo. */
+.app-screen optgroup,
+.app-dialog-content optgroup { max-width: 100%; }
+
+/* 06 — selects múltiplos ganham altura mínima confortável. */
+.app-screen select[multiple],
+.app-dialog-content select[multiple] { min-height: 7rem; }
+
+/* 07 — campos obrigatórios inválidos recebem indicação visual coerente. */
+.app-screen :is(input,select,textarea):user-invalid,
+.app-dialog-content :is(input,select,textarea):user-invalid { border-color: rgba(239,68,68,.72); }
+
+/* 08 — aria-invalid também recebe feedback sem depender de classe específica. */
+.app-screen [aria-invalid="true"],
+.app-dialog-content [aria-invalid="true"] { outline-color: rgba(239,68,68,.9); }
+
+/* 09 — campos requeridos não perdem contraste quando vazios. */
+.app-screen :is(input,select,textarea):required,
+.app-dialog-content :is(input,select,textarea):required { opacity: 1; }
+
+/* 10 — controles disabled nativos não aceitam seleção acidental de texto. */
+.app-screen :is(button,input,select,textarea):disabled,
+.app-dialog-content :is(button,input,select,textarea):disabled { user-select: none; }
+
+/* 11 — aria-busy deixa claro que a superfície está processando sem mudar layout. */
+.app-screen [aria-busy="true"],
+.app-dialog-content [aria-busy="true"] { cursor: progress; }
+
+/* 12 — aria-current em navegação preserva contraste do item ativo. */
+.app-screen nav [aria-current="page"] { font-weight: 800; }
+
+/* 13 — botões expansíveis mantêm alinhamento quando texto quebra. */
+.app-screen button[aria-expanded],
+.app-dialog-content button[aria-expanded] { align-items: center; }
+
+/* 14 — regiões controladas por aria-controls não ganham largura inesperada. */
+.app-screen [aria-controls],
+.app-dialog-content [aria-controls] { max-width: 100%; }
+
+/* 15 — elementos draggable evitam seleção de texto durante arraste de paradas. */
+.app-screen [draggable="true"],
+.app-dialog-content [draggable="true"] { user-select: none; -webkit-user-drag: element; }
+
+/* 16 — itens reordenáveis exibem cursor coerente em dispositivos com mouse. */
+@media (pointer: fine) {
+  .app-screen [draggable="true"] { cursor: grab; }
+  .app-screen [draggable="true"]:active { cursor: grabbing; }
+}
+
+/* 17 — elementos hidden realmente deixam de participar do layout residual. */
+.app-screen [hidden],
+.app-dialog-content [hidden] { display: none !important; }
+
+/* 18 — SVGs textuais/ícones grandes não ultrapassam a caixa flex. */
+.app-screen svg,
+.app-dialog-content svg { max-width: 100%; max-height: 100%; }
+
+/* 19 — links externos longos não alteram a altura de linha de cards compactos. */
+.app-screen a[target="_blank"],
+.app-dialog-content a[target="_blank"] { line-height: 1.35; }
+
+/* 20 — botões com loading/aria-busy preservam altura e alinhamento. */
+.app-screen button[aria-busy="true"],
+.app-dialog-content button[aria-busy="true"] { min-height: 44px; justify-content: center; }
+
+/* 21 — grupos toolbar customizados permitem quebra em telas estreitas. */
+.app-screen [role="toolbar"],
+.app-dialog-content [role="toolbar"] { max-width: 100%; flex-wrap: wrap; }
+
+/* 22 — separadores verticais não criam largura extra em 320px. */
+.app-screen [role="separator"][aria-orientation="vertical"],
+.app-dialog-content [role="separator"][aria-orientation="vertical"] { flex-shrink: 0; }
+
+/* 23 — disclosure/menu buttons longos podem quebrar em 320px. */
+@media (max-width: 339px) {
+  .app-screen button[aria-expanded],
+  .app-dialog-content button[aria-expanded] { white-space: normal; text-align: center; }
+}
+
+/* 24 — indicadores de carregamento animados respeitam reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .app-screen [aria-busy="true"] *,
+  .app-dialog-content [aria-busy="true"] * { animation: none !important; }
+}
+
+/* 25 — impressão/compartilhamento não carrega navegação fixa sobre o conteúdo. */
+@media print {
+  .app-screen nav,
+  .app-screen [class*="fixed"] { display: none !important; }
+}
