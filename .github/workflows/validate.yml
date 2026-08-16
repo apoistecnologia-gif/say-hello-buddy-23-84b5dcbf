@@ -165,7 +165,7 @@ jobs:
       - name: Validate PDF passenger checklist
         run: |
           grep -F 'h-[164px]' src/routes/_authenticated.inicio.tsx
-          grep -F 'pb-[150px]' src/routes/_authenticated.inicio.tsx
+          grep -F 'pb-[160px]' src/routes/_authenticated.inicio.tsx
           grep -F 'haversineMeters(previous.origin, originCoord) < 50' src/hooks/use-route.tsx
           grep -F 'freezeRoute();' src/routes/_authenticated.revisar-solicitacao.tsx
           grep -F 'void navigate({ to: "/inicio", replace: true });' 'src/routes/_authenticated.corrida.$rideId.tsx'
