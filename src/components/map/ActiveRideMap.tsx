@@ -37,7 +37,11 @@ const validCoordinate = (coordinate: Coordinate): boolean =>
   coordinate.lng >= -180 && coordinate.lng <= 180;
 
 function normalizeCoordinate(lat: unknown, lng: unknown): Coordinate | null {
-  const coordinate = { lat: Number(lat), lng: Number(lng) };
+  if (lat == null || lng == null) return null;
+  const rawLat = typeof lat === "string" ? lat.trim() : lat;
+  const rawLng = typeof lng === "string" ? lng.trim() : lng;
+  if (rawLat === "" || rawLng === "") return null;
+  const coordinate = { lat: Number(rawLat), lng: Number(rawLng) };
   return validCoordinate(coordinate) ? coordinate : null;
 }
 
@@ -60,7 +64,7 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
     try {
       const parsed = JSON.parse(stopsSignature) as StaticStop[];
       return parsed
-        .filter((stop) => validCoordinate({ lat: Number(stop.lat), lng: Number(stop.lng) }))
+        .filter((stop) => normalizeCoordinate(stop.lat, stop.lng) !== null)
         .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
     } catch {
       return [];
@@ -78,7 +82,9 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
         const decoded = decodePolyline(ride.encoded_polyline).filter(validCoordinate);
         if (decoded.length > 1) return decoded;
       } catch (error) {
-        console.warn("[ActiveRideMap] Stored polyline could not be decoded", { rideId: ride.id, message: error instanceof Error ? error.message : "invalid_polyline" });
+        if (import.meta.env.DEV) {
+          console.warn("[ActiveRideMap] Stored polyline could not be decoded", { rideId: ride.id, message: error instanceof Error ? error.message : "invalid_polyline" });
+        }
       }
     }
 
@@ -129,7 +135,9 @@ export function ActiveRideMap({ ride }: ActiveRideMapProps) {
       }
       setStatus("ready");
     } catch (error) {
-      console.error("[ActiveRideMap] Google Maps initialization failed", { rideId: ride.id, message: error instanceof Error ? error.message : "maps_unknown_error" });
+      if (import.meta.env.DEV) {
+        console.error("[ActiveRideMap] Google Maps initialization failed", { rideId: ride.id, message: error instanceof Error ? error.message : "maps_unknown_error" });
+      }
       const message = error instanceof Error ? error.message : "";
       setStatus(message.includes("configuration_missing") || message.includes("api_key_empty") ? "configuration-error" : "api-error");
     }
