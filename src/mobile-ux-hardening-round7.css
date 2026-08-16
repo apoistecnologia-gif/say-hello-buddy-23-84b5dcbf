@@ -1,0 +1,101 @@
+/* APOIS Passageiro — rodada 7: 25 correções avançadas de UI/UX mobile. */
+
+/* 01 — o body não deve disparar overscroll/pull-to-refresh durante uma corrida. */
+html, body { overscroll-behavior: none; }
+
+/* 02 — áreas verticais roláveis priorizam gesto vertical sem atrasar toques. */
+.app-scroll,
+.app-dialog-content,
+.app-screen [class*="overflow-y-auto"] { touch-action: pan-y; }
+
+/* 03 — carrosséis horizontais priorizam gesto horizontal. */
+.app-screen [class*="overflow-x-auto"] { touch-action: pan-x; }
+
+/* 04 — carrosséis que já usam snap-start recebem snap consistente. */
+.app-screen [class*="overflow-x-auto"]:has(.snap-start) { scroll-snap-type: x proximity; }
+
+/* 05 — viewport Radix ScrollArea não pode criar overflow externo. */
+.app-screen [data-radix-scroll-area-viewport],
+.app-dialog-content [data-radix-scroll-area-viewport] { max-width: 100%; overscroll-behavior: contain; }
+
+/* 06 — conteúdo posicionado por Radix nunca ultrapassa a largura física útil. */
+[data-radix-popper-content-wrapper] { max-width: calc(100vw - 16px) !important; }
+
+/* 07 — viewport de Select permanece utilizável em aparelhos baixos. */
+.app-screen [data-radix-select-viewport],
+.app-dialog-content [data-radix-select-viewport] { max-height: min(55dvh, 360px); }
+
+/* 08 — itens com aria-disabled não parecem ativos nem mantêm cursor de ação. */
+.app-screen [aria-disabled="true"],
+.app-dialog-content [aria-disabled="true"] { cursor: not-allowed; opacity: 0.58; }
+
+/* 09 — toaster Sonner respeita notch e margens laterais. */
+[data-sonner-toaster] { max-width: calc(100vw - 16px); inset-inline: 8px !important; }
+
+/* 10 — toast individual nunca força largura maior que a viewport. */
+[data-sonner-toast] { max-width: 100%; overflow-wrap: anywhere; box-sizing: border-box; }
+
+/* 11 — ações/fechamento de toast ganham alvo mínimo tocável. */
+[data-sonner-toast] button { min-width: 44px; min-height: 44px; }
+
+/* 12 — descrição longa de toast pode usar múltiplas linhas. */
+[data-sonner-toast] [data-description] { white-space: normal; overflow-wrap: anywhere; }
+
+/* 13 — sliders HTML recebem trilho com área vertical suficiente para toque. */
+.app-screen input[type="range"],
+.app-dialog-content input[type="range"] { min-height: 44px; width: 100%; }
+
+/* 14 — sliders nativos mantêm a cor de destaque da APOIS. */
+.app-screen input[type="range"],
+.app-dialog-content input[type="range"] { accent-color: #f6be1c; }
+
+/* 15 — slider Radix mantém hit-area de 44px sem aumentar visualmente o thumb. */
+.app-screen [role="slider"],
+.app-dialog-content [role="slider"] { position: relative; }
+
+/* 16 — expansão invisível da hit-area do thumb do slider. */
+.app-screen [role="slider"]::after,
+.app-dialog-content [role="slider"]::after { content: ""; position: absolute; inset: -12px; }
+
+/* 17 — campo de busca não herda aparência nativa que conflita com o tema. */
+.app-screen input[type="search"],
+.app-dialog-content input[type="search"] { -webkit-appearance: none; appearance: none; }
+
+/* 18 — botão nativo de limpar busca não fica microscópico. */
+.app-screen input[type="search"]::-webkit-search-cancel-button,
+.app-dialog-content input[type="search"]::-webkit-search-cancel-button { width: 22px; height: 22px; cursor: pointer; }
+
+/* 19 — date/time controls renderizam indicadores coerentes com tema escuro. */
+.app-screen input[type="date"],
+.app-screen input[type="time"],
+.app-screen input[type="datetime-local"],
+.app-dialog-content input[type="date"],
+.app-dialog-content input[type="time"],
+.app-dialog-content input[type="datetime-local"] { color-scheme: dark; }
+
+/* 20 — selects nativos também preservam esquema escuro no menu do sistema. */
+.app-screen select,
+.app-dialog-content select { color-scheme: dark; }
+
+/* 21 — textarea não pode ser redimensionado horizontalmente e romper o card. */
+.app-screen textarea,
+.app-dialog-content textarea { resize: vertical; }
+
+/* 22 — object/embed de comprovantes ou documentos respeitam o contêiner. */
+.app-screen object,
+.app-screen embed,
+.app-dialog-content object,
+.app-dialog-content embed { max-width: 100%; }
+
+/* 23 — figures não mantêm largura mínima implícita maior que o card. */
+.app-screen figure,
+.app-dialog-content figure { max-width: 100%; min-width: 0; margin-inline: 0; }
+
+/* 24 — legendas de imagem/documento podem quebrar linha. */
+.app-screen figcaption,
+.app-dialog-content figcaption { overflow-wrap: anywhere; }
+
+/* 25 — em telas de 320px, poppers Radix deixam margem de segurança adicional. */
+@media (max-width: 339px) {
+  [data-radix-popper-content-wrapper] { max-width: calc(100vw - 12px) !important; }
+}
