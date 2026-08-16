@@ -1,0 +1,118 @@
+/* APOIS Passageiro — rodada 10: 25 correções adicionais de UI/UX mobile. */
+
+/* 01 — elementos com tabindex focável recebem contorno visível consistente. */
+.app-screen [tabindex]:not([tabindex="-1"]):focus-visible,
+.app-dialog-content [tabindex]:not([tabindex="-1"]):focus-visible { outline: 2px solid rgba(246,190,28,.95); outline-offset: 2px; }
+
+/* 02 — elementos com aria-pressed mantêm estado ativo perceptível. */
+.app-screen [aria-pressed="true"],
+.app-dialog-content [aria-pressed="true"] { box-shadow: inset 0 0 0 1px rgba(246,190,28,.55); }
+
+/* 03 — elementos com aria-selected não perdem indicação visual quando estreitos. */
+.app-screen [aria-selected="true"],
+.app-dialog-content [aria-selected="true"] { font-weight: 700; }
+
+/* 04 — controles aria-checked mantêm indicador visual no tema escuro. */
+.app-screen [aria-checked="true"],
+.app-dialog-content [aria-checked="true"] { accent-color: #f6be1c; }
+
+/* 05 — conteúdo com aria-describedby longo pode quebrar sem alargar o card. */
+.app-screen [aria-describedby],
+.app-dialog-content [aria-describedby] { min-width: 0; }
+
+/* 06 — grupos role=group não impõem largura intrínseca excessiva. */
+.app-screen [role="group"],
+.app-dialog-content [role="group"] { min-width: 0; max-width: 100%; }
+
+/* 07 — toolbars horizontais podem quebrar quando não houver largura. */
+@media (max-width: 359px) {
+  .app-screen [role="toolbar"],
+  .app-dialog-content [role="toolbar"] { flex-wrap: wrap; gap: .5rem; }
+}
+
+/* 08 — links de localização/mapa não ficam com alvo menor que 44px. */
+.app-screen a[href^="geo:"],
+.app-dialog-content a[href^="geo:"] { min-height: 44px; display: inline-flex; align-items: center; }
+
+/* 09 — spans de preço com whitespace-nowrap podem quebrar em 320px. */
+@media (max-width: 339px) {
+  .app-screen span.whitespace-nowrap,
+  .app-dialog-content span.whitespace-nowrap { white-space: normal; }
+}
+
+/* 10 — elementos line-clamp em telas muito estreitas deixam de esconder conteúdo crítico. */
+@media (max-width: 339px) {
+  .app-screen [class*="line-clamp-"],
+  .app-dialog-content [class*="line-clamp-"] { display: block; overflow: visible; -webkit-line-clamp: unset; }
+}
+
+/* 11 — min-content implícito em sections/articles não cria overflow. */
+.app-screen section,
+.app-screen article,
+.app-dialog-content section,
+.app-dialog-content article { min-width: 0; max-width: 100%; }
+
+/* 12 — address usado em recibos/endereço pode quebrar adequadamente. */
+.app-screen address,
+.app-dialog-content address { overflow-wrap: anywhere; font-style: normal; }
+
+/* 13 — mark não reduz contraste no tema escuro. */
+.app-screen mark,
+.app-dialog-content mark { color: inherit; }
+
+/* 14 — small muito pequeno ganha limite de legibilidade. */
+.app-screen small,
+.app-dialog-content small { font-size: max(.625rem, 10px); }
+
+/* 15 — sub/sup não criam line-height excessivo em labels compactas. */
+.app-screen sub,
+.app-screen sup,
+.app-dialog-content sub,
+.app-dialog-content sup { line-height: 0; }
+
+/* 16 — imagens com loading lazy mantêm fundo estável enquanto carregam. */
+.app-screen img[loading="lazy"],
+.app-dialog-content img[loading="lazy"] { background-color: rgba(255,255,255,.03); }
+
+/* 17 — elementos data-state=open de overlays preservam largura máxima. */
+.app-screen [data-state="open"],
+.app-dialog-content [data-state="open"] { max-width: 100%; }
+
+/* 18 — conteúdo data-side Radix não extrapola viewport. */
+[data-side="top"], [data-side="right"], [data-side="bottom"], [data-side="left"] { max-width: calc(100vw - 16px); }
+
+/* 19 — popovers com side offset mantêm word wrap. */
+.app-screen [data-radix-popper-content-wrapper] > *,
+.app-dialog-content [data-radix-popper-content-wrapper] > * { overflow-wrap: anywhere; }
+
+/* 20 — elementos role=progressbar não podem estourar largura. */
+.app-screen [role="progressbar"],
+.app-dialog-content [role="progressbar"] { max-width: 100%; }
+
+/* 21 — elementos role=spinbutton preservam área tocável e largura. */
+.app-screen [role="spinbutton"],
+.app-dialog-content [role="spinbutton"] { min-height: 44px; max-width: 100%; }
+
+/* 22 — inputs password mantêm espaço para botão de mostrar/ocultar. */
+.app-screen input[type="password"],
+.app-dialog-content input[type="password"] { padding-right: max(2.75rem, var(--password-action-space, 2.75rem)); }
+
+/* 23 — botões absolutos dentro de campos não ficam menores que 44px. */
+.app-screen .relative > button.absolute,
+.app-dialog-content .relative > button.absolute { min-width: 44px; min-height: 44px; }
+
+/* 24 — sticky footers em landscape baixo permitem quebra de ações. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .app-screen [class*="sticky"][class*="bottom-0"],
+  .app-dialog-content [class*="sticky"][class*="bottom-0"] { flex-wrap: wrap; }
+}
+
+/* 25 — prefers-contrast reforça bordas/foco sem alterar fluxo. */
+@media (prefers-contrast: more) {
+  .app-screen button,
+  .app-screen input,
+  .app-screen select,
+  .app-dialog-content button,
+  .app-dialog-content input,
+  .app-dialog-content select { outline-offset: 2px; }
+}
