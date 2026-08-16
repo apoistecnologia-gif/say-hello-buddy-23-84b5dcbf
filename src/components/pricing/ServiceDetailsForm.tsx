@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useId, useMemo, useState } from "react";
 import { Check, Package, Truck, X } from "lucide-react";
 import { toast } from "sonner";
 import { BottomSheet } from "@/components/ui/bottom-sheet/BottomSheet";
@@ -54,11 +54,21 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const readBoolean = (record: Record<string, unknown>, key: string) => record[key] === true;
 const readString = (record: Record<string, unknown>, key: string, fallback = "") =>
-  typeof record[key] === "string" ? String(record[key]) : fallback;
+  typeof record[key] === "string" ? String(record[key]).trim() : fallback;
 const readNumber = (record: Record<string, unknown>, key: string, fallback = 0) =>
   typeof record[key] === "number" && Number.isFinite(record[key])
     ? Number(record[key])
     : fallback;
+
+const safeNonNegativeInteger = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+};
+
+const safePositiveWeight = (value: unknown, fallback = 1) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
 
 export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
   isOpen,
@@ -69,13 +79,21 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
   const [freight, setFreight] = useState<FreightServiceDetails>(emptyFreight);
   const [tow, setTow] = useState<TowServiceDetails>(emptyTow);
   const [delivery, setDelivery] = useState<DeliveryServiceDetails>(emptyDelivery);
+  const titleId = useId();
 
   const categoryCode = selectedCategory?.code;
   const isSpecialCategory =
     categoryCode === "fretes" || categoryCode === "guincho" || categoryCode === "envios";
 
   useEffect(() => {
-    if (!isOpen || !isRecord(serviceDetails)) return;
+    if (!isOpen) return;
+
+    if (!isRecord(serviceDetails)) {
+      if (categoryCode === "fretes") setFreight(emptyFreight);
+      if (categoryCode === "guincho") setTow(emptyTow);
+      if (categoryCode === "envios") setDelivery(emptyDelivery);
+      return;
+    }
 
     if (categoryCode === "fretes") {
       const pickup = isRecord(serviceDetails["retirada"]) ? serviceDetails["retirada"] : {};
@@ -90,18 +108,18 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
         desmontar: readBoolean(serviceDetails, "desmontar"),
         embalar: readBoolean(serviceDetails, "embalar"),
         retirada: {
-          andar: readNumber(pickup, "andar"),
+          andar: safeNonNegativeInteger(readNumber(pickup, "andar")),
           elevador: readBoolean(pickup, "elevador"),
           escadas: readBoolean(pickup, "escadas"),
           dificilAcesso: readBoolean(pickup, "dificilAcesso"),
         },
         entrega: {
-          andar: readNumber(dropoff, "andar"),
+          andar: safeNonNegativeInteger(readNumber(dropoff, "andar")),
           elevador: readBoolean(dropoff, "elevador"),
           escadas: readBoolean(dropoff, "escadas"),
           dificilAcesso: readBoolean(dropoff, "dificilAcesso"),
         },
-        observacoes: readString(serviceDetails, "observacoes"),
+        observacoes: readString(serviceDetails, "observacoes").slice(0, 600),
       });
     }
 
@@ -117,7 +135,7 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
         precisaPlataforma: readBoolean(serviceDetails, "precisaPlataforma"),
         dificilAcesso: readBoolean(serviceDetails, "dificilAcesso"),
         garagemSubsolo: readBoolean(serviceDetails, "garagemSubsolo"),
-        observacoes: readString(serviceDetails, "observacoes"),
+        observacoes: readString(serviceDetails, "observacoes").slice(0, 600),
       });
     }
 
@@ -127,11 +145,11 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
         tipoItem: ["documento", "comida", "outro"].includes(itemType)
           ? (itemType as DeliveryServiceDetails["tipoItem"])
           : "pacote",
-        weightKg: Math.max(0.1, readNumber(serviceDetails, "weightKg", 1)),
+        weightKg: safePositiveWeight(readNumber(serviceDetails, "weightKg", 1)),
         fragil: readBoolean(serviceDetails, "fragil"),
-        nomeDestinatario: readString(serviceDetails, "nomeDestinatario"),
+        nomeDestinatario: readString(serviceDetails, "nomeDestinatario").slice(0, 80),
         telefoneDestinatario: formatPhone(readString(serviceDetails, "telefoneDestinatario")),
-        observacoes: readString(serviceDetails, "observacoes"),
+        observacoes: readString(serviceDetails, "observacoes").slice(0, 600),
       });
     }
   }, [categoryCode, isOpen, serviceDetails]);
@@ -146,35 +164,40 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
 
   const save = () => {
     if (categoryCode === "envios") {
-      if (delivery.nomeDestinatario.trim().length < 2) {
+      const recipientName = delivery.nomeDestinatario.trim();
+      const recipientPhone = onlyDigits(delivery.telefoneDestinatario);
+      const weightKg = safePositiveWeight(delivery.weightKg, 0);
+
+      if (recipientName.length < 2) {
         toast.error("Informe o nome de quem receberá o envio.");
         return;
       }
-      if (onlyDigits(delivery.telefoneDestinatario).length < 10) {
+      if (recipientPhone.length < 10) {
         toast.error("Informe um telefone válido do destinatário.");
         return;
       }
-      if (!Number.isFinite(delivery.weightKg) || delivery.weightKg <= 0) {
+      if (weightKg <= 0) {
         toast.error("Informe o peso aproximado do item.");
         return;
       }
       setServiceDetails({
         ...delivery,
-        nomeDestinatario: delivery.nomeDestinatario.trim(),
-        telefoneDestinatario: onlyDigits(delivery.telefoneDestinatario),
-        observacoes: delivery.observacoes?.trim() || undefined,
+        weightKg,
+        nomeDestinatario: recipientName,
+        telefoneDestinatario: recipientPhone,
+        observacoes: delivery.observacoes?.trim().slice(0, 600) || undefined,
       });
     } else if (categoryCode === "guincho") {
       setServiceDetails({
         ...tow,
-        observacoes: tow.observacoes?.trim() || undefined,
+        observacoes: tow.observacoes?.trim().slice(0, 600) || undefined,
       });
     } else {
       setServiceDetails({
         ...freight,
         retirada: normalizeAccess(freight.retirada),
         entrega: normalizeAccess(freight.entrega),
-        observacoes: freight.observacoes?.trim() || undefined,
+        observacoes: freight.observacoes?.trim().slice(0, 600) || undefined,
       });
     }
 
@@ -184,13 +207,13 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
 
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose}>
-      <div className="min-w-0 pb-2">
+      <section className="min-w-0 pb-2" aria-labelledby={titleId}>
         <div className="mb-5 flex min-w-0 items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="break-words text-[10px] font-black uppercase tracking-[0.18em] text-apois-yellow">
+            <p className="break-words text-[11px] font-black uppercase tracking-[0.16em] text-apois-yellow">
               Serviço especial
             </p>
-            <h2 className="mt-1 break-words text-xl font-black leading-6 tracking-tight text-white">{title}</h2>
+            <h2 id={titleId} className="mt-1 break-words text-xl font-black leading-6 tracking-tight text-white">{title}</h2>
             <p className="mt-1 break-words text-xs leading-5 text-zinc-500">
               Essas informações serão enviadas ao profissional e usadas no cálculo quando houver tarifa configurada.
             </p>
@@ -198,7 +221,7 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
           <button
             type="button"
             onClick={onClose}
-            className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/5 text-zinc-400"
+            className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-white/5 text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow"
             aria-label="Fechar detalhes"
           >
             <X size={19} aria-hidden="true" />
@@ -212,19 +235,19 @@ export const ServiceDetailsForm: React.FC<{ isOpen: boolean; onClose: () => void
         <button
           type="button"
           onClick={save}
-          className="app-pressable app-gold-glow mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow px-4 py-3 text-center font-black leading-5 text-black"
+          className="app-pressable app-gold-glow mt-6 flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow px-4 py-3 text-center font-black leading-5 text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
           <Check size={20} strokeWidth={3} className="shrink-0" aria-hidden="true" />
-          Salvar detalhes
+          <span className="break-words">Salvar detalhes</span>
         </button>
-      </div>
+      </section>
     </BottomSheet>
   );
 };
 
 function normalizeAccess(value: FreightAccessDetails): FreightAccessDetails {
   return {
-    andar: Math.max(0, Math.floor(value.andar || 0)),
+    andar: safeNonNegativeInteger(value.andar),
     elevador: Boolean(value.elevador),
     escadas: Boolean(value.escadas),
     dificilAcesso: Boolean(value.dificilAcesso),
@@ -274,7 +297,7 @@ function TowForm({ value, onChange }: { value: TowServiceDetails; onChange: (val
         ))}
       </OptionGroup>
 
-      <div className="grid grid-cols-2 gap-3 max-[339px]:grid-cols-1">
+      <div className="grid grid-cols-2 gap-3 max-[359px]:grid-cols-1">
         <ToggleCard label="Veículo liga" checked={value.veiculoLiga} onChange={(checked) => onChange({ ...value, veiculoLiga: checked })} />
         <ToggleCard label="Foi acidente" checked={value.acidente} onChange={(checked) => onChange({ ...value, acidente: checked })} />
         <ToggleCard label="Rodas travadas" checked={value.rodasTravadas} onChange={(checked) => onChange({ ...value, rodasTravadas: checked })} />
@@ -289,6 +312,9 @@ function TowForm({ value, onChange }: { value: TowServiceDetails; onChange: (val
 }
 
 function DeliveryForm({ value, onChange }: { value: DeliveryServiceDetails; onChange: (value: DeliveryServiceDetails) => void }) {
+  const weightHelpId = useId();
+  const recipientHelpId = useId();
+
   return (
     <div className="min-w-0 space-y-5">
       <OptionGroup label="Tipo de item">
@@ -301,11 +327,20 @@ function DeliveryForm({ value, onChange }: { value: DeliveryServiceDetails; onCh
 
       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 max-[359px]:grid-cols-1">
         <label className="app-surface min-w-0 rounded-2xl p-4">
-          <span className="break-words text-[10px] font-black uppercase tracking-wider text-zinc-500">Peso aproximado</span>
+          <span className="break-words text-[11px] font-black uppercase tracking-wider text-zinc-500">Peso aproximado</span>
           <div className="mt-2 flex min-w-0 items-center gap-2">
-            <input type="number" min="0.1" step="0.1" value={value.weightKg} onChange={(event) => onChange({ ...value, weightKg: Number(event.target.value) })} className="min-h-11 min-w-0 flex-1 bg-transparent text-base font-black text-white outline-none" />
+            <input
+              type="number"
+              min="0.1"
+              step="0.1"
+              value={Number.isFinite(value.weightKg) ? value.weightKg : ""}
+              onChange={(event) => onChange({ ...value, weightKg: safePositiveWeight(event.target.value, 0) })}
+              aria-describedby={weightHelpId}
+              className="min-h-11 min-w-0 flex-1 bg-transparent text-base font-black text-white outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow"
+            />
             <span className="shrink-0 text-sm font-bold text-zinc-500">kg</span>
           </div>
+          <span id={weightHelpId} className="mt-1 block break-words text-[11px] leading-4 text-zinc-600">Informe o peso aproximado do item.</span>
         </label>
         <ToggleCard label="Frágil" checked={value.fragil} onChange={(checked) => onChange({ ...value, fragil: checked })} />
       </div>
@@ -315,8 +350,33 @@ function DeliveryForm({ value, onChange }: { value: DeliveryServiceDetails; onCh
           <Package size={18} className="shrink-0" aria-hidden="true" />
           <h3 className="break-words text-sm font-black text-white">Quem vai receber?</h3>
         </div>
-        <label className="block"><span className="sr-only">Nome do destinatário</span><input value={value.nomeDestinatario} onChange={(event) => onChange({ ...value, nomeDestinatario: event.target.value })} placeholder="Nome do destinatário" autoComplete="name" className="min-h-12 w-full min-w-0 rounded-xl border border-white/10 bg-black/40 px-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-apois-yellow" /></label>
-        <label className="block"><span className="sr-only">Telefone do destinatário</span><input value={value.telefoneDestinatario} onChange={(event) => onChange({ ...value, telefoneDestinatario: formatPhone(event.target.value) })} placeholder="Telefone com DDD" type="tel" inputMode="tel" autoComplete="tel" className="min-h-12 w-full min-w-0 rounded-xl border border-white/10 bg-black/40 px-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-apois-yellow" /></label>
+        <p id={recipientHelpId} className="break-words text-[11px] leading-4 text-zinc-500">Use um nome identificável e telefone com DDD.</p>
+        <label className="block">
+          <span className="mb-1 block break-words text-[11px] font-bold text-zinc-400">Nome do destinatário</span>
+          <input
+            value={value.nomeDestinatario}
+            onChange={(event) => onChange({ ...value, nomeDestinatario: event.target.value.slice(0, 80) })}
+            placeholder="Nome do destinatário"
+            autoComplete="name"
+            maxLength={80}
+            aria-describedby={recipientHelpId}
+            className="min-h-12 w-full min-w-0 rounded-xl border border-white/10 bg-black/40 px-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-apois-yellow focus-visible:ring-2 focus-visible:ring-apois-yellow"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block break-words text-[11px] font-bold text-zinc-400">Telefone do destinatário</span>
+          <input
+            value={value.telefoneDestinatario}
+            onChange={(event) => onChange({ ...value, telefoneDestinatario: formatPhone(event.target.value) })}
+            placeholder="Telefone com DDD"
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            maxLength={15}
+            aria-describedby={recipientHelpId}
+            className="min-h-12 w-full min-w-0 rounded-xl border border-white/10 bg-black/40 px-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-apois-yellow focus-visible:ring-2 focus-visible:ring-apois-yellow"
+          />
+        </label>
       </div>
 
       <NotesField value={value.observacoes || ""} onChange={(observacoes) => onChange({ ...value, observacoes })} placeholder="Descreva o item, tamanho e cuidados importantes." />
@@ -325,15 +385,25 @@ function DeliveryForm({ value, onChange }: { value: DeliveryServiceDetails; onCh
 }
 
 function AccessCard({ title, value, onChange }: { title: string; value: FreightAccessDetails; onChange: (update: Partial<FreightAccessDetails>) => void }) {
+  const inputId = useId();
+
   return (
     <section className="min-w-0 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
       <div className="mb-3 flex min-w-0 items-center gap-2">
         <Truck size={18} className="shrink-0 text-apois-yellow" aria-hidden="true" />
         <h3 className="break-words text-sm font-black text-white">{title}</h3>
       </div>
-      <label className="block min-w-0">
-        <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500">Andar</span>
-        <input type="number" min="0" step="1" value={value.andar || 0} onChange={(event) => onChange({ andar: Math.max(0, Number(event.target.value)) })} className="mt-1 min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-black/40 px-3 text-base text-white outline-none focus:border-apois-yellow" />
+      <label className="block min-w-0" htmlFor={inputId}>
+        <span className="text-[11px] font-black uppercase tracking-wider text-zinc-500">Andar</span>
+        <input
+          id={inputId}
+          type="number"
+          min="0"
+          step="1"
+          value={safeNonNegativeInteger(value.andar)}
+          onChange={(event) => onChange({ andar: safeNonNegativeInteger(event.target.value) })}
+          className="mt-1 min-h-11 w-full min-w-0 rounded-xl border border-white/10 bg-black/40 px-3 text-base text-white outline-none focus:border-apois-yellow focus-visible:ring-2 focus-visible:ring-apois-yellow"
+        />
       </label>
       <div className="mt-3 grid grid-cols-3 gap-2 max-[359px]:grid-cols-1">
         <ToggleCard compact label="Elevador" checked={Boolean(value.elevador)} onChange={(checked) => onChange({ elevador: checked })} />
@@ -347,7 +417,7 @@ function AccessCard({ title, value, onChange }: { title: string; value: FreightA
 function OptionGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <fieldset className="min-w-0">
-      <legend className="mb-2 break-words text-[10px] font-black uppercase tracking-wider text-zinc-500">{label}</legend>
+      <legend className="mb-2 break-words text-[11px] font-black uppercase tracking-wider text-zinc-500">{label}</legend>
       <div className="flex min-w-0 flex-wrap gap-2">{children}</div>
     </fieldset>
   );
@@ -355,15 +425,26 @@ function OptionGroup({ label, children }: { label: string; children: React.React
 
 function ChoiceButton({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" aria-pressed={selected} onClick={onClick} className={`app-pressable min-h-11 max-w-full rounded-xl border px-4 py-2 text-xs font-black leading-4 ${selected ? "border-apois-yellow bg-apois-yellow text-black" : "border-white/10 bg-white/5 text-zinc-300"}`}>
-      {children}
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={`app-pressable min-h-11 max-w-full rounded-xl border px-4 py-2 text-xs font-black leading-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow ${selected ? "border-apois-yellow bg-apois-yellow text-black" : "border-white/10 bg-white/5 text-zinc-300"}`}
+    >
+      <span className="break-words">{children}</span>
     </button>
   );
 }
 
 function ToggleCard({ label, checked, onChange, compact = false }: { label: string; checked: boolean; onChange: (checked: boolean) => void; compact?: boolean }) {
   return (
-    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className={`app-pressable flex min-h-12 min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left ${checked ? "border-apois-yellow/40 bg-apois-yellow/10 text-white" : "border-white/8 bg-white/[0.03] text-zinc-400"} ${compact ? "text-[10px]" : "text-xs"}`}>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className={`app-pressable flex min-h-12 min-w-0 items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow ${checked ? "border-apois-yellow/40 bg-apois-yellow/10 text-white" : "border-white/8 bg-white/[0.03] text-zinc-400"} ${compact ? "text-[11px]" : "text-xs"}`}
+    >
       <span className="min-w-0 break-words font-bold leading-4">{label}</span>
       <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${checked ? "border-apois-yellow bg-apois-yellow text-black" : "border-zinc-600"}`} aria-hidden="true">{checked ? <Check size={12} strokeWidth={3} /> : null}</span>
     </button>
@@ -371,11 +452,24 @@ function ToggleCard({ label, checked, onChange, compact = false }: { label: stri
 }
 
 function NotesField({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
+  const notesId = useId();
+  const counterId = useId();
+  const safeValue = value.slice(0, 600);
+
   return (
-    <label className="block min-w-0">
-      <span className="mb-2 block text-[10px] font-black uppercase tracking-wider text-zinc-500">Observações</span>
-      <textarea value={value} onChange={(event) => onChange(event.target.value.slice(0, 600))} placeholder={placeholder} rows={3} maxLength={600} className="w-full min-w-0 max-w-full resize-none rounded-2xl border border-white/10 bg-black/40 p-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-apois-yellow" />
-      <span className="mt-1 block text-right text-[10px] text-zinc-600">{value.length}/600</span>
+    <label className="block min-w-0" htmlFor={notesId}>
+      <span className="mb-2 block text-[11px] font-black uppercase tracking-wider text-zinc-500">Observações</span>
+      <textarea
+        id={notesId}
+        value={safeValue}
+        onChange={(event) => onChange(event.target.value.slice(0, 600))}
+        placeholder={placeholder}
+        rows={3}
+        maxLength={600}
+        aria-describedby={counterId}
+        className="w-full min-w-0 max-w-full resize-y rounded-2xl border border-white/10 bg-black/40 p-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-apois-yellow focus-visible:ring-2 focus-visible:ring-apois-yellow"
+      />
+      <span id={counterId} className="mt-1 block text-right text-[11px] text-zinc-600" aria-live="polite">{safeValue.length}/600 caracteres</span>
     </label>
   );
 }
