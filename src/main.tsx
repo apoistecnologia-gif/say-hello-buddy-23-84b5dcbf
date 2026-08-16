@@ -19,6 +19,7 @@ import "./mobile-ux-hardening-round5.css";
 import "./mobile-ux-hardening-round6.css";
 import "./mobile-ux-hardening-round7.css";
 import "./mobile-ux-hardening-round8.css";
+import "./mobile-ux-hardening-round9.css";
 
 const queryClient = new QueryClient();
 const hashHistory = createHashHistory();
