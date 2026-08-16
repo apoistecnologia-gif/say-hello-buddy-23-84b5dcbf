@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useId } from "react";
 import { AnimatePresence, motion, useAnimation } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -19,32 +19,53 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   isOpen,
   onClose,
   children,
+  title,
   preventClose = false,
   showBackdrop = true,
   height,
   maxHeight,
 }) => {
   const controls = useAnimation();
+  const generatedTitleId = useId();
   const isPersistentMapSheet = preventClose && !showBackdrop;
 
   useEffect(() => {
     if (isOpen) void controls.start({ y: 0 });
   }, [isOpen, controls]);
 
+  useEffect(() => {
+    if (!isOpen || preventClose) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose, preventClose]);
+
   return (
     <AnimatePresence>
       {isOpen ? (
         <>
           {showBackdrop ? (
-            <motion.button
-              type="button"
-              aria-label="Fechar painel"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={!preventClose ? onClose : undefined}
-              className="fixed inset-0 z-40 bg-black/60"
-            />
+            preventClose ? (
+              <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-40 bg-black/60"
+              />
+            ) : (
+              <motion.button
+                type="button"
+                aria-label="Fechar painel"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="fixed inset-0 z-40 bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow"
+              />
+            )
           ) : null}
 
           <motion.div
@@ -52,6 +73,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={controls}
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 240 }}
+            role="dialog"
+            aria-modal={showBackdrop ? "true" : undefined}
+            aria-labelledby={title ? generatedTitleId : undefined}
+            aria-label={!title ? "Painel de opções" : undefined}
             className={cn(
               "fixed bottom-0 left-1/2 z-[60] flex w-full max-w-[430px] -translate-x-1/2 flex-col",
               "overflow-hidden rounded-t-[28px] border-x border-t border-white/5 bg-[#121212] shadow-[0_-12px_40px_rgba(0,0,0,0.6)]",
@@ -64,11 +89,12 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
               paddingBottom: "max(12px, var(--app-safe-bottom))",
             }}
           >
+            {title ? <h2 id={generatedTitleId} className="sr-only">{title}</h2> : null}
             <div className="flex w-full shrink-0 justify-center py-2.5" aria-hidden="true">
               <div className="h-1 w-9 rounded-full bg-gray-600" />
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3.5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="app-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-3.5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {children}
             </div>
           </motion.div>
