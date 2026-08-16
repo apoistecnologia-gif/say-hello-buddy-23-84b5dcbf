@@ -119,11 +119,12 @@ export const CategorySelector: React.FC = () => {
 
   if (categoriesLoading) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-2" role="status" aria-label="Carregando categorias de corrida">
         {[1, 2, 3].map((item) => (
           <div
             key={item}
             className="h-[92px] w-full animate-pulse rounded-2xl bg-zinc-900/60"
+            aria-hidden="true"
           />
         ))}
       </div>
@@ -132,14 +133,17 @@ export const CategorySelector: React.FC = () => {
 
   if (categories.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/5 bg-zinc-900/50 px-4 py-3 text-center text-xs text-zinc-400">
+      <div
+        role="status"
+        className="rounded-2xl border border-white/5 bg-zinc-900/50 px-4 py-3 text-center text-xs leading-5 text-zinc-400"
+      >
         Não há categorias disponíveis para esta rota no momento.
       </div>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" aria-label="Categorias de corrida disponíveis">
       {categories.map((category) => {
         const isSelected = selectedCategory?.id === category.id;
         const Icon = IconMap[category.code];
@@ -148,6 +152,14 @@ export const CategorySelector: React.FC = () => {
         const isAvailable = estimate?.available !== false;
         const pickupMinutes = estimate?.estimatedPickupMinutes;
         const description = category.description?.trim() || fallbackDescription[category.code];
+        const displayName = categoryLabel || category.name;
+        const priceLabel = !isAvailable
+          ? "Indisponível"
+          : pricingStatus === "loading"
+            ? "calculando preço"
+            : estimate
+              ? PRICING_CONFIG.CURRENCY_FORMAT.format(estimate.estimatedPrice)
+              : "preço indisponível";
 
         return (
           <button
@@ -156,8 +168,9 @@ export const CategorySelector: React.FC = () => {
             onClick={() => isAvailable && selectCategory(category)}
             disabled={!isAvailable}
             aria-pressed={isSelected}
+            aria-label={`${displayName}. ${priceLabel}${isSelected ? ". Selecionada" : ""}`}
             className={cn(
-              "app-pressable relative flex min-h-[92px] w-full items-center gap-2.5 overflow-hidden rounded-2xl border px-2.5 py-2 text-left transition-colors",
+              "app-pressable relative flex min-h-[92px] w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-2xl border px-2.5 py-2 text-left transition-colors max-[359px]:gap-2 max-[359px]:px-2",
               isSelected
                 ? "border-apois-yellow bg-apois-yellow/[0.07] shadow-[0_0_0_1px_rgba(255,184,0,0.16)]"
                 : isAvailable
@@ -165,10 +178,10 @@ export const CategorySelector: React.FC = () => {
                   : "cursor-not-allowed border-white/5 bg-zinc-900/35 opacity-55 grayscale",
             )}
           >
-            <span className="relative flex h-[72px] w-[102px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-white/[0.055] via-transparent to-black/20">
+            <span className="relative flex h-[72px] w-[102px] shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-white/[0.055] via-transparent to-black/20 max-[359px]:h-[64px] max-[359px]:w-[82px]">
               <span
                 className={cn(
-                  "absolute left-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full border",
+                  "absolute left-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full border max-[359px]:h-5 max-[359px]:w-5",
                   isSelected
                     ? "border-apois-yellow/40 bg-black/70 text-apois-yellow"
                     : "border-white/10 bg-black/60 text-zinc-400",
@@ -190,16 +203,16 @@ export const CategorySelector: React.FC = () => {
             </span>
 
             <span className="min-w-0 flex-1 self-center">
-              <span className="block truncate text-[13px] font-black leading-4 text-white">
-                {categoryLabel || category.name}
+              <span className="block break-words text-[13px] font-black leading-4 text-white">
+                {displayName}
               </span>
-              <span className="mt-1 line-clamp-2 block text-[10px] font-medium leading-[13px] text-zinc-500">
+              <span className="mt-1 line-clamp-2 block break-words text-[10px] font-medium leading-[14px] text-zinc-500 max-[339px]:line-clamp-3">
                 {description}
               </span>
             </span>
 
-            <span className="flex min-w-[78px] shrink-0 flex-col items-end justify-center pl-1 pr-1">
-              <span className="text-[14px] font-black tracking-tight text-white">
+            <span className="flex min-w-[72px] max-w-[92px] shrink-0 flex-col items-end justify-center pl-1 pr-1 text-right max-[359px]:min-w-[64px] max-[359px]:max-w-[78px]">
+              <span className="max-w-full break-words text-[clamp(12px,3.8vw,14px)] font-black leading-4 tracking-tight text-white">
                 {!isAvailable
                   ? "—"
                   : pricingStatus === "loading"
@@ -210,7 +223,7 @@ export const CategorySelector: React.FC = () => {
               </span>
               <span
                 className={cn(
-                  "mt-1 min-h-[14px] text-[10px] font-black",
+                  "mt-1 min-h-[14px] max-w-full break-words text-[10px] font-black leading-3",
                   isSelected ? "text-apois-yellow" : "text-zinc-500",
                 )}
               >
@@ -222,13 +235,12 @@ export const CategorySelector: React.FC = () => {
                       ? `${Math.max(1, Math.round(pickupMinutes))} min`
                       : category.etaLabel || ""}
               </span>
+              {isSelected ? (
+                <span className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-apois-yellow text-black shadow-lg" aria-hidden="true">
+                  <Check size={13} strokeWidth={3.5} />
+                </span>
+              ) : null}
             </span>
-
-            {isSelected ? (
-              <span className="absolute bottom-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-apois-yellow text-black shadow-lg">
-                <Check aria-hidden="true" size={13} strokeWidth={3.5} />
-              </span>
-            ) : null}
           </button>
         );
       })}
