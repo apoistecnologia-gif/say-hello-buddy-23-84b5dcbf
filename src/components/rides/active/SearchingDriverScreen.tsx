@@ -88,7 +88,7 @@ export function SearchingDriverScreen({
         </div>
       </header>
 
-      <div className="relative min-h-[250px] flex-[0.95] overflow-hidden border-y border-white/5 max-h-[460px] max-[height:620px]:min-h-[210px] sm:min-h-[300px]">
+      <div className="relative min-h-[clamp(210px,40dvh,250px)] flex-[0.95] max-h-[460px] overflow-hidden border-y border-white/5 sm:min-h-[300px]">
         <ActiveRideMap ride={ride} />
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/35" />
