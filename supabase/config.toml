@@ -15,6 +15,9 @@ verify_jwt = true
 [functions.cancel-ride]
 verify_jwt = true
 
+[functions.cancellation-fee-webhook]
+verify_jwt = false
+
 [functions.create-cancellation-fee-charge]
 verify_jwt = true
 
@@ -30,16 +33,28 @@ verify_jwt = true
 [functions.driver-ride-action]
 verify_jwt = true
 
+[functions.driver-woovi-credit]
+verify_jwt = true
+
+[functions.driver-woovi-payment-account]
+verify_jwt = true
+
 [functions.mercadopago-health]
 verify_jwt = true
 
 [functions.mercadopago-webhook]
 verify_jwt = false
 
+[functions.pagbank-apois-logo]
+verify_jwt = false
+
 [functions.pagbank-connect-callback]
 verify_jwt = false
 
-[functions.pagbank-apois-logo]
+[functions.pagbank-create-ride-pix]
+verify_jwt = true
+
+[functions.pagbank-webhook]
 verify_jwt = false
 
 [functions.passenger-geocode-reverse]
@@ -48,7 +63,16 @@ verify_jwt = true
 [functions.passenger-pricing-estimate]
 verify_jwt = true
 
+[functions.passenger-profile]
+verify_jwt = true
+
+[functions.passenger-ride-request]
+verify_jwt = true
+
 [functions.passenger-routes-compute]
+verify_jwt = true
+
+[functions.passenger-support]
 verify_jwt = true
 
 [functions.process-ride-dispatch]
@@ -63,5 +87,20 @@ verify_jwt = true
 [functions.request-ride]
 verify_jwt = true
 
+[functions.ride-pix-checkout]
+verify_jwt = true
+
 [functions.send-ride-push]
 verify_jwt = true
+
+[functions.woovi-create-ride-pix]
+verify_jwt = true
+
+# Provider webhooks authenticate with provider-specific secrets/signatures. They
+# must reach the function without a Supabase user JWT and then pass the
+# function's own authentication check before any financial mutation.
+[functions.woovi-webhook]
+verify_jwt = false
+
+[functions.woovi-payout-webhook]
+verify_jwt = false

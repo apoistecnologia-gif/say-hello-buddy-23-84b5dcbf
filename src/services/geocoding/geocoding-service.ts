@@ -174,6 +174,11 @@ class GeocodingService {
     this.pendingRequests.set(cacheKey, controller);
 
     try {
+      // The official APOIS CORRIDAS production backend exposes a single
+      // authenticated reverse-geocoding Edge Function. Do not issue a second
+      // request to the retired/non-deployed passenger-geocode-nearest-poi slug:
+      // that call returned 404 in production. Any optional enrichment returned
+      // by the canonical reverse contract is already parsed below.
       const { data: response, error } = await supabase.functions.invoke(
         "passenger-geocode-reverse",
         { body: coords },
@@ -183,34 +188,10 @@ class GeocodingService {
         throw new Error(error.message || "geocode_empty_result");
       }
 
-      let pickupAddress = this.transformToPickupAddress(coords, parseGeocodePayload(response));
-
-      const needsPoi =
-        !pickupAddress.components?.rua ||
-        pickupAddress.precision === "approximate" ||
-        pickupAddress.isApproximate;
-
-      if (needsPoi) {
-        try {
-          const { data: poiResponse, error: poiError } = await supabase.functions.invoke(
-            "passenger-geocode-nearest-poi",
-            { body: coords },
-          );
-
-          if (!poiError && isRecord(poiResponse)) {
-            const nearestPoi = readString(poiResponse, "nearestPoi");
-            if (poiResponse["ok"] === true && nearestPoi) {
-              pickupAddress = {
-                ...pickupAddress,
-                nearestPoi,
-                subLabel: `${nearestPoi}${pickupAddress.subLabel ? ` • ${pickupAddress.subLabel}` : ""}`,
-              };
-            }
-          }
-        } catch (poiError) {
-          console.warn("POI resolution failed, continuing with base address", poiError);
-        }
-      }
+      const pickupAddress = this.transformToPickupAddress(
+        coords,
+        parseGeocodePayload(response),
+      );
 
       this.addToCache(cacheKey, pickupAddress);
       return pickupAddress;

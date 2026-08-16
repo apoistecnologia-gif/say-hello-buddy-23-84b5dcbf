@@ -1,123 +1,223 @@
-import React from "react";
+import { useEffect, type ReactNode } from "react";
+import { AlertCircle, Check, ChevronRight, Loader2, RefreshCw, Wallet, X } from "lucide-react";
 import { usePaymentMethods } from "@/hooks/use-payment-methods";
 import { useWallet } from "@/hooks/use-wallet";
 import { PRICING_CONFIG } from "@/services/pricing/pricing-config";
-import { cn } from "@/lib/utils";
-import { Wallet, ChevronRight, Check } from "lucide-react";
-import { PaymentMethodCode } from "@/types/payments";
 import { PAYMENT_ICONS } from "@/services/payments/payment-config";
+import { cn } from "@/lib/utils";
 
-export const PaymentMethodSelector: React.FC<{ onOpenList: () => void }> = ({ onOpenList }) => {
-  const { selectedMethod, methods, isLoading } = usePaymentMethods();
+function safeCurrency(value: unknown): string {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0
+    ? PRICING_CONFIG.CURRENCY_FORMAT.format(parsed)
+    : "Saldo indisponível";
+}
+
+export function PaymentMethodSelector({ onOpenList }: { onOpenList: () => void }) {
+  const { selectedMethod, methods, isLoading, error, refresh } = usePaymentMethods();
   const { wallet } = useWallet();
 
-  const current = methods.find((m) => m.code === selectedMethod);
+  const current = methods.find((method) => method.code === selectedMethod);
   const Icon = current ? PAYMENT_ICONS[current.code] || Wallet : Wallet;
+  const walletBalance = wallet ? safeCurrency(wallet.available_balance) : null;
 
   if (isLoading) {
     return (
-      <div className="w-full h-[72px] bg-zinc-900/50 border border-white/5 rounded-2xl animate-pulse" />
+      <div
+        className="flex min-h-[72px] w-full items-center justify-center rounded-2xl border border-white/5 bg-zinc-900/50"
+        role="status"
+        aria-live="polite"
+        aria-label="Carregando formas de pagamento"
+      >
+        <Loader2 className="animate-spin text-apois-yellow motion-reduce:animate-none" size={20} aria-hidden="true" />
+      </div>
+    );
+  }
+
+  if (error || methods.length === 0) {
+    return (
+      <section
+        className="rounded-2xl border border-red-500/20 bg-red-500/8 p-4"
+        role="alert"
+        aria-live="assertive"
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          <AlertCircle className="mt-0.5 shrink-0 text-red-400" size={19} aria-hidden="true" />
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-xs font-black text-white">Pagamento indisponível</p>
+            <p className="mt-1 break-words text-[10px] leading-4 text-red-200/70">
+              {methods.length === 0
+                ? "Nenhuma forma de pagamento está ativa no momento."
+                : "Não foi possível carregar as formas de pagamento agora."}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="app-pressable mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-black/20 px-3 text-center text-xs font-black text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow"
+        >
+          <RefreshCw size={15} aria-hidden="true" />
+          <span className="break-words">Carregar novamente</span>
+        </button>
+      </section>
     );
   }
 
   return (
     <button
+      type="button"
       onClick={onOpenList}
-      className="w-full bg-zinc-900/50 border border-white/5 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-all"
+      aria-haspopup="dialog"
+      aria-label={`Forma de pagamento: ${current?.name || current?.label || "não selecionada"}. Toque para alterar.`}
+      className="app-pressable flex min-h-[72px] w-full min-w-0 items-center justify-between gap-3 rounded-2xl border border-white/5 bg-zinc-900/50 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow"
     >
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-400">
-          <Icon size={20} />
-        </div>
-        <div className="text-left">
-          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">
-            Forma de Pagamento
-          </p>
-          <div className="flex items-center gap-2">
-            <h4 className="text-sm font-bold text-white">
+      <span className="flex min-w-0 flex-1 items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-400">
+          <Icon size={20} aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1 text-left">
+          <span className="mb-0.5 block break-words text-[10px] font-black uppercase tracking-widest text-zinc-500">
+            Forma de pagamento
+          </span>
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="min-w-0 break-words text-sm font-bold leading-5 text-white">
               {current?.name || current?.label || "Selecione o pagamento"}
-            </h4>
-            {selectedMethod === "wallet" && wallet && (
-              <span className="text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                {PRICING_CONFIG.CURRENCY_FORMAT.format(wallet.available_balance)}
+            </span>
+            {selectedMethod === "wallet" && walletBalance ? (
+              <span className="max-w-full break-words rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-500">
+                {walletBalance}
               </span>
-            )}
-          </div>
-        </div>
-      </div>
-      <ChevronRight size={18} className="text-zinc-600" />
+            ) : null}
+          </span>
+        </span>
+      </span>
+      <ChevronRight size={18} aria-hidden="true" className="shrink-0 text-zinc-600" />
     </button>
   );
-};
+}
 
-export const PaymentMethodList: React.FC<{ isOpen: boolean; onClose: () => void }> = ({
+export function PaymentMethodList({
   isOpen,
   onClose,
-}) => {
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
   const { methods, selectedMethod, selectMethod } = usePaymentMethods();
   const { wallet } = useWallet();
+  const walletBalance = wallet ? safeCurrency(wallet.available_balance) : null;
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-black rounded-t-[32px] p-6 shadow-2xl animate-in slide-in-from-bottom duration-300 border-t border-zinc-800">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-black text-white">Forma de Pagamento</h2>
-          <button onClick={onClose} className="text-zinc-500 font-bold text-sm">
-            Fechar
+    <div
+      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 motion-reduce:animate-none"
+      role="presentation"
+      onClick={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="payment-method-title"
+        className="app-dialog-content flex max-h-[min(86dvh,760px)] w-full max-w-lg flex-col rounded-t-[32px] border-t border-zinc-800 bg-black px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 shadow-2xl animate-in slide-in-from-bottom duration-300 motion-reduce:animate-none sm:px-6 sm:pt-6"
+      >
+        <div className="mb-4 flex min-w-0 items-center justify-between gap-3 sm:mb-6">
+          <h2 id="payment-method-title" className="min-w-0 break-words pr-1 text-xl font-black leading-6 text-white">
+            Forma de pagamento
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            autoFocus
+            aria-label="Fechar formas de pagamento"
+            className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-zinc-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow"
+          >
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
-        <div className="space-y-2 mb-6">
+        <div className="app-scroll mb-2 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pb-4 sm:mb-6">
           {methods.map((method) => {
             const Icon = PAYMENT_ICONS[method.code] || Wallet;
             const isSelected = selectedMethod === method.code;
             const isWallet = method.code === "wallet";
             const isDisabled =
-              !method.isActive || (isWallet && (!wallet || wallet.status !== "active"));
+              !method.isActive ||
+              !method.enabled ||
+              (isWallet && (!wallet || wallet.status !== "active"));
+            const methodLabel = method.name?.trim() || method.label?.trim() || "Forma de pagamento";
+            const description = method.description?.trim() || "Disponibilidade conforme sua conta.";
 
             return (
               <button
                 key={method.code}
+                type="button"
                 disabled={isDisabled}
+                aria-pressed={isSelected}
+                aria-label={`${methodLabel}${isDisabled ? ", indisponível" : isSelected ? ", selecionada" : ""}`}
                 onClick={() => {
+                  if (isDisabled) return;
                   selectMethod(method.code);
                   onClose();
                 }}
                 className={cn(
-                  "w-full p-4 rounded-2xl flex items-center justify-between border-2 transition-all",
+                  "app-pressable flex min-h-[72px] w-full min-w-0 items-center justify-between gap-3 rounded-2xl border-2 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow sm:p-4",
                   isSelected
-                    ? "bg-zinc-800 border-apois-yellow"
-                    : "bg-zinc-900/50 border-transparent",
-                  isDisabled && "opacity-40 grayscale",
+                    ? "border-apois-yellow bg-zinc-800"
+                    : "border-transparent bg-zinc-900/50",
+                  isDisabled && "cursor-not-allowed opacity-40 grayscale",
                 )}
               >
-                <div className="flex items-center gap-4">
-                  <div
+                <span className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+                  <span
                     className={cn(
-                      "w-12 h-12 rounded-xl flex items-center justify-center transition-colors",
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12",
                       isSelected ? "bg-apois-yellow text-black" : "bg-zinc-800 text-zinc-400",
                     )}
                   >
-                    <Icon size={24} />
-                  </div>
-                  <div className="text-left">
-                    <h4 className="font-bold text-white text-sm">{method.name || method.label}</h4>
-                    <p className="text-[11px] text-zinc-500 font-medium">{method.description}</p>
-                    {isWallet && wallet && (
-                      <p className="text-[11px] text-emerald-500 font-bold mt-0.5">
-                        Saldo: {PRICING_CONFIG.CURRENCY_FORMAT.format(wallet.available_balance)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {isSelected && <Check size={20} className="text-apois-yellow" />}
+                    <Icon size={23} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block break-words text-sm font-bold leading-5 text-white">
+                      {methodLabel}
+                    </span>
+                    <span className="mt-0.5 block break-words text-[11px] font-medium leading-4 text-zinc-500">
+                      {description}
+                    </span>
+                    {isWallet && walletBalance ? (
+                      <span className="mt-1 block break-words text-[11px] font-bold leading-4 text-emerald-500">
+                        Saldo disponível: {walletBalance}
+                      </span>
+                    ) : null}
+                  </span>
+                </span>
+                {isSelected ? <Check size={20} aria-hidden="true" className="shrink-0 text-apois-yellow" /> : null}
               </button>
             );
           })}
         </div>
-      </div>
+      </section>
     </div>
   );
-};
+}
+
+export function PaymentStatusMessage({ children }: { children: ReactNode }) {
+  return <p className="break-words text-xs leading-5 text-zinc-500 [overflow-wrap:anywhere]">{children}</p>;
+}

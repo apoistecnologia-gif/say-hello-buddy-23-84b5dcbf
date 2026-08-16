@@ -1,6 +1,7 @@
 import { PLACES_CONFIG } from "../places/places-config";
 
 const SCRIPT_ID = "apois-google-maps-js";
+const READY_POLL_INTERVAL_MS = 75;
 
 type GoogleWindow = Window & {
   google?: { maps?: { importLibrary?: (name: string) => Promise<unknown> } };
@@ -33,10 +34,14 @@ class GoogleMapsLoader {
 
     this.loadPromise = new Promise<void>((resolve, reject) => {
       let settled = false;
+      let pollId: number | null = null;
+      let timeoutId: number | null = null;
+
       const finish = (error?: Error) => {
         if (settled) return;
         settled = true;
-        window.clearTimeout(timeoutId);
+        if (pollId !== null) window.clearTimeout(pollId);
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
         if (error) {
           this.loadPromise = null;
           reject(error);
@@ -45,7 +50,17 @@ class GoogleMapsLoader {
         }
       };
 
-      const timeoutId = window.setTimeout(
+      const pollUntilReady = () => {
+        if (googleWindow.google?.maps?.importLibrary) {
+          finish();
+          return;
+        }
+        if (!settled) {
+          pollId = window.setTimeout(pollUntilReady, READY_POLL_INTERVAL_MS);
+        }
+      };
+
+      timeoutId = window.setTimeout(
         () => finish(new Error("maps_timeout")),
         Math.max(PLACES_CONFIG.TIMEOUT_MS, 15000),
       );
@@ -53,19 +68,11 @@ class GoogleMapsLoader {
       const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
       if (existing) {
         existing.addEventListener(
-          "load",
-          () => {
-            googleWindow.google?.maps?.importLibrary
-              ? finish()
-              : finish(new Error("maps_api_unavailable"));
-          },
-          { once: true },
-        );
-        existing.addEventListener(
           "error",
           () => finish(new Error("maps_script_failed")),
           { once: true },
         );
+        pollUntilReady();
         return;
       }
 
@@ -82,13 +89,9 @@ class GoogleMapsLoader {
           libraries: "places,marker",
           auth_referrer_policy: "origin",
         }).toString();
-      script.onload = () => {
-        googleWindow.google?.maps?.importLibrary
-          ? finish()
-          : finish(new Error("maps_api_unavailable"));
-      };
       script.onerror = () => finish(new Error("maps_script_failed"));
       document.head.appendChild(script);
+      pollUntilReady();
     });
 
     return this.loadPromise;

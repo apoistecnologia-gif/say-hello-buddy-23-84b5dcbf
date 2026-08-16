@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { PaymentMethod, PaymentMethodCode } from "@/types/payments";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import type { PaymentMethod, PaymentMethodCode } from "@/types/payments";
 import { useAuth } from "@/hooks/use-auth";
 import { paymentService } from "@/services/payments/payment-service";
 
@@ -9,48 +9,94 @@ interface PaymentMethodsContextType {
   setSelectedMethod: (code: PaymentMethodCode) => void;
   selectMethod: (code: PaymentMethodCode) => void;
   isLoading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
 }
 
 const PaymentMethodsContext = createContext<PaymentMethodsContextType | undefined>(undefined);
 
 export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodCode | null>(null);
+  const [selectedMethod, setSelectedMethodState] = useState<PaymentMethodCode | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadMethods = useCallback(async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = (await paymentService.getPaymentMethods()).filter(
+        (method) => method.isActive && method.enabled,
+      );
+      setMethods(data);
+
+      let savedMethod: string | null = null;
+      if (userId) {
+        try {
+          savedMethod = window.localStorage.getItem(
+            `apois:passageiro:${userId}:payment_method`,
+          );
+        } catch {
+          savedMethod = null;
+        }
+      }
+
+      const savedActiveMethod = data.find((method) => method.code === savedMethod)?.code ?? null;
+      const currentActiveMethod = data.find((method) => method.code === selectedMethod)?.code ?? null;
+      const nextMethod = savedActiveMethod ?? currentActiveMethod ?? data[0]?.code ?? null;
+      setSelectedMethodState(nextMethod);
+
+      if (userId && savedMethod && savedMethod !== nextMethod) {
+        try {
+          if (nextMethod) {
+            window.localStorage.setItem(
+              `apois:passageiro:${userId}:payment_method`,
+              nextMethod,
+            );
+          } else {
+            window.localStorage.removeItem(`apois:passageiro:${userId}:payment_method`);
+          }
+        } catch {
+          // A preferência em memória continua válida mesmo sem armazenamento local.
+        }
+      }
+
+      if (data.length === 0) {
+        setError("Nenhuma forma de pagamento está disponível no momento.");
+      }
+    } catch (caughtError: unknown) {
+      console.error("[PaymentMethodsProvider] Failed to load payment methods", caughtError);
+      setMethods([]);
+      setSelectedMethodState(null);
+      setError("Não foi possível carregar as formas de pagamento.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedMethod, userId]);
 
   useEffect(() => {
-    const loadMethods = async () => {
-      try {
-        setIsLoading(true);
-        const data = await paymentService.getPaymentMethods();
-        setMethods(data);
+    void loadMethods();
+  }, [loadMethods]);
 
-        // Load preference
-        if (user) {
-          const saved = localStorage.getItem(`apois:passageiro:${user.id}:payment_method`);
-          if (saved && data && (data as any[]).some((m) => m.code === saved)) {
-            setSelectedMethod(saved as PaymentMethodCode);
-          } else if (data && (data as any[]).length > 0) {
-            setSelectedMethod((data as any[])[0].code);
-          }
+  const handleSelect = useCallback(
+    (code: PaymentMethodCode): void => {
+      const method = methods.find((item) => item.code === code);
+      if (!method?.isActive || !method.enabled) return;
+
+      setSelectedMethodState(code);
+      if (userId) {
+        try {
+          window.localStorage.setItem(`apois:passageiro:${userId}:payment_method`, code);
+        } catch {
+          // A seleção permanece ativa na sessão atual.
         }
-      } catch (error) {
-        console.error("Failed to load payment methods", error);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    loadMethods();
-  }, [user]);
-
-  const handleSelect = (code: PaymentMethodCode) => {
-    setSelectedMethod(code);
-    if (user) {
-      localStorage.setItem(`apois:passageiro:${user.id}:payment_method`, code);
-    }
-  };
+    },
+    [methods, userId],
+  );
 
   return (
     <PaymentMethodsContext.Provider
@@ -60,6 +106,8 @@ export const PaymentMethodsProvider: React.FC<{ children: React.ReactNode }> = (
         setSelectedMethod: handleSelect,
         selectMethod: handleSelect,
         isLoading,
+        error,
+        refresh: loadMethods,
       }}
     >
       {children}

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "712806072530",
-    "project_id": "apois-fb3a7",
-    "storage_bucket": "apois-fb3a7.firebasestorage.app"
+    "project_number": "808678424624",
+    "project_id": "movvi-4d041",
+    "storage_bucket": "movvi-4d041.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:712806072530:android:8563e97625f9045090ed0b",
+        "mobilesdk_app_id": "1:808678424624:android:cd7479afa0c4bb46bf2df5",
         "android_client_info": {
           "package_name": "com.apois.passageiro"
         }
@@ -15,7 +15,45 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyARaiVBg-ZlwUPexm3lvID7CE6x8BhOavU"
+          "current_key": "AIzaSyCvG-sa3BTsaFDWuH2_iS4ejFcF1Igvr08"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:808678424624:android:14ff12743d57d380bf2df5",
+        "android_client_info": {
+          "package_name": "com.movvi.driver"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvG-sa3BTsaFDWuH2_iS4ejFcF1Igvr08"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:808678424624:android:2306db60b1abc521bf2df5",
+        "android_client_info": {
+          "package_name": "com.movvi.passenger"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvG-sa3BTsaFDWuH2_iS4ejFcF1Igvr08"
         }
       ],
       "services": {

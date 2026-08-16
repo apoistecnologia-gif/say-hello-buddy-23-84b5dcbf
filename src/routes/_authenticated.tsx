@@ -2,8 +2,7 @@ import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/
 import { useEffect, useRef } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
-
-import { BottomNavigation } from "@/components/BottomNavigation";
+import { AppShell } from "@/components/layout/AppShell";
 import { Toaster } from "@/components/ui/sonner";
 import { LocationProvider } from "@/hooks/use-location";
 import { PickupAddressProvider } from "@/hooks/use-pickup-address";
@@ -82,15 +81,10 @@ function AuthenticatedLayout() {
                                 <ActiveRideProvider>
                                   <ActiveRideRecovery />
                                   <PushBootstrap />
-                                  <div className="min-h-[100dvh] bg-zinc-950 flex justify-center selection:bg-yellow-500/30 overflow-hidden">
-                                    <div className="relative w-full max-w-[430px] h-[100dvh] bg-black overflow-hidden flex flex-col">
-                                      <div className="flex-1 relative overflow-hidden flex flex-col">
-                                        <Outlet />
-                                      </div>
-                                      <BottomNavigation />
-                                      <Toaster />
-                                    </div>
-                                  </div>
+                                  <AppShell>
+                                    <Outlet />
+                                  </AppShell>
+                                  <Toaster position="top-center" />
                                 </ActiveRideProvider>
                               </RideRequestProvider>
                             </CheckoutPreparationProvider>

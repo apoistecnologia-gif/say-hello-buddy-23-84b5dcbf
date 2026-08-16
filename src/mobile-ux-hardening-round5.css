@@ -1,0 +1,128 @@
+/* APOIS Passageiro — rodada 5: 25 correções residuais de UI/UX mobile. */
+
+/* 01 — elementos semânticos com role=button também precisam de alvo de 44px. */
+.app-screen [role="button"],
+.app-dialog-content [role="button"] { min-height: 44px; }
+
+/* 02 — controles aria-haspopup usados por menus/popovers não ficam com alvo pequeno. */
+.app-screen [aria-haspopup="menu"],
+.app-screen [aria-haspopup="dialog"],
+.app-dialog-content [aria-haspopup="menu"] { min-height: 44px; min-width: 44px; }
+
+/* 03 — opções de lista/autocomplete mantêm altura tocável. */
+.app-screen [role="listbox"] [role="option"],
+.app-dialog-content [role="listbox"] [role="option"] { min-height: 44px; }
+
+/* 04 — conteúdo de dialog reserva espaço para o botão de fechar. */
+.app-dialog-content > h2:first-of-type,
+.app-dialog-content > h3:first-of-type { padding-right: 2.75rem; }
+
+/* 05 — títulos de dialog vindos do backend podem quebrar sem invadir o close. */
+.app-dialog-content h1,
+.app-dialog-content h2,
+.app-dialog-content h3 { overflow-wrap: anywhere; min-width: 0; }
+
+/* 06 — mensagens live/status não podem provocar overflow com erros longos. */
+.app-screen [aria-live],
+.app-screen [role="status"],
+.app-screen [role="alert"] { overflow-wrap: anywhere; max-width: 100%; }
+
+/* 07 — grupos de botões não preservam nowrap herdado em telas estreitas. */
+@media (max-width: 359px) {
+  .app-screen button,
+  .app-dialog-content button { white-space: normal; }
+}
+
+/* 08 — filhos de grids precisam poder realmente encolher. */
+.app-screen .grid > *,
+.app-dialog-content .grid > * { min-width: 0; }
+
+/* 09 — listas flex horizontais não deixam um item dinâmico expandir a viewport. */
+.app-screen .flex > *,
+.app-dialog-content .flex > * { max-width: 100%; }
+
+/* 10 — campos focados ganham scroll-margin para não ficarem sob barras sticky. */
+.app-screen input,
+.app-screen textarea,
+.app-screen select,
+.app-dialog-content input,
+.app-dialog-content textarea,
+.app-dialog-content select { scroll-margin-top: calc(4.5rem + env(safe-area-inset-top)); scroll-margin-bottom: calc(6rem + env(safe-area-inset-bottom)); }
+
+/* 11 — textos de ajuda abaixo de 10px são elevados ao mínimo legível. */
+.app-screen [class~="text-[9.5px]"],
+.app-dialog-content [class~="text-[9.5px]"] { font-size: 10px; }
+
+/* 12 — valores monetários usam algarismos tabulares para não saltar visualmente. */
+.app-screen [class*="font-black"][class*="text-"],
+.app-dialog-content [class*="font-black"][class*="text-"] { font-variant-numeric: tabular-nums; }
+
+/* 13 — campos numéricos também mantêm alinhamento estável de dígitos. */
+.app-screen input[type="number"],
+.app-dialog-content input[type="number"] { font-variant-numeric: tabular-nums; }
+
+/* 14 — barras fixed/sticky não podem ultrapassar largura útil por padding/border. */
+.app-screen [class*="fixed"],
+.app-screen [class*="sticky"] { box-sizing: border-box; max-width: 100vw; }
+
+/* 15 — conteúdo rolável ganha momentum scrolling no iOS/WebView compatível. */
+.app-scroll,
+.app-dialog-content,
+.app-screen [class*="overflow-y-auto"] { -webkit-overflow-scrolling: touch; }
+
+/* 16 — tabelas residuais não estouram a tela; rolam apenas no próprio bloco. */
+.app-screen table,
+.app-dialog-content table { max-width: 100%; }
+.app-screen :has(> table),
+.app-dialog-content :has(> table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* 17 — células longas (IDs/endereço) podem quebrar quando tabela estiver estreita. */
+.app-screen th,
+.app-screen td,
+.app-dialog-content th,
+.app-dialog-content td { overflow-wrap: anywhere; }
+
+/* 18 — listas de definição/metadados em duas colunas empilham no último breakpoint. */
+@media (max-width: 339px) {
+  .app-screen dl.grid.grid-cols-2,
+  .app-dialog-content dl.grid.grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 19 — badges não encolhem a fonte para caber; quebram o texto quando necessário. */
+.app-screen [class*="rounded-full"][class*="text-[10px]"],
+.app-dialog-content [class*="rounded-full"][class*="text-[10px]"] { white-space: normal; text-align: center; overflow-wrap: anywhere; }
+
+/* 20 — ícones decorativos dentro de botões não interceptam toques. */
+.app-screen button > svg,
+.app-dialog-content button > svg { pointer-events: none; }
+
+/* 21 — placeholders permanecem legíveis no tema escuro. */
+.app-screen input::placeholder,
+.app-screen textarea::placeholder,
+.app-dialog-content input::placeholder,
+.app-dialog-content textarea::placeholder { opacity: 0.72; }
+
+/* 22 — controles desabilitados ainda conservam contraste suficiente. */
+.app-screen button:disabled,
+.app-dialog-content button:disabled,
+.app-screen input:disabled,
+.app-dialog-content input:disabled { opacity: max(0.58, var(--disabled-opacity, 0.58)); }
+
+/* 23 — elementos focáveis recebem scroll-margin lateral em carrosséis. */
+.app-screen [class*="overflow-x-auto"] button,
+.app-screen [class*="overflow-x-auto"] a { scroll-margin-inline: 12px; }
+
+/* 24 — em landscape baixo, cabeçalhos reduzem padding sem perder safe-area. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .app-screen header.app-safe-top { padding-top: calc(0.375rem + env(safe-area-inset-top)); padding-bottom: 0.375rem; }
+}
+
+/* 25 — usuários com alto contraste forçado ainda enxergam foco e bordas de ação. */
+@media (forced-colors: active) {
+  .app-screen button,
+  .app-screen a,
+  .app-dialog-content button,
+  .app-dialog-content a { forced-color-adjust: auto; }
+  .app-screen :focus-visible,
+  .app-dialog-content :focus-visible { outline: 2px solid CanvasText; }
+}

@@ -5,6 +5,7 @@ import { useRoute } from "@/hooks/use-route";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { useDestination } from "@/hooks/use-destination";
 import { googleMapsLoader } from "@/services/google/google-maps-loader";
+import { cn } from "@/lib/utils";
 
 interface PassengerMapProps {
   origin: { lat: number; lng: number } | undefined;
@@ -12,14 +13,36 @@ interface PassengerMapProps {
   encodedPolyline: string | undefined;
   driverLocation: { lat: number; lng: number; heading?: number } | undefined;
   isStatic: boolean | undefined;
+  selectionMode?: boolean;
+  compact?: boolean;
+  onCenterChange?: (coordinate: { lat: number; lng: number }) => void;
 }
 
 type MapStatus = "loading" | "ready" | "configuration-error" | "api-error";
 type Coordinate = { lat: number; lng: number };
 
-const DEFAULT_CENTER = { lat: -9.3891, lng: -40.5031 };
+const NEUTRAL_CENTER = { lat: -14.235, lng: -51.9253 };
+const NEUTRAL_ZOOM = 4;
 const DRIVER_ANIMATION_MS = 900;
 const CAMERA_UPDATE_INTERVAL_MS = 1800;
+
+const DARK_MAP_STYLES = [
+  { elementType: "geometry", stylers: [{ color: "#171a21" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#171a21" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8f96a3" }] },
+  { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#c7cbd3" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#8d939f" }] },
+  { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#17231e" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6f8b78" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#252a33" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#15181e" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#a5aab3" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#343943" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#20242b" }] },
+  { featureType: "transit", elementType: "geometry", stylers: [{ color: "#20242c" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0d2532" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#67808c" }] },
+];
 
 const isCoordinate = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -36,6 +59,9 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   destination: customDestination,
   driverLocation,
   isStatic = false,
+  selectionMode = false,
+  compact = false,
+  onCenterChange,
 }) => {
   const { location } = useLocation();
   const { route } = useRoute();
@@ -52,10 +78,16 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   const polylineRef = useRef<any>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const authFailureCleanupRef = useRef<(() => void) | null>(null);
+  const mapIdleListenerRef = useRef<any>(null);
+  const onCenterChangeRef = useRef(onCenterChange);
   const cameraInitializedRef = useRef(false);
   const lastCameraUpdateRef = useRef(0);
   const [status, setStatus] = useState<MapStatus>("loading");
   const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    onCenterChangeRef.current = onCenterChange;
+  }, [onCenterChange]);
 
   const origin = useMemo(() => {
     const lat = customOrigin?.lat ?? location?.latitude;
@@ -64,15 +96,17 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   }, [customOrigin?.lat, customOrigin?.lng, location?.latitude, location?.longitude]);
 
   const destination = useMemo(() => {
+    if (selectionMode) return null;
     const value = customDestination ?? globalDestination;
     if (!value) return null;
     const lat = "latitude" in value ? value.latitude : value.lat;
     const lng = "longitude" in value ? value.longitude : value.lng;
     return isCoordinate(lat) && isCoordinate(lng) ? { lat, lng } : null;
-  }, [customDestination, globalDestination]);
+  }, [customDestination, globalDestination, selectionMode]);
 
   const validDriverLocation = useMemo<Coordinate | null>(() => {
     if (
+      selectionMode ||
       !driverLocation ||
       !isCoordinate(driverLocation.lat) ||
       !isCoordinate(driverLocation.lng)
@@ -80,15 +114,26 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       return null;
     }
     return { lat: driverLocation.lat, lng: driverLocation.lng };
-  }, [driverLocation]);
+  }, [driverLocation, selectionMode]);
+
+  const emitMapCenter = useCallback(() => {
+    if (!mapRef.current || !onCenterChangeRef.current) return;
+    const center = mapRef.current.getCenter?.();
+    const lat = center?.lat?.();
+    const lng = center?.lng?.();
+    if (isCoordinate(lat) && isCoordinate(lng)) {
+      onCenterChangeRef.current({ lat, lng });
+    }
+  }, []);
 
   const initializeMap = useCallback(async (): Promise<void> => {
-    console.log("[PassengerMap] Initializing map...", { reloadKey, hasElement: !!mapElementRef.current });
     if (!mapElementRef.current) return;
     setStatus("loading");
 
     authFailureCleanupRef.current?.();
     authFailureCleanupRef.current = null;
+    mapIdleListenerRef.current?.remove?.();
+    mapIdleListenerRef.current = null;
 
     try {
       const googleWindow = window as any;
@@ -99,12 +144,11 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       };
 
       const mapsLibrary = (await googleMapsLoader.importLibrary("maps")) as any;
-      console.log("[PassengerMap] Google Maps library loaded");
       if (!mapElementRef.current) return;
 
       mapRef.current = new mapsLibrary.Map(mapElementRef.current, {
-        center: origin ?? DEFAULT_CENTER,
-        zoom: origin ? 16 : 13,
+        center: origin ?? NEUTRAL_CENTER,
+        zoom: origin ? 16 : NEUTRAL_ZOOM,
         disableDefaultUI: true,
         clickableIcons: false,
         gestureHandling: isStatic ? "none" : "greedy",
@@ -112,8 +156,14 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
-        backgroundColor: "#e5e7eb",
+        backgroundColor: "#171a21",
+        styles: DARK_MAP_STYLES,
       });
+
+      if (selectionMode) {
+        mapIdleListenerRef.current = mapRef.current.addListener("idle", emitMapCenter);
+        window.setTimeout(emitMapCenter, 0);
+      }
 
       cameraInitializedRef.current = false;
       driverPositionRef.current = null;
@@ -125,7 +175,6 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       });
       if (containerRef.current) resizeObserverRef.current.observe(containerRef.current);
 
-      console.log("[PassengerMap] Map instance created successfully");
       setStatus("ready");
     } catch (error) {
       console.error("[PassengerMap] Google Maps initialization failed", {
@@ -136,7 +185,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       const isConfigError = code.includes("configuration_missing") || code.includes("api_key_empty");
       setStatus(isConfigError ? "configuration-error" : "api-error");
     }
-  }, [isStatic, origin, reloadKey]);
+  }, [emitMapCenter, isStatic, origin, reloadKey, selectionMode]);
 
   useEffect(() => {
     void initializeMap();
@@ -145,6 +194,8 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
       resizeObserverRef.current = null;
       authFailureCleanupRef.current?.();
       authFailureCleanupRef.current = null;
+      mapIdleListenerRef.current?.remove?.();
+      mapIdleListenerRef.current = null;
       if (driverAnimationRef.current !== null) cancelAnimationFrame(driverAnimationRef.current);
     };
   }, [initializeMap]);
@@ -158,6 +209,16 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     staticMarkersRef.current = [];
     polylineRef.current?.setMap(null);
     polylineRef.current = null;
+
+    if (selectionMode) {
+      if (!cameraInitializedRef.current) {
+        mapRef.current.setCenter(origin ?? NEUTRAL_CENTER);
+        mapRef.current.setZoom(origin ? 16 : NEUTRAL_ZOOM);
+        cameraInitializedRef.current = true;
+        emitMapCenter();
+      }
+      return;
+    }
 
     const bounds = new maps.LatLngBounds();
     let pointCount = 0;
@@ -226,20 +287,25 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
     }
 
     if (pointCount > 1) {
-      mapRef.current.fitBounds(bounds, { top: 170, right: 40, bottom: 330, left: 40 });
+      mapRef.current.fitBounds(
+        bounds,
+        compact
+          ? { top: 28, right: 28, bottom: 28, left: 28 }
+          : { top: 170, right: 40, bottom: 330, left: 40 },
+      );
     } else if (origin) {
       mapRef.current.setCenter(origin);
       mapRef.current.setZoom(16);
     } else {
-      mapRef.current.setCenter(DEFAULT_CENTER);
-      mapRef.current.setZoom(13);
+      mapRef.current.setCenter(NEUTRAL_CENTER);
+      mapRef.current.setZoom(NEUTRAL_ZOOM);
     }
 
     cameraInitializedRef.current = true;
-  }, [destination, orderedStops, origin, route?.decodedPoints, status]);
+  }, [compact, destination, emitMapCenter, orderedStops, origin, route?.decodedPoints, selectionMode, status, validDriverLocation]);
 
   useEffect(() => {
-    if (!mapRef.current || status !== "ready") return;
+    if (!mapRef.current || status !== "ready" || selectionMode) return;
     const maps = (window as any).google?.maps;
     if (!maps) return;
 
@@ -317,7 +383,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
         mapRef.current.panTo(validDriverLocation);
       }
     }
-  }, [driverLocation?.heading, isStatic, origin, status, validDriverLocation]);
+  }, [driverLocation?.heading, isStatic, origin, selectionMode, status, validDriverLocation]);
 
   const retry = () => {
     googleMapsLoader.reset();
@@ -329,14 +395,20 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="relative h-full min-h-[320px] w-full overflow-hidden bg-zinc-200">
-      <div ref={mapElementRef} className="absolute inset-0 h-full w-full" aria-label="Mapa da corrida" />
+    <div
+      ref={containerRef}
+      className={cn(
+        "relative h-full w-full overflow-hidden bg-[#171a21]",
+        compact ? "min-h-0" : "min-h-[320px]",
+      )}
+    >
+      <div ref={mapElementRef} className="absolute inset-0 h-full w-full" aria-label={selectionMode ? "Mapa para escolher o destino" : "Mapa da corrida"} />
 
       {status === "loading" && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-zinc-100/90">
-          <div className="flex flex-col items-center gap-3 rounded-3xl bg-white/95 px-6 py-5 shadow-xl">
-            <div className="h-9 w-9 animate-spin rounded-full border-4 border-zinc-200 border-t-apois-yellow" />
-            <p className="text-xs font-bold text-zinc-700">Carregando mapa...</p>
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[#171a21]/90">
+          <div className="flex flex-col items-center gap-3 rounded-3xl border border-white/8 bg-[#111318]/95 px-6 py-5 shadow-xl">
+            <div className="h-9 w-9 animate-spin rounded-full border-4 border-zinc-700 border-t-apois-yellow" />
+            <p className="text-xs font-bold text-zinc-300">Carregando mapa...</p>
           </div>
         </div>
       )}
@@ -347,7 +419,7 @@ const PassengerMap: React.FC<PassengerMapProps> = ({
             <p className="text-sm font-black uppercase tracking-tight text-apois-yellow">Mapa indisponível</p>
             <p className="text-xs leading-relaxed text-zinc-300">
               {status === "configuration-error"
-                ? "A chave do Google Maps para Web está ausente ou não autorizada para este domínio."
+                ? "A configuração do Google Maps está ausente ou não autorizada para este ambiente."
                 : "Não foi possível carregar o mapa. Verifique a conexão e tente novamente."}
             </p>
             <button

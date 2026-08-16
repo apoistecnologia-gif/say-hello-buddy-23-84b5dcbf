@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-label="Envios">
+  <defs>
+    <linearGradient id="box1" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d9aa71"/><stop offset="1" stop-color="#8e6037"/></linearGradient>
+    <linearGradient id="box2" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#efc78d"/><stop offset="1" stop-color="#a47445"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffdc63"/><stop offset="1" stop-color="#f1a600"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-60%" width="180%" height="240%"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+  <ellipse cx="163" cy="146" rx="101" ry="14" fill="#000" opacity=".62" filter="url(#shadow)"/>
+  <path d="M75 72l69-28 68 29-68 31-69-32Z" fill="url(#box2)" stroke="#f1cf9f" stroke-width="2"/>
+  <path d="M75 72v59l69 29v-56L75 72Z" fill="url(#box1)" stroke="#aa7747" stroke-width="2"/>
+  <path d="M144 104v56l68-31V73l-68 31Z" fill="#9d6b3f" stroke="#7d522e" stroke-width="2"/>
+  <path d="M110 58l68 29v58" fill="none" stroke="#74502f" stroke-width="3" opacity=".7"/>
+  <path d="M143 45l-34 14 68 29 35-15-69-28Z" fill="#f0c58b" opacity=".55"/>
+  <path d="M120 54l22-9 67 28-22 10-67-29Z" fill="url(#gold)" opacity=".95"/>
+  <rect x="91" y="95" width="37" height="23" rx="3" fill="#f4e5cf" opacity=".9"/>
+  <path d="M98 102h23M98 108h17" stroke="#7f694e" stroke-width="2" stroke-linecap="round"/>
+  <path d="M229 94l24 15-24 15" fill="none" stroke="#f6be1c" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M218 109h34" stroke="#f6be1c" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="255" cy="109" r="23" fill="#f6be1c" opacity=".08"/>
+</svg>

@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
 import type { Position as CapacitorPosition } from "@capacitor/geolocation";
 
@@ -64,29 +65,6 @@ const normalizePermission = (value: string | undefined): LocationPermissionState
   return "unknown";
 };
 
-const readCachedLocation = (): LocationData | null => {
-  try {
-    const value = window.localStorage.getItem(LAST_LOCATION_KEY);
-    if (!value) return null;
-    const parsed = JSON.parse(value) as Partial<LocationData>;
-    if (
-      typeof parsed.latitude !== "number" ||
-      typeof parsed.longitude !== "number" ||
-      !isValidCoordinate(parsed.latitude, parsed.longitude)
-    ) {
-      return null;
-    }
-    return {
-      latitude: parsed.latitude,
-      longitude: parsed.longitude,
-      accuracy: typeof parsed.accuracy === "number" ? parsed.accuracy : 0,
-      timestamp: typeof parsed.timestamp === "number" ? parsed.timestamp : Date.now(),
-    };
-  } catch {
-    return null;
-  }
-};
-
 const classifyLocationError = (error: unknown) => {
   const record = error as { code?: number | string; message?: string };
   const message = String(record.message ?? "").toLowerCase();
@@ -117,7 +95,9 @@ const classifyLocationError = (error: unknown) => {
 };
 
 export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [location, setLocation] = useState<LocationData | null>(() => readCachedLocation());
+  // Não reaproveita uma coordenada antiga como se fosse a posição atual.
+  // A Home só recebe localização depois de uma leitura real do aparelho nesta sessão.
+  const [location, setLocation] = useState<LocationData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [permissionState, setPermissionState] =
@@ -262,7 +242,20 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     mountedRef.current = true;
 
     const start = async () => {
-      const permission = await checkPermissions();
+      let permission = await checkPermissions();
+      if (!mountedRef.current) return;
+
+      // Android/iOS precisam disparar o diálogo nativo no primeiro acesso.
+      // Antes, a inicialização apenas verificava a permissão e parava em "prompt".
+      if (
+        Capacitor.isNativePlatform() &&
+        (permission === "prompt" || permission === "unknown")
+      ) {
+        await requestPermission();
+        if (!mountedRef.current) return;
+        permission = await checkPermissions();
+      }
+
       if (!mountedRef.current || permission !== "granted") return;
 
       await refreshLocation();
@@ -301,7 +294,7 @@ export const LocationProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       watchIdRef.current = null;
       if (watchId) void Geolocation.clearWatch({ id: watchId });
     };
-  }, [checkPermissions, refreshLocation, updateLocationState]);
+  }, [checkPermissions, refreshLocation, requestPermission, updateLocationState]);
 
   return (
     <LocationContext.Provider

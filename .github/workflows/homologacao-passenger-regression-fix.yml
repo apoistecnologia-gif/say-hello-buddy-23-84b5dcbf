@@ -1,0 +1,99 @@
+name: APOIS Passageiro — Homologação Regression Fix
+
+on:
+  push:
+    branches:
+      - feat/apois-passageiro-completo
+    paths:
+      - ".github/workflows/homologacao-passenger-regression-fix.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
+      GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+    steps:
+      - name: Checkout corrected candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 1ee38e8a54372ebbc196975d09771543a8419486
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate corrected source and production bindings
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "1ee38e8a54372ebbc196975d09771543a8419486"
+          grep -F 'SUPABASE_PROJECT_ID="vqtucstyduxrqjgyigfk"' .env
+          grep -F 'SUPABASE_URL="https://vqtucstyduxrqjgyigfk.supabase.co"' .env
+          grep -F 'appId: "com.apois.passageiro"' capacitor.config.ts
+          grep -F 'contentClassName="justify-start"' src/routes/_public.login.tsx
+          grep -F 'setEstimates([]);' src/hooks/use-pricing.tsx
+          grep -F '@drawable/apois_brand_logo' android/app/src/main/res/drawable/apois_splash_icon.xml
+          test -f android/app/google-services.json
+
+      - name: Validate Maps inputs
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_MAPS_WEB_API_KEY"
+          test -n "$GOOGLE_MAPS_ANDROID_API_KEY"
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build web bundle
+        run: |
+          set -euo pipefail
+          export VITE_GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_WEB_API_KEY"
+          bun run build
+
+      - name: Sync Capacitor Android
+        run: |
+          set -euo pipefail
+          printf 'GOOGLE_MAPS_API_KEY=%s\n' "$GOOGLE_MAPS_ANDROID_API_KEY" > android/local.properties
+          bunx cap sync android
+
+      - name: Validate Android manifest
+        run: |
+          set -euo pipefail
+          M=android/app/src/main/AndroidManifest.xml
+          grep -F 'android.permission.ACCESS_FINE_LOCATION' "$M"
+          grep -F 'android.permission.ACCESS_COARSE_LOCATION' "$M"
+          grep -F 'android:scheme="apoispassageiro"' "$M"
+
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk ../APOIS-Passageiro-Homologacao-Regressao.apk
+          sha256sum ../APOIS-Passageiro-Homologacao-Regressao.apk
+          ls -lh ../APOIS-Passageiro-Homologacao-Regressao.apk
+
+      - name: Upload corrected APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: APOIS-Passageiro-Homologacao-Regressao
+          path: APOIS-Passageiro-Homologacao-Regressao.apk
+          if-no-files-found: error
+          retention-days: 7

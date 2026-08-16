@@ -1,0 +1,76 @@
+.apois-native-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 35%, rgb(255 184 0 / 14%), transparent 34%),
+    #000000;
+  animation: apois-intro-fade-out 260ms ease 690ms both;
+}
+
+.apois-native-intro__brand {
+  display: flex;
+  width: min(72vw, 280px);
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  animation: apois-intro-brand-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.apois-native-intro__logo {
+  display: block;
+  width: min(52vw, 210px);
+  aspect-ratio: 1;
+  border-radius: 26%;
+  object-fit: cover;
+  box-shadow: 0 24px 70px rgb(255 184 0 / 18%);
+}
+
+.apois-native-intro__eyebrow {
+  margin: 22px 0 0;
+  color: #ffb800;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.26em;
+}
+
+.apois-native-intro__tagline {
+  margin: 8px 0 0;
+  color: rgb(255 255 255 / 72%);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+@keyframes apois-intro-brand-in {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes apois-intro-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apois-native-intro,
+  .apois-native-intro__brand {
+    animation: none;
+  }
+}

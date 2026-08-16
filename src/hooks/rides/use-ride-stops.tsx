@@ -1,8 +1,18 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
-import { RideStop, RideStopId } from "@/types/rides/stops";
-import { useDestination } from "@/hooks/use-destination";
-import { useLocation } from "@/hooks/use-location";
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { toast } from "sonner";
+import { useDestination } from "@/hooks/use-destination";
+import type { RideStop, RideStopId } from "@/types/rides/stops";
+
+interface RestorableRideStop {
+  latitude: number;
+  longitude: number;
+  label: string;
+  formattedAddress: string;
+  placeId: string;
+  subLabel?: string;
+  source?: RideStop["source"];
+}
 
 interface RideStopsContextType {
   stops: RideStop[];
@@ -13,103 +23,183 @@ interface RideStopsContextType {
   removeStop: (id: RideStopId) => void;
   reorderStops: (newStops: RideStop[]) => void;
   clearStops: () => void;
+  restoreStops: (items: RestorableRideStop[]) => void;
   validateStops: () => string | null;
   confirmStops: () => void;
   cancelEditing: () => void;
   isEditing: boolean;
-  setIsEditing: (val: boolean) => void;
+  setIsEditing: (value: boolean) => void;
 }
 
 const MAX_STOPS = 3;
-
 const RideStopsContext = createContext<RideStopsContextType | undefined>(undefined);
 
 export const RideStopsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [stops, setStops] = useState<RideStop[]>([]);
   const [tempStops, setTempStops] = useState<RideStop[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditingState] = useState(false);
   const { destination } = useDestination();
-  const { location } = useLocation();
 
-  const orderedStops = useMemo(() => {
-    return [...(isEditing ? tempStops : stops)].sort((a, b) => a.order - b.order);
-  }, [stops, tempStops, isEditing]);
+  const orderedStops = useMemo(
+    () => [...(isEditing ? tempStops : stops)].sort((a, b) => a.order - b.order),
+    [isEditing, stops, tempStops],
+  );
 
   const canAddStop = orderedStops.length < MAX_STOPS;
 
   const validateStops = useCallback(() => {
     const current = isEditing ? tempStops : stops;
+    const placeIds = new Set<string>();
 
-    // Check duplicates
-    const placeIds = new Set();
     for (const stop of current) {
-      if (!stop.placeId) return "Todas as paradas precisam de um local selecionado.";
-      if (placeIds.has(stop.placeId)) return "Você não pode adicionar a mesma parada duas vezes.";
+      if (!stop.placeId.trim()) return "Todas as paradas precisam de um local selecionado.";
+      if (!Number.isFinite(stop.latitude) || !Number.isFinite(stop.longitude)) {
+        return "Uma das paradas possui localização inválida.";
+      }
+      if (placeIds.has(stop.placeId)) {
+        return "Você não pode adicionar a mesma parada duas vezes.";
+      }
       placeIds.add(stop.placeId);
 
-      if (destination && stop.placeId === destination.placeId)
+      if (destination && stop.placeId === destination.placeId) {
         return "Uma parada não pode ser igual ao destino.";
-      // In a real app we'd check origin too, but origin often doesn't have a placeId from GPS
+      }
     }
 
     return null;
-  }, [stops, tempStops, isEditing, destination]);
+  }, [destination, isEditing, stops, tempStops]);
 
   const addStop = useCallback(
     (stopData: Omit<RideStop, "id" | "order" | "createdAt" | "updatedAt">) => {
-      if (!canAddStop) return;
+      const baseStops = isEditing ? tempStops : stops;
+      const placeId = stopData.placeId.trim();
 
+      if (baseStops.length >= MAX_STOPS) {
+        toast.error("Você já adicionou o limite de três paradas.");
+        return;
+      }
+      if (!placeId || !Number.isFinite(stopData.latitude) || !Number.isFinite(stopData.longitude)) {
+        toast.error("O local selecionado não possui uma localização válida.");
+        return;
+      }
+      if (baseStops.some((stop) => stop.placeId === placeId)) {
+        toast.error("Esta parada já foi adicionada ao trajeto.");
+        return;
+      }
+      if (destination?.placeId === placeId) {
+        toast.error("A parada não pode ser igual ao destino final.");
+        return;
+      }
+
+      const timestamp = new Date().toISOString();
       const newStop: RideStop = {
         ...stopData,
+        placeId,
         id: uuidv4(),
-        order: orderedStops.length,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        order: baseStops.length,
+        createdAt: timestamp,
+        updatedAt: timestamp,
       };
 
-      setTempStops((prev) => [...prev, newStop]);
-      if (!isEditing) setIsEditing(true);
+      setTempStops([...baseStops, newStop]);
+      setIsEditingState(true);
     },
-    [canAddStop, orderedStops.length, isEditing],
+    [destination?.placeId, isEditing, stops, tempStops],
   );
 
   const updateStop = useCallback((id: RideStopId, updates: Partial<RideStop>) => {
-    setTempStops((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s,
+    setTempStops((current) =>
+      current.map((stop) =>
+        stop.id === id
+          ? { ...stop, ...updates, updatedAt: new Date().toISOString() }
+          : stop,
       ),
     );
   }, []);
 
   const removeStop = useCallback((id: RideStopId) => {
-    setTempStops((prev) => {
-      const filtered = prev.filter((s) => s.id !== id);
-      return filtered.map((s, index) => ({ ...s, order: index }));
-    });
+    setTempStops((current) =>
+      current
+        .filter((stop) => stop.id !== id)
+        .map((stop, index) => ({ ...stop, order: index })),
+    );
   }, []);
 
   const reorderStops = useCallback((newStops: RideStop[]) => {
-    setTempStops(newStops.map((s, index) => ({ ...s, order: index })));
+    setTempStops(
+      newStops.map((stop, index) => ({
+        ...stop,
+        order: index,
+        updatedAt: new Date().toISOString(),
+      })),
+    );
   }, []);
 
   const confirmStops = useCallback(() => {
-    const error = validateStops();
-    if (error) throw new Error(error);
+    const validationError = validateStops();
+    if (validationError) throw new Error(validationError);
 
-    setStops(tempStops);
-    setIsEditing(false);
+    const confirmedStops = tempStops.map((stop, index) => ({ ...stop, order: index }));
+    setStops(confirmedStops);
+    setTempStops(confirmedStops);
+    setIsEditingState(false);
   }, [tempStops, validateStops]);
 
   const cancelEditing = useCallback(() => {
     setTempStops(stops);
-    setIsEditing(false);
+    setIsEditingState(false);
   }, [stops]);
 
   const clearStops = useCallback(() => {
     setStops([]);
     setTempStops([]);
-    setIsEditing(false);
+    setIsEditingState(false);
   }, []);
+
+  const restoreStops = useCallback((items: RestorableRideStop[]) => {
+    const timestamp = new Date().toISOString();
+    const seenPlaceIds = new Set<string>();
+    const restored = items
+      .filter((item) => {
+        const placeId = item.placeId.trim();
+        if (
+          !placeId ||
+          seenPlaceIds.has(placeId) ||
+          !Number.isFinite(item.latitude) ||
+          !Number.isFinite(item.longitude)
+        ) {
+          return false;
+        }
+        seenPlaceIds.add(placeId);
+        return true;
+      })
+      .slice(0, MAX_STOPS)
+      .map((item, index): RideStop => ({
+        id: uuidv4(),
+        order: index,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        label: item.label,
+        subLabel: item.subLabel ?? item.formattedAddress,
+        formattedAddress: item.formattedAddress,
+        placeId: item.placeId.trim(),
+        source: item.source ?? "recent",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      }));
+
+    setStops(restored);
+    setTempStops(restored);
+    setIsEditingState(false);
+  }, []);
+
+  const setIsEditing = useCallback(
+    (value: boolean) => {
+      setTempStops(stops);
+      setIsEditingState(value);
+    },
+    [stops],
+  );
 
   return (
     <RideStopsContext.Provider
@@ -122,6 +212,7 @@ export const RideStopsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         removeStop,
         reorderStops,
         clearStops,
+        restoreStops,
         validateStops,
         confirmStops,
         cancelEditing,

@@ -1,0 +1,119 @@
+/* APOIS Passageiro — rodada 8: 25 correções residuais de UI/UX mobile. */
+
+/* 01 — controles focáveis por teclado recebem foco visível consistente. */
+.app-screen [role="button"]:focus-visible,
+.app-screen [role="tab"]:focus-visible,
+.app-screen [role="option"]:focus-visible,
+.app-dialog-content [role="button"]:focus-visible,
+.app-dialog-content [role="tab"]:focus-visible,
+.app-dialog-content [role="option"]:focus-visible { outline: 2px solid rgba(246,190,28,.95); outline-offset: 2px; }
+
+/* 02 — grupos de opções não podem gerar largura mínima maior que o card. */
+.app-screen [role="radiogroup"],
+.app-dialog-content [role="radiogroup"] { min-width: 0; max-width: 100%; }
+
+/* 03 — checkboxes/radios nativos usam a cor institucional. */
+.app-screen input[type="checkbox"],
+.app-screen input[type="radio"],
+.app-dialog-content input[type="checkbox"],
+.app-dialog-content input[type="radio"] { accent-color: #f6be1c; }
+
+/* 04 — botão nativo de upload não fica abaixo da área mínima de toque. */
+.app-screen input[type="file"]::file-selector-button,
+.app-dialog-content input[type="file"]::file-selector-button { min-height: 44px; padding-inline: .75rem; }
+
+/* 05 — links marcados como aria-disabled deixam de receber interação visual. */
+.app-screen a[aria-disabled="true"],
+.app-dialog-content a[aria-disabled="true"] { pointer-events: none; text-decoration: none; }
+
+/* 06 — headings dentro de flex precisam poder encolher. */
+.app-screen .flex > h1,
+.app-screen .flex > h2,
+.app-screen .flex > h3,
+.app-dialog-content .flex > h1,
+.app-dialog-content .flex > h2,
+.app-dialog-content .flex > h3 { min-width: 0; }
+
+/* 07 — listas longas dentro de dialogs mantêm recuo sem cortar conteúdo. */
+.app-dialog-content ul,
+.app-dialog-content ol { max-width: 100%; padding-inline-start: 1.25rem; }
+
+/* 08 — palavras/URLs sem espaços podem quebrar dentro de listas. */
+.app-screen li,
+.app-dialog-content li { overflow-wrap: anywhere; }
+
+/* 09 — citações/documentos não mantêm margem lateral excessiva em 320px. */
+.app-screen blockquote,
+.app-dialog-content blockquote { max-width: 100%; margin-inline: 0; overflow-wrap: anywhere; }
+
+/* 10 — atalhos de teclado exibidos em suporte não forçam nowrap. */
+.app-screen kbd,
+.app-dialog-content kbd { white-space: normal; overflow-wrap: anywhere; }
+
+/* 11 — divisores não extrapolam o contêiner. */
+.app-screen hr,
+.app-dialog-content hr { max-width: 100%; }
+
+/* 12 — canvas de mapa/gráfico preserva largura útil mesmo com dimensão interna maior. */
+.app-screen canvas,
+.app-dialog-content canvas { width: auto; max-width: 100%; }
+
+/* 13 — overlays com position:absolute não podem escapar lateralmente por conteúdo longo. */
+.app-screen [class*="absolute"] { max-width: 100vw; box-sizing: border-box; }
+
+/* 14 — conteúdo centralizado via translate mantém largura segura. */
+.app-screen [class*="left-1/2"][class*="-translate-x-1/2"] { max-width: calc(100vw - 16px); }
+
+/* 15 — elementos sticky/fixed com z-index alto não bloqueiam toque fora da própria caixa. */
+.app-screen [class*="pointer-events-none"] > [class*="pointer-events-auto"] { max-width: 100%; }
+
+/* 16 — inputs com prefixos/sufixos dentro de flex não ultrapassam o wrapper. */
+.app-screen .flex input,
+.app-dialog-content .flex input { flex-shrink: 1; }
+
+/* 17 — selects em flex não preservam largura intrínseca excessiva. */
+.app-screen .flex select,
+.app-dialog-content .flex select { flex-shrink: 1; }
+
+/* 18 — botões com texto longo alinham conteúdo no centro sem cortar linha. */
+.app-screen button,
+.app-dialog-content button { text-wrap: balance; }
+
+/* 19 — links de ação longos mantêm quebra previsível. */
+.app-screen a,
+.app-dialog-content a { overflow-wrap: anywhere; }
+
+/* 20 — componentes contenteditable não podem ultrapassar o card. */
+.app-screen [contenteditable="true"],
+.app-dialog-content [contenteditable="true"] { max-width: 100%; min-width: 0; overflow-wrap: anywhere; }
+
+/* 21 — placeholder de conteúdo editável também mantém contraste. */
+.app-screen [contenteditable="true"]:empty::before,
+.app-dialog-content [contenteditable="true"]:empty::before { opacity: .72; }
+
+/* 22 — em 320px, padding horizontal excessivo de dialogs é reduzido com segurança. */
+@media (max-width: 339px) {
+  .app-dialog-content { padding-left: min(1rem, 4vw); padding-right: min(1rem, 4vw); }
+}
+
+/* 23 — em 320px, chips/badges inline não podem exigir largura mínima. */
+@media (max-width: 339px) {
+  .app-screen [class*="rounded-full"],
+  .app-dialog-content [class*="rounded-full"] { min-width: 0; }
+}
+
+/* 24 — em landscape baixo, conteúdo rolável reserva espaço inferior para CTA. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .app-scroll,
+  .app-dialog-content { scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+}
+
+/* 25 — coarse pointer reforça alvo mínimo para qualquer controle customizado clicável. */
+@media (pointer: coarse) {
+  .app-screen [role="button"],
+  .app-screen [role="menuitem"],
+  .app-screen [role="option"],
+  .app-dialog-content [role="button"],
+  .app-dialog-content [role="menuitem"],
+  .app-dialog-content [role="option"] { min-height: 44px; }
+}

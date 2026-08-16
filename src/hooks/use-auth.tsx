@@ -12,15 +12,17 @@ export type AuthState =
 
 export interface AuthProfile {
   id: string;
+  auth_user_id: string | null;
   name: string | null;
   full_name: string | null;
   email: string | null;
   phone: string | null;
   avatar_url: string | null;
+  avatar_storage_path: string | null;
   city: string | null;
   average_rating: number | null;
   completed_rides: number | null;
-  is_blocked: boolean | null;
+  is_blocked: boolean;
   blocked_reason: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -39,18 +41,67 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const PROFILE_RETRY_DELAYS_MS = [0, 350, 900];
+const PROFILE_PHOTO_MARKERS = [
+  "/storage/v1/object/sign/profile-photos/",
+  "/storage/v1/object/public/profile-photos/",
+  "/storage/v1/object/authenticated/profile-photos/",
+];
 
 const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
+const extractAvatarStoragePath = (value: string | null): string | null => {
+  const source = value?.trim();
+  if (!source) return null;
+  if (/^(data:|blob:)/i.test(source)) return null;
+  if (!/^https?:/i.test(source)) return source.replace(/^\/+/, "");
+
+  try {
+    const url = new URL(source);
+    for (const marker of PROFILE_PHOTO_MARKERS) {
+      const markerIndex = url.pathname.indexOf(marker);
+      if (markerIndex < 0) continue;
+      const encodedPath = url.pathname.slice(markerIndex + marker.length);
+      if (!encodedPath) return null;
+      return decodeURIComponent(encodedPath).replace(/^\/+/, "");
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+};
+
+const resolveAvatarDisplayUrl = async (value: string | null): Promise<string | null> => {
+  const source = value?.trim();
+  if (!source) return null;
+
+  const storagePath = extractAvatarStoragePath(source);
+  if (!storagePath) return source;
+
+  const { data, error } = await supabase.storage
+    .from("profile-photos")
+    .createSignedUrl(storagePath, 60 * 60);
+
+  if (error || !data?.signedUrl) {
+    console.warn("[AuthProvider] Could not sign private profile avatar", {
+      message: error?.message ?? "signed_url_missing",
+    });
+    return null;
+  }
+
+  return data.signedUrl;
+};
+
 const normalizeProfile = (value: unknown): AuthProfile | null => {
   if (!value || typeof value !== "object") return null;
+
   const record = value as Record<string, unknown>;
   const id = typeof record["id"] === "string" ? record["id"] : null;
   if (!id) return null;
 
   const readNullableString = (key: string): string | null => {
     const field = record[key];
-    return typeof field === "string" ? field : null;
+    return typeof field === "string" && field.trim().length > 0 ? field : null;
   };
 
   const readNullableNumber = (key: string): number | null => {
@@ -58,23 +109,26 @@ const normalizeProfile = (value: unknown): AuthProfile | null => {
     return typeof field === "number" && Number.isFinite(field) ? field : null;
   };
 
-  const readNullableBoolean = (key: string): boolean | null => {
-    const field = record[key];
-    return typeof field === "boolean" ? field : null;
-  };
+  const name = readNullableString("name");
+  const blockedAt = readNullableString("blocked_at");
+  const suspendedAt = readNullableString("suspended_at");
+  const blockedReason = readNullableString("block_reason");
+  const avatarSource = readNullableString("avatar_url");
 
   return {
     id,
-    name: readNullableString("name"),
-    full_name: readNullableString("full_name"),
+    auth_user_id: readNullableString("auth_user_id"),
+    name,
+    full_name: name,
     email: readNullableString("email"),
     phone: readNullableString("phone"),
-    avatar_url: readNullableString("avatar_url"),
+    avatar_url: avatarSource,
+    avatar_storage_path: extractAvatarStoragePath(avatarSource),
     city: readNullableString("city"),
     average_rating: readNullableNumber("average_rating"),
     completed_rides: readNullableNumber("completed_rides"),
-    is_blocked: readNullableBoolean("is_blocked"),
-    blocked_reason: readNullableString("blocked_reason"),
+    is_blocked: Boolean(blockedAt || suspendedAt || blockedReason),
+    blocked_reason: blockedReason,
     created_at: readNullableString("created_at"),
     updated_at: readNullableString("updated_at"),
   };
@@ -88,9 +142,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const activeProfileRequest = useRef(0);
+  const activeAuthUserId = useRef<string | null>(null);
 
   const clearLocalSessionState = useCallback(() => {
     activeProfileRequest.current += 1;
+    activeAuthUserId.current = null;
     setSession(null);
     setUser(null);
     setProfile(null);
@@ -118,16 +174,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (delay > 0) await sleep(delay);
       if (requestId !== activeProfileRequest.current) return null;
 
-      const { data, error: profileError } = await supabase
+      let { data, error: profileError } = await supabase
         .from("users")
         .select("*")
-        .eq("id", userId)
+        .eq("auth_user_id", userId)
         .maybeSingle();
+
+      if (!data && !profileError) {
+        const legacyResult = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+
+        data = legacyResult.data;
+        profileError = legacyResult.error;
+      }
 
       if (requestId !== activeProfileRequest.current) return null;
 
       if (!profileError && data) {
         const normalizedProfile = normalizeProfile(data);
+        if (!normalizedProfile) return null;
+
+        normalizedProfile.avatar_url = await resolveAvatarDisplayUrl(normalizedProfile.avatar_url);
+        if (requestId !== activeProfileRequest.current) return null;
+
         setProfile(normalizedProfile);
         return normalizedProfile;
       }
@@ -140,24 +212,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    if (requestId === activeProfileRequest.current) setProfile(null);
+    if (requestId === activeProfileRequest.current) {
+      setProfile(null);
+      console.warn("[AuthProvider] Auth session exists without a readable public profile", {
+        authUserId: userId,
+      });
+    }
+
     return null;
   }, []);
 
   const applySession = useCallback(
     async (nextSession: Session | null) => {
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+      const nextUser = nextSession?.user ?? null;
+      const nextUserId = nextUser?.id ?? null;
+      const userChanged = activeAuthUserId.current !== nextUserId;
 
-      if (!nextSession?.user) {
+      activeAuthUserId.current = nextUserId;
+      setSession(nextSession);
+      setUser(nextUser);
+
+      if (!nextUser) {
         activeProfileRequest.current += 1;
         setProfile(null);
         setAuthState("unauthenticated");
         return;
       }
 
+      if (userChanged) setProfile(null);
       setAuthState("authenticated");
-      await fetchProfile(nextSession.user.id);
+      await fetchProfile(nextUser.id);
     },
     [fetchProfile],
   );
@@ -212,9 +296,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return;
-      setIsLoading(false);
-      setError(null);
-      void applySession(nextSession);
+
+      void (async () => {
+        setIsLoading(true);
+        setError(null);
+        await applySession(nextSession);
+        if (mounted) setIsLoading(false);
+      })();
     });
 
     return () => {

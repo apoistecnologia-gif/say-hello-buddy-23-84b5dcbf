@@ -4,9 +4,11 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    branches:
-      - fix/apois-auditoria-completa
+  workflow_dispatch:
+
+concurrency:
+  group: validate-apois-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -14,36 +16,275 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
+    env:
+      GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
+      GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+      VITE_PUBLIC_APP_URL: ${{ secrets.PASSENGER_PUBLIC_APP_URL }}
+      VITE_SUPABASE_URL: https://vqtucstyduxrqjgyigfk.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ZFE0wgRVAFnpZrcBaOxKkg_fhxS_KHc
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: TypeScript
-        run: bun run typecheck
+      - name: Validate Supabase runtime configuration
+        run: |
+          test "$VITE_SUPABASE_URL" = "https://vqtucstyduxrqjgyigfk.supabase.co"
+          case "$VITE_SUPABASE_PUBLISHABLE_KEY" in
+            sb_publishable_*) ;;
+            *) echo "::error::VITE_SUPABASE_PUBLISHABLE_KEY ausente ou inválida"; exit 1 ;;
+          esac
+          echo "Supabase Passageiro configurado para vqtucstyduxrqjgyigfk"
 
-      - name: Lint corrected authentication and location files
+      - name: TypeScript
+        shell: bash
+        run: |
+          set +e
+          bun run typecheck 2>&1 | tee /tmp/apois-tsc.log
+          status=${PIPESTATUS[0]}
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path('/tmp/apois-tsc.log').read_text(errors='replace')
+          pattern = re.compile(r'^(.*)\((\d+),(\d+)\): error (TS\d+): (.*)$')
+          matched = False
+          for raw in text.splitlines():
+              match = pattern.match(raw.strip())
+              if not match:
+                  continue
+              matched = True
+              path, line, col, code, message = match.groups()
+              message = message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::error file={path},line={line},col={col},title={code}::{message}')
+          if not matched and text.strip():
+              message = text.strip().replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')[:6000]
+              print(f'::error title=TypeScript diagnostics::{message}')
+          PY
+          exit "$status"
+
+      - name: Unit tests
+        run: bun run test
+
+      - name: Check Supabase push function
+        run: deno check --node-modules-dir=auto supabase/functions/send-ride-push/index.ts
+
+      - name: Check payment and ride Edge Functions
+        shell: bash
+        run: |
+          set +e
+          files=(
+            supabase/functions/ride-pix-checkout/index.ts
+            supabase/functions/asaas-create-ride-pix/index.ts
+            supabase/functions/pagbank-create-ride-pix/index.ts
+            supabase/functions/pagbank-webhook/index.ts
+            supabase/functions/passenger-ride-request/index.ts
+            supabase/functions/request-ride/index.ts
+            supabase/functions/woovi-create-ride-pix/index.ts
+            supabase/functions/woovi-webhook/index.ts
+            supabase/functions/woovi-payout-webhook/index.ts
+            supabase/functions/driver-woovi-credit/index.ts
+            supabase/functions/driver-woovi-payment-account/index.ts
+            supabase/functions/request-driver-payout/index.ts
+            supabase/functions/driver-ride-action/index.ts
+            supabase/functions/cancel-ride/index.ts
+          )
+          failed=0
+          : > /tmp/payment-edge-deno.log
+          for file in "${files[@]}"; do
+            echo "=== $file ===" | tee -a /tmp/payment-edge-deno.log
+            deno check --node-modules-dir=auto "$file" 2>&1 | tee -a /tmp/payment-edge-deno.log
+            status=${PIPESTATUS[0]}
+            if [ "$status" -ne 0 ]; then failed=1; fi
+          done
+          if [ "$failed" -ne 0 ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          text = Path('/tmp/payment-edge-deno.log').read_text(errors='replace')
+          message = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')[-12000:]
+          print(f'::error title=Payment Edge Deno diagnostics::{message}')
+          PY
+            exit 1
+          fi
+
+      - name: Validate reserved next-ride contract
+        run: |
+          grep -F 'queued_after_ride_id' src/types/rides/active-ride.ts
+          grep -F 'queued_after_ride_id' src/services/rides/active-ride-service.ts
+          grep -F 'Motorista reservado' src/components/rides/active/RideStatusHeader.tsx
+          grep -F 'Sua corrida já está reservada.' 'src/routes/_authenticated.corrida.$rideId.tsx'
+
+      - name: Validate no-driver terminal contract
+        run: |
+          grep -F '| "expired";' src/types/rides/active-ride.ts
+          grep -F '"expired",' src/services/rides/active-ride-service.ts
+          grep -F 'expired: 6' src/services/rides/active-ride-service.ts
+          grep -F 'updatedRide.status === "expired"' src/hooks/rides/use-active-ride.tsx
+          grep -F 'data.status !== "expired"' src/hooks/rides/use-active-ride.tsx
+          grep -F 'case "expired":' src/components/rides/active/RideStatusHeader.tsx
+          grep -F 'Nenhum motorista disponível' src/components/rides/active/RideStatusHeader.tsx
+
+      - name: Reject source-mutating validation workflows
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          offenders = []
+          for path in Path('.github/workflows').glob('*.y*ml'):
+              if path.name == 'validate.yml':
+                  continue
+              text = path.read_text(encoding='utf-8')
+              if 'contents: write' in text or 'git push origin' in text or 'git commit -m' in text:
+                  offenders.append(str(path))
+          if offenders:
+              raise SystemExit('Workflows que alteram fonte não são permitidos: ' + ', '.join(offenders))
+          print('CI somente valida: nenhum workflow altera/pusha fonte.')
+          PY
+
+      - name: Validate PDF passenger checklist
+        run: |
+          grep -F 'h-[164px]' src/routes/_authenticated.inicio.tsx
+          grep -F 'pb-[160px]' src/routes/_authenticated.inicio.tsx
+          grep -F 'haversineMeters(previous.origin, originCoord) < 50' src/hooks/use-route.tsx
+          grep -F 'freezeRoute();' src/routes/_authenticated.revisar-solicitacao.tsx
+          grep -F 'void navigate({ to: "/inicio", replace: true });' 'src/routes/_authenticated.corrida.$rideId.tsx'
+          grep -F 'walletState === "blocked"' src/routes/_authenticated.revisar-solicitacao.tsx
+          grep -F 'canCancel && status !== "em_viagem"' src/components/rides/active/ActiveJourneyScreen.tsx
+          grep -F 'HOMOLOGATED_ELECTRONIC_METHODS' src/services/payments/payment-service.ts
+          grep -F 'ride-pix-checkout' src/components/payments/RidePixPaymentCard.tsx
+          grep -F 'processingFee' src/hooks/use-checkout-preparation.tsx
+          grep -F 'Taxa de processamento' src/routes/_authenticated.revisar-solicitacao.tsx
+          python3 - <<'PY'
+          from pathlib import Path
+          card = Path('src/components/rides/active/SecurityCodeCard.tsx').read_text(encoding='utf-8')
+          assert 'slice(0, 4)' in card, 'PIN não está limitado a quatro dígitos'
+          assert '/^\\d{4}$/' in card, 'PIN não exige exatamente quatro dígitos'
+          payment = Path('src/services/payments/payment-service.ts').read_text(encoding='utf-8')
+          assert 'new Set<PaymentMethodCode>(["pix"])' in payment, 'Pix não está marcado como eletrônico homologado'
+          assert 'new Set<PaymentMethodCode>(["credit", "debit"])' in payment, 'Cartão não está explicitamente bloqueado até homologação'
+          print('PIN e contrato de pagamento do passageiro validados')
+          PY
+
+      - name: Validate Firebase passenger client
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          config_path = Path("android/app/google-services.json")
+          if not config_path.is_file():
+              raise SystemExit("android/app/google-services.json não encontrado")
+          config = json.loads(config_path.read_text(encoding="utf-8"))
+          project_id = str(config.get("project_info", {}).get("project_id", "")).strip()
+          packages = {
+              str(client.get("client_info", {}).get("android_client_info", {}).get("package_name", "")).strip()
+              for client in config.get("client", [])
+          }
+          if not project_id:
+              raise SystemExit("Firebase project_id ausente")
+          if "com.apois.passageiro" not in packages:
+              raise SystemExit("Cliente Firebase com.apois.passageiro ausente")
+          print(f"Firebase Android validado para com.apois.passageiro no projeto {project_id}")
+          PY
+
+      - name: Lint critical passenger files
         run: >-
           bunx eslint
+          src/components/app/AppBrand.tsx
+          src/components/app/PrimaryButton.tsx
+          src/components/app/PublicAuthShell.tsx
+          src/components/auth/AuthGuard.tsx
+          src/components/legal/PublicLegalDocument.tsx
+          src/components/BottomNavigation.tsx
+          src/components/notifications/PushStatusCard.tsx
+          src/components/payments/RidePixPaymentCard.tsx
+          src/components/rides/active/RideStatusHeader.tsx
           src/hooks/use-auth.tsx
+          src/hooks/use-checkout-preparation.tsx
           src/hooks/use-location.tsx
+          src/hooks/use-payment-methods.tsx
+          src/hooks/use-push-notifications.tsx
+          src/hooks/rides/use-active-ride.tsx
+          src/hooks/rides/use-ride-request.tsx
+          src/lib/auth/native-password-recovery.ts
+          src/lib/auth/password-recovery.ts
+          src/lib/legal/legal-documents.ts
+          src/services/payments/payment-service.ts
+          src/services/rides/active-ride-service.ts
+          src/types/rides/active-ride.ts
+          src/types/rides/ride-request.ts
+          src/routes/_public.login.tsx
+          src/routes/_public.cadastro.tsx
+          src/routes/_public.privacidade.tsx
+          src/routes/_public.recuperar-senha.tsx
+          src/routes/_public.redefinir-senha.tsx
+          src/routes/_public.termos.tsx
+          'src/routes/_authenticated.corrida.$rideId.tsx'
+          src/routes/_authenticated.revisar-solicitacao.tsx
           src/routes/_authenticated.perfil.tsx
 
-      - name: Build
-        run: bun run build
-        env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_validation_placeholder
-          VITE_GOOGLE_MAPS_API_KEY: ci_validation_placeholder
+      - name: Build web
+        run: |
+          export VITE_GOOGLE_MAPS_API_KEY="${GOOGLE_MAPS_WEB_API_KEY:-ci_validation_placeholder}"
+          if [ -n "$VITE_PUBLIC_APP_URL" ]; then
+            echo "Public share URL configurada para este build."
+          else
+            unset VITE_PUBLIC_APP_URL
+            echo "::warning::PASSENGER_PUBLIC_APP_URL não configurada; compartilhamento público ficará honestamente indisponível neste APK, sem URL fictícia."
+          fi
+          bun run build
+
+      - name: Sync Capacitor Android
+        run: |
+          ANDROID_MAPS_KEY="${GOOGLE_MAPS_ANDROID_API_KEY:-ci_validation_placeholder}"
+          printf 'GOOGLE_MAPS_API_KEY=%s\n' "$ANDROID_MAPS_KEY" > android/local.properties
+          bunx cap sync android
+
+      - name: Build Android debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Explain missing homologation keys
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY == '' || env.GOOGLE_MAPS_ANDROID_API_KEY == '' }}
+        run: |
+          if [ -z "$GOOGLE_MAPS_WEB_API_KEY" ]; then
+            echo "::warning::GOOGLE_MAPS_WEB_API_KEY não está cadastrada nos segredos do repositório."
+          fi
+          if [ -z "$GOOGLE_MAPS_ANDROID_API_KEY" ]; then
+            echo "::warning::GOOGLE_MAPS_ANDROID_API_KEY não está cadastrada nos segredos do repositório."
+          fi
+          echo "::warning::O APK compilou apenas para validação e não será publicado como artefato de homologação."
+
+      - name: Publish homologation APK
+        if: ${{ env.GOOGLE_MAPS_WEB_API_KEY != '' && env.GOOGLE_MAPS_ANDROID_API_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: APOIS-Passageiro-Homologacao
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Full lint debt inventory
         continue-on-error: true

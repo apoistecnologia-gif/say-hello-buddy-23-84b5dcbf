@@ -1,12 +1,12 @@
-export type RideCategoryCode = "carro" | "moto" | "fretes" | "guincho" | "envios";
+export type RideCategoryCode = "carros" | "motos" | "fretes" | "guincho" | "envios";
 export type RideCategoryKey = RideCategoryCode;
 
 export interface RideCategory {
   id: string;
-  code: string;
-  key: RideCategoryCode; // Added for compatibility
+  code: RideCategoryCode;
+  key: RideCategoryCode;
   name: string;
-  label: string; // Added for compatibility
+  label: string;
   description?: string | null;
   icon?: string | null;
   imageUrl?: string | null;
@@ -14,21 +14,20 @@ export interface RideCategory {
   sortOrder: number;
   capacityLabel?: string | null;
   etaLabel?: string | null;
-  details?: any; // Added for compatibility
 }
 
 export interface FareEstimate {
   categoryId: string;
-  category_key?: string; // Added for compatibility
+  category_key?: string;
   available: boolean;
   estimatedPrice: number;
-  total?: number; // Added for compatibility
+  total?: number;
   originalPrice: number;
   minimumPriceApplied: boolean;
   estimatedPickupMinutes?: number;
   pricingVersion: string;
   unavailableReason?: string | null;
-  extrasTotal?: number; // Added for compatibility
+  extrasTotal?: number;
   base_fare?: number;
   distance_fare?: number;
   duration_fare?: number;
@@ -52,6 +51,8 @@ export interface PricingRequest {
   distanceMeters: number;
   durationSeconds: number;
   categoryIds?: string[];
+  serviceDetails?: ServiceDetails;
+  city?: string;
 }
 
 export interface PricingResponse {
@@ -59,7 +60,46 @@ export interface PricingResponse {
   estimates: FareEstimate[];
 }
 
-export interface ServiceDetails {}
+export interface FreightAccessDetails {
+  andar?: number;
+  elevador?: boolean;
+  escadas?: boolean;
+  dificilAcesso?: boolean;
+}
+
+export interface FreightServiceDetails {
+  tipoServico: "frete" | "mudanca";
+  ajudantes: "nenhum" | "um" | "dois";
+  itemPesado: boolean;
+  desmontar: boolean;
+  embalar: boolean;
+  retirada: FreightAccessDetails;
+  entrega: FreightAccessDetails;
+  observacoes?: string;
+}
+
+export interface TowServiceDetails {
+  tipoVeiculo: "moto" | "carro" | "utilitario" | "caminhonete";
+  veiculoLiga: boolean;
+  acidente: boolean;
+  rodasTravadas: boolean;
+  precisaPlataforma: boolean;
+  dificilAcesso: boolean;
+  garagemSubsolo: boolean;
+  observacoes?: string;
+}
+
+export interface DeliveryServiceDetails {
+  tipoItem: "documento" | "pacote" | "comida" | "outro";
+  weightKg: number;
+  fragil: boolean;
+  nomeDestinatario: string;
+  telefoneDestinatario: string;
+  observacoes?: string;
+}
+
+export type ServiceDetails = Record<string, unknown>;
+
 export interface FareExtra {
   label: string;
   value: number;

@@ -13,20 +13,76 @@ const PAYMENT_METHOD_CODES: PaymentMethodCode[] = [
   "wallet",
 ];
 
-function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
+const HOMOLOGATED_ELECTRONIC_METHODS = new Set<PaymentMethodCode>(["pix"]);
+const NOT_YET_HOMOLOGATED_METHODS = new Set<PaymentMethodCode>(["credit", "debit"]);
+
+type PixCapabilityRpcResult = {
+  data: boolean | null;
+  error: { code?: string; message?: string } | null;
+};
+
+type PaymentMethodRpcRow = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  requires_balance: boolean | null;
+  is_active: boolean | null;
+  sort_order: number | null;
+};
+
+type PaymentMethodsRpcResult = {
+  data: PaymentMethodRpcRow[] | null;
+  error: { code?: string; message?: string } | null;
+};
+
+type PixCapabilityRpc = (
+  fn: "is_passenger_ride_pix_enabled",
+) => PromiseLike<PixCapabilityRpcResult>;
+
+type PaymentMethodsRpc = (
+  fn: "get_passenger_payment_methods",
+) => PromiseLike<PaymentMethodsRpcResult>;
+
+export function normalizePaymentMethodCode(code: string): PaymentMethodCode | null {
   const normalized = code === "credit_card" ? "credit" : code === "debit_card" ? "debit" : code;
   return PAYMENT_METHOD_CODES.includes(normalized as PaymentMethodCode)
     ? (normalized as PaymentMethodCode)
     : null;
 }
 
+export function settingEnabled(value: unknown): boolean {
+  if (value === true || value === "true") return true;
+  if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    return record["enabled"] === true;
+  }
+  return false;
+}
+
 class PaymentService {
+  private async electronicRidePaymentsEnabled(): Promise<boolean> {
+    const { data, error } = await (supabase.rpc as unknown as PixCapabilityRpc)(
+      "is_passenger_ride_pix_enabled",
+    );
+
+    if (error) {
+      console.warn("[PaymentService] Electronic ride payment gate unavailable", {
+        code: error.code,
+        message: error.message,
+      });
+      return false;
+    }
+
+    return data === true;
+  }
+
   async getPaymentMethods(): Promise<PaymentMethod[]> {
-    const { data, error } = await supabase
-      .from("payment_methods")
-      .select("*")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    const [{ data, error }, electronicEnabled] = await Promise.all([
+      (supabase.rpc as unknown as PaymentMethodsRpc)("get_passenger_payment_methods"),
+      this.electronicRidePaymentsEnabled(),
+    ]);
 
     if (error) {
       console.error("[PaymentService] Failed to fetch payment methods", error);
@@ -38,16 +94,30 @@ class PaymentService {
       if (!code) return [];
 
       const isActive = method.is_active === true;
+      const isElectronicHomologated = HOMOLOGATED_ELECTRONIC_METHODS.has(code);
+      const isElectronicPending = NOT_YET_HOMOLOGATED_METHODS.has(code);
+      const providerReady = isElectronicPending
+        ? false
+        : isElectronicHomologated
+          ? electronicEnabled
+          : true;
+      const enabled = isActive && providerReady;
+
       return [
         {
           id: method.id,
           code,
           name: method.name,
           label: method.name,
-          description: method.description,
+          description:
+            isElectronicPending
+              ? "Indisponível até a homologação da integração de cartão."
+              : isElectronicHomologated && !providerReady
+                ? "Indisponível até a confirmação do provedor Pix da corrida."
+                : method.description,
           icon: method.icon,
           isActive,
-          enabled: isActive,
+          enabled,
           sortOrder: method.sort_order ?? 0,
           requiresBalance: method.requires_balance === true,
         } satisfies PaymentMethod,

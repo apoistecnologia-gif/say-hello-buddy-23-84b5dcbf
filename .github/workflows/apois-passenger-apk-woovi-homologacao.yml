@@ -1,0 +1,17 @@
+name: APOIS Passageiro - Woovi HML arquivado
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archived:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Woovi não é provider de produção
+        run: |
+          echo "Este workflow foi arquivado porque Woovi/OpenPix não é o provider de produção aprovado da APOIS Corridas."
+          echo "O fluxo ativo do passageiro usa o roteador canônico ride-pix-checkout e o provider definido no banco."
+          echo "Produção deve permanecer no provider atualmente homologado até a validação formal do próximo provider."

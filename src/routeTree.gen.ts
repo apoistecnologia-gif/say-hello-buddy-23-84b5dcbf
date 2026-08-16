@@ -21,9 +21,13 @@ import { Route as AuthenticatedRevisarSolicitacaoRouteImport } from './routes/_a
 import { Route as PublicIndexRouteImport } from './routes/_public.index'
 import { Route as PublicCadastroRouteImport } from './routes/_public.cadastro'
 import { Route as PublicLoginRouteImport } from './routes/_public.login'
+import { Route as PublicPrivacidadeRouteImport } from './routes/_public.privacidade'
 import { Route as PublicRecuperarSenhaRouteImport } from './routes/_public.recuperar-senha'
 import { Route as PublicRedefinirSenhaRouteImport } from './routes/_public.redefinir-senha'
+import { Route as PublicTermosRouteImport } from './routes/_public.termos'
+import { Route as PublicAcompanharShareTokenRouteImport } from './routes/_public.acompanhar.$shareToken'
 import { Route as AuthenticatedCorridaRideIdRouteImport } from './routes/_authenticated.corrida.$rideId'
+import { Route as AuthenticatedCorridasRideIdRouteImport } from './routes/_authenticated.corridas.$rideId'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -33,12 +37,11 @@ const PublicRoute = PublicRouteImport.update({
   id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedBuscarDestinoRoute =
-  AuthenticatedBuscarDestinoRouteImport.update({
-    id: '/buscar-destino',
-    path: '/buscar-destino',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+const AuthenticatedBuscarDestinoRoute = AuthenticatedBuscarDestinoRouteImport.update({
+  id: '/buscar-destino',
+  path: '/buscar-destino',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedCarteiraRoute = AuthenticatedCarteiraRouteImport.update({
   id: '/carteira',
   path: '/carteira',
@@ -54,23 +57,21 @@ const AuthenticatedInicioRoute = AuthenticatedInicioRouteImport.update({
   path: '/inicio',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedNotificacoesRoute =
-  AuthenticatedNotificacoesRouteImport.update({
-    id: '/notificacoes',
-    path: '/notificacoes',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+const AuthenticatedNotificacoesRoute = AuthenticatedNotificacoesRouteImport.update({
+  id: '/notificacoes',
+  path: '/notificacoes',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const AuthenticatedPerfilRoute = AuthenticatedPerfilRouteImport.update({
   id: '/perfil',
   path: '/perfil',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedRevisarSolicitacaoRoute =
-  AuthenticatedRevisarSolicitacaoRouteImport.update({
-    id: '/revisar-solicitacao',
-    path: '/revisar-solicitacao',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+const AuthenticatedRevisarSolicitacaoRoute = AuthenticatedRevisarSolicitacaoRouteImport.update({
+  id: '/revisar-solicitacao',
+  path: '/revisar-solicitacao',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 const PublicIndexRoute = PublicIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -86,6 +87,11 @@ const PublicLoginRoute = PublicLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => PublicRoute,
 } as any)
+const PublicPrivacidadeRoute = PublicPrivacidadeRouteImport.update({
+  id: '/privacidade',
+  path: '/privacidade',
+  getParentRoute: () => PublicRoute,
+} as any)
 const PublicRecuperarSenhaRoute = PublicRecuperarSenhaRouteImport.update({
   id: '/recuperar-senha',
   path: '/recuperar-senha',
@@ -96,15 +102,28 @@ const PublicRedefinirSenhaRoute = PublicRedefinirSenhaRouteImport.update({
   path: '/redefinir-senha',
   getParentRoute: () => PublicRoute,
 } as any)
-const AuthenticatedCorridaRideIdRoute =
-  AuthenticatedCorridaRideIdRouteImport.update({
-    id: '/corrida/$rideId',
-    path: '/corrida/$rideId',
-    getParentRoute: () => AuthenticatedRoute,
-  } as any)
+const PublicTermosRoute = PublicTermosRouteImport.update({
+  id: '/termos',
+  path: '/termos',
+  getParentRoute: () => PublicRoute,
+} as any)
+const PublicAcompanharShareTokenRoute = PublicAcompanharShareTokenRouteImport.update({
+  id: '/acompanhar/$shareToken',
+  path: '/acompanhar/$shareToken',
+  getParentRoute: () => PublicRoute,
+} as any)
+const AuthenticatedCorridaRideIdRoute = AuthenticatedCorridaRideIdRouteImport.update({
+  id: '/corrida/$rideId',
+  path: '/corrida/$rideId',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedCorridasRideIdRoute = AuthenticatedCorridasRideIdRouteImport.update({
+  id: '/corridas/$rideId',
+  path: '/corridas/$rideId',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof PublicIndexRoute
   '/buscar-destino': typeof AuthenticatedBuscarDestinoRoute
   '/carteira': typeof AuthenticatedCarteiraRoute
   '/corridas': typeof AuthenticatedCorridasRoute
@@ -112,14 +131,18 @@ export interface FileRoutesByFullPath {
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/revisar-solicitacao': typeof AuthenticatedRevisarSolicitacaoRoute
+  '/': typeof PublicIndexRoute
   '/cadastro': typeof PublicCadastroRoute
   '/login': typeof PublicLoginRoute
+  '/privacidade': typeof PublicPrivacidadeRoute
   '/recuperar-senha': typeof PublicRecuperarSenhaRoute
   '/redefinir-senha': typeof PublicRedefinirSenhaRoute
+  '/termos': typeof PublicTermosRoute
+  '/acompanhar/$shareToken': typeof PublicAcompanharShareTokenRoute
   '/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
+  '/corridas/$rideId': typeof AuthenticatedCorridasRideIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof PublicIndexRoute
   '/buscar-destino': typeof AuthenticatedBuscarDestinoRoute
   '/carteira': typeof AuthenticatedCarteiraRoute
   '/corridas': typeof AuthenticatedCorridasRoute
@@ -127,11 +150,16 @@ export interface FileRoutesByTo {
   '/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/perfil': typeof AuthenticatedPerfilRoute
   '/revisar-solicitacao': typeof AuthenticatedRevisarSolicitacaoRoute
+  '/': typeof PublicIndexRoute
   '/cadastro': typeof PublicCadastroRoute
   '/login': typeof PublicLoginRoute
+  '/privacidade': typeof PublicPrivacidadeRoute
   '/recuperar-senha': typeof PublicRecuperarSenhaRoute
   '/redefinir-senha': typeof PublicRedefinirSenhaRoute
+  '/termos': typeof PublicTermosRoute
+  '/acompanhar/$shareToken': typeof PublicAcompanharShareTokenRoute
   '/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
+  '/corridas/$rideId': typeof AuthenticatedCorridasRideIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -144,17 +172,20 @@ export interface FileRoutesById {
   '/_authenticated/notificacoes': typeof AuthenticatedNotificacoesRoute
   '/_authenticated/perfil': typeof AuthenticatedPerfilRoute
   '/_authenticated/revisar-solicitacao': typeof AuthenticatedRevisarSolicitacaoRoute
+  '/_public/': typeof PublicIndexRoute
   '/_public/cadastro': typeof PublicCadastroRoute
   '/_public/login': typeof PublicLoginRoute
+  '/_public/privacidade': typeof PublicPrivacidadeRoute
   '/_public/recuperar-senha': typeof PublicRecuperarSenhaRoute
   '/_public/redefinir-senha': typeof PublicRedefinirSenhaRoute
-  '/_public/': typeof PublicIndexRoute
+  '/_public/termos': typeof PublicTermosRoute
+  '/_public/acompanhar/$shareToken': typeof PublicAcompanharShareTokenRoute
   '/_authenticated/corrida/$rideId': typeof AuthenticatedCorridaRideIdRoute
+  '/_authenticated/corridas/$rideId': typeof AuthenticatedCorridasRideIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/buscar-destino'
     | '/carteira'
     | '/corridas'
@@ -162,14 +193,18 @@ export interface FileRouteTypes {
     | '/notificacoes'
     | '/perfil'
     | '/revisar-solicitacao'
+    | '/'
     | '/cadastro'
     | '/login'
+    | '/privacidade'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/termos'
+    | '/acompanhar/$shareToken'
     | '/corrida/$rideId'
+    | '/corridas/$rideId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/buscar-destino'
     | '/carteira'
     | '/corridas'
@@ -177,11 +212,16 @@ export interface FileRouteTypes {
     | '/notificacoes'
     | '/perfil'
     | '/revisar-solicitacao'
+    | '/'
     | '/cadastro'
     | '/login'
+    | '/privacidade'
     | '/recuperar-senha'
     | '/redefinir-senha'
+    | '/termos'
+    | '/acompanhar/$shareToken'
     | '/corrida/$rideId'
+    | '/corridas/$rideId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -193,12 +233,16 @@ export interface FileRouteTypes {
     | '/_authenticated/notificacoes'
     | '/_authenticated/perfil'
     | '/_authenticated/revisar-solicitacao'
+    | '/_public/'
     | '/_public/cadastro'
     | '/_public/login'
+    | '/_public/privacidade'
     | '/_public/recuperar-senha'
     | '/_public/redefinir-senha'
-    | '/_public/'
+    | '/_public/termos'
+    | '/_public/acompanhar/$shareToken'
     | '/_authenticated/corrida/$rideId'
+    | '/_authenticated/corridas/$rideId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -292,6 +336,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicLoginRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_public/privacidade': {
+      id: '/_public/privacidade'
+      path: '/privacidade'
+      fullPath: '/privacidade'
+      preLoaderRoute: typeof PublicPrivacidadeRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_public/recuperar-senha': {
       id: '/_public/recuperar-senha'
       path: '/recuperar-senha'
@@ -306,11 +357,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRedefinirSenhaRouteImport
       parentRoute: typeof PublicRoute
     }
+    '/_public/termos': {
+      id: '/_public/termos'
+      path: '/termos'
+      fullPath: '/termos'
+      preLoaderRoute: typeof PublicTermosRouteImport
+      parentRoute: typeof PublicRoute
+    }
+    '/_public/acompanhar/$shareToken': {
+      id: '/_public/acompanhar/$shareToken'
+      path: '/acompanhar/$shareToken'
+      fullPath: '/acompanhar/$shareToken'
+      preLoaderRoute: typeof PublicAcompanharShareTokenRouteImport
+      parentRoute: typeof PublicRoute
+    }
     '/_authenticated/corrida/$rideId': {
       id: '/_authenticated/corrida/$rideId'
       path: '/corrida/$rideId'
       fullPath: '/corrida/$rideId'
       preLoaderRoute: typeof AuthenticatedCorridaRideIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/corridas/$rideId': {
+      id: '/_authenticated/corridas/$rideId'
+      path: '/corridas/$rideId'
+      fullPath: '/corridas/$rideId'
+      preLoaderRoute: typeof AuthenticatedCorridasRideIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
   }
@@ -325,6 +397,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedPerfilRoute: typeof AuthenticatedPerfilRoute
   AuthenticatedRevisarSolicitacaoRoute: typeof AuthenticatedRevisarSolicitacaoRoute
   AuthenticatedCorridaRideIdRoute: typeof AuthenticatedCorridaRideIdRoute
+  AuthenticatedCorridasRideIdRoute: typeof AuthenticatedCorridasRideIdRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
@@ -336,6 +409,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedPerfilRoute: AuthenticatedPerfilRoute,
   AuthenticatedRevisarSolicitacaoRoute: AuthenticatedRevisarSolicitacaoRoute,
   AuthenticatedCorridaRideIdRoute: AuthenticatedCorridaRideIdRoute,
+  AuthenticatedCorridasRideIdRoute: AuthenticatedCorridasRideIdRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -343,19 +417,25 @@ const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
 )
 
 interface PublicRouteChildren {
+  PublicIndexRoute: typeof PublicIndexRoute
   PublicCadastroRoute: typeof PublicCadastroRoute
   PublicLoginRoute: typeof PublicLoginRoute
+  PublicPrivacidadeRoute: typeof PublicPrivacidadeRoute
   PublicRecuperarSenhaRoute: typeof PublicRecuperarSenhaRoute
   PublicRedefinirSenhaRoute: typeof PublicRedefinirSenhaRoute
-  PublicIndexRoute: typeof PublicIndexRoute
+  PublicTermosRoute: typeof PublicTermosRoute
+  PublicAcompanharShareTokenRoute: typeof PublicAcompanharShareTokenRoute
 }
 
 const PublicRouteChildren: PublicRouteChildren = {
+  PublicIndexRoute: PublicIndexRoute,
   PublicCadastroRoute: PublicCadastroRoute,
   PublicLoginRoute: PublicLoginRoute,
+  PublicPrivacidadeRoute: PublicPrivacidadeRoute,
   PublicRecuperarSenhaRoute: PublicRecuperarSenhaRoute,
   PublicRedefinirSenhaRoute: PublicRedefinirSenhaRoute,
-  PublicIndexRoute: PublicIndexRoute,
+  PublicTermosRoute: PublicTermosRoute,
+  PublicAcompanharShareTokenRoute: PublicAcompanharShareTokenRoute,
 }
 
 const PublicRouteWithChildren =

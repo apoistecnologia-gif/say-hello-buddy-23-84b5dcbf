@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { WalletSummary } from "@/types/payments";
+import type { WalletSummary } from "@/types/payments";
 import { walletService } from "@/services/wallet/wallet-service";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,10 +22,11 @@ interface WalletContextType {
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
+const BLOCKED_WALLET_POLL_INTERVAL_MS = 8_000;
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
+  const { profile } = useAuth();
+  const passengerId = profile?.id ?? null;
   const activeRequest = useRef(0);
   const [wallet, setWallet] = useState<WalletSummary | null>(null);
   const [state, setState] = useState<WalletState>("loading");
@@ -35,7 +36,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const loadWallet = useCallback(async () => {
     const requestId = ++activeRequest.current;
 
-    if (!userId) {
+    if (!passengerId) {
       setWallet(null);
       setState("not_found");
       setError(null);
@@ -49,7 +50,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     );
 
     try {
-      const data = await walletService.getWallet(userId);
+      const data = await walletService.getWallet(passengerId);
       if (requestId !== activeRequest.current) return;
 
       if (!data) {
@@ -61,36 +62,36 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       setError(null);
-    } catch (err) {
+    } catch (caughtError: unknown) {
       if (requestId !== activeRequest.current) return;
 
-      console.error("[WalletProvider] Wallet load failed", err);
+      console.error("[WalletProvider] Wallet load failed", caughtError);
       setWallet(null);
       setError("wallet_load_failed");
       setState("failed");
     } finally {
       if (requestId === activeRequest.current) setIsLoading(false);
     }
-  }, [userId]);
+  }, [passengerId]);
 
   useEffect(() => {
     void loadWallet();
 
-    if (!userId) return;
+    if (!passengerId) return;
 
     const handleFinancialChange = () => {
       void loadWallet();
     };
 
     const channel = supabase
-      .channel(`passenger_financial:${userId}`)
+      .channel(`passenger_financial:${passengerId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "passenger_wallets",
-          filter: `passenger_id=eq.${userId}`,
+          filter: `passenger_id=eq.${passengerId}`,
         },
         handleFinancialChange,
       )
@@ -100,13 +101,16 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           event: "*",
           schema: "public",
           table: "cancellation_fees",
-          filter: `passenger_id=eq.${userId}`,
+          filter: `passenger_id=eq.${passengerId}`,
         },
         handleFinancialChange,
       )
       .subscribe((status) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn("[WalletProvider] Financial realtime unavailable", { status, userId });
+          console.warn("[WalletProvider] Financial realtime unavailable", {
+            status,
+            passengerId,
+          });
         }
       });
 
@@ -114,7 +118,28 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       activeRequest.current += 1;
       void supabase.removeChannel(channel);
     };
-  }, [userId, loadWallet]);
+  }, [loadWallet, passengerId]);
+
+  useEffect(() => {
+    if (!passengerId || state !== "blocked") return;
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void loadWallet();
+    };
+    const refreshWhenOnline = () => void loadWallet();
+    const interval = window.setInterval(refreshWhenVisible, BLOCKED_WALLET_POLL_INTERVAL_MS);
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("pageshow", refreshWhenOnline);
+    window.addEventListener("online", refreshWhenOnline);
+
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("pageshow", refreshWhenOnline);
+      window.removeEventListener("online", refreshWhenOnline);
+    };
+  }, [loadWallet, passengerId, state]);
 
   return (
     <WalletContext.Provider value={{ wallet, state, isLoading, error, refresh: loadWallet }}>

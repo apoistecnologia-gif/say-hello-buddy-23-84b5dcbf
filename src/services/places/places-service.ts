@@ -11,10 +11,10 @@ import { googleMapsLoader } from "../google/google-maps-loader";
 
 class PlacesService {
   private static instance: PlacesService;
-  private sessionToken: any = null; // google.maps.places.AutocompleteSessionToken
+  private sessionToken: any = null;
   private cache: Map<string, { data: PlaceSuggestion[]; timestamp: number }> = new Map();
-  private lastRequestId: number = 0;
-  private isInitializing: boolean = false;
+  private lastRequestId = 0;
+  private initializationPromise: Promise<void> | null = null;
   private placesLib: any = null;
 
   private constructor() {}
@@ -28,18 +28,25 @@ class PlacesService {
 
   public async initialize(): Promise<void> {
     if (this.placesLib) return;
-    if (this.isInitializing) return;
+    if (this.initializationPromise) return this.initializationPromise;
 
-    this.isInitializing = true;
-    try {
-      this.placesLib = await googleMapsLoader.importLibrary("places");
-      this.createSessionToken();
-    } catch (error) {
-      console.error("Failed to initialize Places library:", error);
-      throw this.normalizeError("places_library_load_failed");
-    } finally {
-      this.isInitializing = false;
-    }
+    this.initializationPromise = (async () => {
+      try {
+        this.placesLib = await googleMapsLoader.importLibrary("places");
+        if (!this.placesLib?.AutocompleteSuggestion) {
+          throw new Error("places_autocomplete_unavailable");
+        }
+        this.createSessionToken();
+      } catch (error) {
+        console.error("Failed to initialize Places library:", error);
+        this.placesLib = null;
+        throw this.normalizeError("places_library_load_failed");
+      } finally {
+        this.initializationPromise = null;
+      }
+    })();
+
+    return this.initializationPromise;
   }
 
   public createSessionToken(): void {
@@ -62,48 +69,43 @@ class PlacesService {
       return [];
     }
 
-    // Check cache
-    const cacheKey = `${normalizedQuery.toLowerCase()}`;
+    const cacheKey = normalizedQuery.toLowerCase();
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < PLACES_CONFIG.CACHE_TTL_MS) {
       return cached.data;
     }
 
     await this.initialize();
-
     const requestId = ++this.lastRequestId;
 
     try {
-      // Configuração moderna da API Places
       const request: any = {
         input: normalizedQuery,
         sessionToken: this.sessionToken,
         language: "pt-BR",
-        region: "BR",
+        region: "br",
         includedRegionCodes: ["br"],
       };
 
       if (locationBias) {
-        // Bias circular de 10km (raio urbano centralizado)
         request.locationBias = {
           center: { lat: locationBias.lat, lng: locationBias.lng },
           radius: 10000,
         };
+        request.origin = { lat: locationBias.lat, lng: locationBias.lng };
       }
 
-      // Utilizando fetchAutocompleteSuggestions da API moderna
-      // @ts-ignore
       const { suggestions: googleSuggestions } =
         await this.placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
 
-      // Proteção contra respostas fora de ordem
       if (requestId !== this.lastRequestId) {
         throw this.normalizeError("places_cancelled");
       }
 
-      const suggestions = googleSuggestions.map((s: any) => this.normalizeSuggestion(s));
+      const suggestions = (googleSuggestions ?? [])
+        .map((suggestion: any) => this.normalizeSuggestion(suggestion))
+        .filter((suggestion: PlaceSuggestion | null): suggestion is PlaceSuggestion => Boolean(suggestion));
 
-      // Update cache
       if (this.cache.size >= PLACES_CONFIG.CACHE_MAX_SIZE) {
         const firstKey = this.cache.keys().next().value;
         if (firstKey) this.cache.delete(firstKey);
@@ -112,40 +114,48 @@ class PlacesService {
 
       return suggestions;
     } catch (error: any) {
-      if (error.code === "places_cancelled") throw error;
+      if (error?.code === "places_cancelled") throw error;
 
       console.error("Places Search Error:", error);
 
-      // Tratar estados de erro específicos da biblioteca se necessário
+      const message = String(error?.message ?? error ?? "").toLowerCase();
+      if (
+        message.includes("api key") ||
+        message.includes("not authorized") ||
+        message.includes("permission") ||
+        message.includes("billing") ||
+        message.includes("places api")
+      ) {
+        throw this.normalizeError("places_configuration_missing");
+      }
+      if (message.includes("quota") || message.includes("rate")) {
+        throw this.normalizeError("places_rate_limited");
+      }
+
       throw this.normalizeError("places_network_error");
     }
   }
 
-  public async selectPrediction(prediction: any): Promise<DestinationAddress> {
+  public async selectPrediction(prediction: PlaceSuggestion): Promise<DestinationAddress> {
     await this.initialize();
 
     try {
-      // Obter o objeto Place oficial a partir da previsão (API Moderna)
-      // O prediction.place aqui é a referência segura ao objeto de previsão necessária para seleção
-      const place = prediction.place;
+      const place = (prediction as PlaceSuggestion & { place?: any }).place;
 
       if (!place) {
         throw this.normalizeError("places_invalid_prediction");
       }
 
-      // Solicitar somente os campos necessários (fetchFields)
       await place.fetchFields({
         fields: PLACES_CONFIG.DETAILS_FIELDS,
       });
 
       const normalized = this.normalizePlace(place);
-
-      // Encerrar sessão atual
       this.resetSessionToken();
-
       return normalized;
     } catch (error: any) {
       console.error("Place Details Error:", error);
+      if (error?.code && String(error.code).startsWith("places_")) throw error;
       throw this.normalizeError("places_details_unavailable");
     }
   }
@@ -162,63 +172,80 @@ class PlacesService {
     this.clearCache();
     this.sessionToken = null;
     this.placesLib = null;
+    this.initializationPromise = null;
   }
 
-  private normalizeSuggestion(s: any): PlaceSuggestion {
-    // A estrutura moderna de AutocompleteSuggestion tem propriedades aninhadas
-    const p = s.placePrediction;
+  private normalizeSuggestion(suggestion: any): PlaceSuggestion | null {
+    const prediction = suggestion?.placePrediction;
+    if (!prediction?.placeId) return null;
+
+    const primaryText =
+      prediction.mainText?.text ||
+      prediction.text?.text ||
+      String(prediction.text ?? "");
+    const secondaryText = prediction.secondaryText?.text || undefined;
+    const fullText = prediction.text?.text || [primaryText, secondaryText].filter(Boolean).join(", ");
+
+    if (!primaryText) return null;
+
     return {
-      placeId: p.placeId,
-      primaryText: p.text.mainText.text,
-      secondaryText: p.text.secondaryText?.text,
-      fullText: p.text.text,
-      types: p.types || [],
-      distanceMeters: p.distanceMeters,
-      // Guardamos a referência ao objeto de lugar para o fetchFields posterior
-      // @ts-ignore
-      place: p.toPlace(),
-    };
+      placeId: prediction.placeId,
+      primaryText,
+      ...(secondaryText ? { secondaryText } : {}),
+      fullText,
+      types: prediction.types || [],
+      ...(Number.isFinite(prediction.distanceMeters)
+        ? { distanceMeters: prediction.distanceMeters }
+        : {}),
+      place: prediction.toPlace(),
+    } as PlaceSuggestion;
   }
 
   private normalizePlace(place: any): DestinationAddress {
     const components: AddressComponent = {};
 
-    // Mapeamento moderno de addressComponents
-    place.addressComponents?.forEach((c: any) => {
-      const types = c.types;
-      if (types.includes("route")) components.rua = c.longText;
-      if (types.includes("street_number")) components.numero = c.longText;
-      if (types.includes("neighborhood") || types.includes("sublocality"))
-        components.bairro = c.longText;
-      if (types.includes("locality")) components.cidade = c.longText;
-      if (types.includes("administrative_area_level_1")) {
-        components.estado = c.longText;
-        components.estadoSigla = c.shortText;
+    place.addressComponents?.forEach((component: any) => {
+      const types = component.types ?? [];
+      if (types.includes("route")) components.rua = component.longText;
+      if (types.includes("street_number")) components.numero = component.longText;
+      if (types.includes("neighborhood") || types.includes("sublocality")) {
+        components.bairro = component.longText;
       }
-      if (types.includes("postal_code")) components.cep = c.longText;
-      if (types.includes("country")) components.pais = c.longText;
+      if (types.includes("locality")) components.cidade = component.longText;
+      if (types.includes("administrative_area_level_1")) {
+        components.estado = component.longText;
+        components.estadoSigla = component.shortText;
+      }
+      if (types.includes("postal_code")) components.cep = component.longText;
+      if (types.includes("country")) components.pais = component.longText;
     });
 
     const location = place.location;
-    if (!location || typeof location.lat !== "function" || typeof location.lng !== "function") {
+    const latitude =
+      typeof location?.lat === "function" ? location.lat() : Number(location?.lat);
+    const longitude =
+      typeof location?.lng === "function" ? location.lng() : Number(location?.lng);
+
+    if (!place.id || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
       throw this.normalizeError("places_invalid_location");
     }
 
-    const latitude = location.lat();
-    const longitude = location.lng();
-
-    if (!place.id || isNaN(latitude) || isNaN(longitude)) {
-      throw this.normalizeError("places_invalid_location");
-    }
+    const formattedAddress = String(place.formattedAddress ?? "").trim();
+    const displayName =
+      typeof place.displayName === "string"
+        ? place.displayName.trim()
+        : String(place.displayName?.text ?? "").trim();
+    const label = displayName || formattedAddress.split(",")[0] || "Local selecionado";
+    const safeFormattedAddress = formattedAddress || label;
 
     return {
       placeId: place.id,
       latitude,
       longitude,
-      label: place.displayName || place.formattedAddress?.split(",")[0] || "Local selecionado",
-      subLabel: place.formattedAddress,
-      formattedAddress: place.formattedAddress,
-      name: place.displayName,
+      label,
+      ...(formattedAddress ? { subLabel: formattedAddress } : {}),
+      formattedAddress: safeFormattedAddress,
+      name: displayName || label,
       components,
       types: place.types || [],
       selectedAt: new Date().toISOString(),

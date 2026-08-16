@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence, useDragControls, useAnimation } from "framer-motion";
+import React, { useEffect, useId } from "react";
+import { AnimatePresence, motion, useAnimation } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 interface BottomSheetProps {
@@ -9,86 +9,97 @@ interface BottomSheetProps {
   title?: string;
   preventClose?: boolean;
   showBackdrop?: boolean;
+  /** Altura fixa opcional. Útil em telas com mapa para impedir layout jumping. */
+  height?: string;
+  /** Limite de altura opcional. */
+  maxHeight?: string;
 }
 
 export const BottomSheet: React.FC<BottomSheetProps> = ({
   isOpen,
   onClose,
   children,
+  title,
   preventClose = false,
   showBackdrop = true,
+  height,
+  maxHeight,
 }) => {
   const controls = useAnimation();
-  const dragControls = useDragControls();
-  const [isClosing, setIsClosing] = useState(false);
+  const generatedTitleId = useId();
+  const isPersistentMapSheet = preventClose && !showBackdrop;
 
   useEffect(() => {
-    if (isOpen) {
-      setIsClosing(false);
-      controls.start({ y: 0 });
-    }
+    if (isOpen) void controls.start({ y: 0 });
   }, [isOpen, controls]);
 
-  const handleDragEnd = async (_: any, info: any) => {
-    const shouldClose = info.offset.y > 100 || info.velocity.y > 500;
-
-    if (shouldClose && !preventClose) {
-      setIsClosing(true);
-      await controls.start({ y: "100%" });
-      onClose();
-    } else {
-      controls.start({ y: 0 });
-    }
-  };
+  useEffect(() => {
+    if (!isOpen || preventClose) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose, preventClose]);
 
   return (
     <AnimatePresence>
-      {isOpen && (
+      {isOpen ? (
         <>
-          {/* Backdrop */}
-          {showBackdrop && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={!preventClose ? onClose : undefined}
-              className="fixed inset-0 bg-black/60 z-40"
-            />
-          )}
+          {showBackdrop ? (
+            preventClose ? (
+              <motion.div
+                aria-hidden="true"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-40 bg-black/60"
+              />
+            ) : (
+              <motion.button
+                type="button"
+                aria-label="Fechar painel"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+                className="fixed inset-0 z-40 bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow"
+              />
+            )
+          ) : null}
 
-          {/* Sheet */}
           <motion.div
             initial={{ y: "100%" }}
             animate={controls}
             exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            drag="y"
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0 }}
-            dragElastic={0.2}
-            onDragEnd={handleDragEnd}
+            transition={{ type: "spring", damping: 28, stiffness: 240 }}
+            role="dialog"
+            aria-modal={showBackdrop ? "true" : undefined}
+            aria-labelledby={title ? generatedTitleId : undefined}
+            aria-label={!title ? "Painel de opções" : undefined}
             className={cn(
-              "fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-[60]",
-              "bg-[#121212] rounded-t-[32px] overflow-hidden shadow-[0_-12px_40px_rgba(0,0,0,0.6)] border-x border-t border-white/5",
-              "flex flex-col",
-              "h-auto max-h-[85vh]",
+              "fixed bottom-0 left-1/2 z-[60] flex w-full max-w-[430px] -translate-x-1/2 flex-col",
+              "overflow-hidden rounded-t-[28px] border-x border-t border-white/5 bg-[#121212] shadow-[0_-12px_40px_rgba(0,0,0,0.6)]",
             )}
-            style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom))" }}
+            style={{
+              height: isPersistentMapSheet ? "calc(100dvh - 168px)" : height,
+              maxHeight: isPersistentMapSheet
+                ? "calc(100dvh - 148px)"
+                : maxHeight ?? "calc(100dvh - max(16px, var(--app-safe-top)) - 8px)",
+              paddingBottom: "max(12px, var(--app-safe-bottom))",
+            }}
           >
-            {/* Handle Bar Area */}
-            <div
-              className="w-full flex justify-center py-4 cursor-grab active:cursor-grabbing"
-              onPointerDown={(e) => dragControls.start(e)}
-            >
-              <div className="w-10 h-1.5 bg-gray-600 rounded-full" />
+            {title ? <h2 id={generatedTitleId} className="sr-only">{title}</h2> : null}
+            <div className="flex w-full shrink-0 justify-center py-2.5" aria-hidden="true">
+              <div className="h-1 w-9 rounded-full bg-gray-600" />
             </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto px-4 pb-8">{children}</div>
+            <div className="app-scroll min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-3.5 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {children}
+            </div>
           </motion.div>
         </>
-      )}
+      ) : null}
     </AnimatePresence>
   );
 };

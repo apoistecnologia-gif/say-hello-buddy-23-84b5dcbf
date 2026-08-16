@@ -1,0 +1,156 @@
+name: APOIS Corridas — Passenger Phase 9 Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apois-passenger-phase9-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-release-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
+      GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+      APOIS_PASSENGER_PUBLIC_URL: ${{ vars.APOIS_PASSENGER_PUBLIC_URL }}
+      APOIS_UPLOAD_KEY_ALIAS: ${{ secrets.APOIS_UPLOAD_KEY_ALIAS }}
+      APOIS_UPLOAD_STORE_PASSWORD: ${{ secrets.APOIS_UPLOAD_STORE_PASSWORD }}
+      APOIS_UPLOAD_KEY_PASSWORD: ${{ secrets.APOIS_UPLOAD_KEY_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Phase 9 Passenger release contract
+        run: node tests/mobile/passenger-phase9-contract.mjs
+
+      - name: Reject committed signing secrets
+        run: |
+          set -euo pipefail
+          if git ls-files | grep -E '\.(jks|keystore)$'; then
+            echo 'Keystore/signing material must never be committed.'
+            exit 1
+          fi
+          if git grep -nE 'APOIS_UPLOAD_(STORE_PASSWORD|KEY_PASSWORD)\s*[=:]\s*[^$]' -- ':!*.md' ':!.github/workflows/**'; then
+            echo 'Potential hardcoded upload-key password detected.'
+            exit 1
+          fi
+          echo 'APOIS_SIGNING_SECRETS_NOT_COMMITTED_OK'
+
+      - name: Require and restore Play upload signing key
+        env:
+          APOIS_UPLOAD_KEYSTORE_BASE64: ${{ secrets.APOIS_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          test -n "$APOIS_UPLOAD_KEYSTORE_BASE64" || { echo 'Missing secret: APOIS_UPLOAD_KEYSTORE_BASE64'; exit 1; }
+          test -n "$APOIS_UPLOAD_KEY_ALIAS" || { echo 'Missing secret: APOIS_UPLOAD_KEY_ALIAS'; exit 1; }
+          test -n "$APOIS_UPLOAD_STORE_PASSWORD" || { echo 'Missing secret: APOIS_UPLOAD_STORE_PASSWORD'; exit 1; }
+          test -n "$APOIS_UPLOAD_KEY_PASSWORD" || { echo 'Missing secret: APOIS_UPLOAD_KEY_PASSWORD'; exit 1; }
+          printf '%s' "$APOIS_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/apois-upload.jks"
+          chmod 600 "$RUNNER_TEMP/apois-upload.jks"
+          keytool -list -keystore "$RUNNER_TEMP/apois-upload.jks" -storepass "$APOIS_UPLOAD_STORE_PASSWORD" -alias "$APOIS_UPLOAD_KEY_ALIAS" >/dev/null
+          printf 'APOIS_UPLOAD_KEYSTORE_PATH=%s\n' "$RUNNER_TEMP/apois-upload.jks" >> "$GITHUB_ENV"
+          echo 'APOIS_PASSENGER_UPLOAD_KEY_READY'
+
+      - name: Validate production client keys and public URL
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_MAPS_WEB_API_KEY"
+          test -n "$GOOGLE_MAPS_ANDROID_API_KEY"
+          test -n "$APOIS_PASSENGER_PUBLIC_URL" || { echo 'Missing repository variable: APOIS_PASSENGER_PUBLIC_URL'; exit 1; }
+          node --input-type=module <<'NODE'
+          const raw = String(process.env.APOIS_PASSENGER_PUBLIC_URL ?? '').trim();
+          let url;
+          try { url = new URL(raw); } catch { throw new Error('APOIS_PASSENGER_PUBLIC_URL must be a valid absolute URL'); }
+          if (url.protocol !== 'https:') throw new Error('APOIS_PASSENGER_PUBLIC_URL must use https');
+          const host = url.hostname.toLowerCase();
+          if (host.endsWith('.example') || host === 'example' || host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') {
+            throw new Error(`APOIS_PASSENGER_PUBLIC_URL is not a production public host: ${host}`);
+          }
+          console.log('APOIS_PASSENGER_PUBLIC_URL_OK');
+          NODE
+          test -f android/app/google-services.json
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const config = JSON.parse(readFileSync('android/app/google-services.json', 'utf8'));
+          const packages = (config?.client ?? []).map((client) => String(client?.client_info?.android_client_info?.package_name ?? '').trim());
+          if (!packages.includes('com.apois.passageiro')) throw new Error(`Firebase client missing com.apois.passageiro: ${packages.join(', ')}`);
+          console.log('APOIS_PASSENGER_FIREBASE_PACKAGE_OK');
+          NODE
+
+      - name: Build web bundle
+        run: |
+          set -euo pipefail
+          export VITE_GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_WEB_API_KEY"
+          export VITE_PUBLIC_APP_URL="$APOIS_PASSENGER_PUBLIC_URL"
+          bun run build
+
+      - name: Sync Capacitor Android
+        run: |
+          set -euo pipefail
+          printf 'GOOGLE_MAPS_API_KEY=%s\n' "$GOOGLE_MAPS_ANDROID_API_KEY" > android/local.properties
+          bunx cap sync android
+
+      - name: Verify release manifest
+        run: |
+          set -euo pipefail
+          grep -F 'android:allowBackup="false"' android/app/src/main/AndroidManifest.xml
+          grep -F 'android:usesCleartextTraffic="false"' android/app/src/main/AndroidManifest.xml
+          grep -F 'android:scheme="apoispassageiro"' android/app/src/main/AndroidManifest.xml
+          grep -F 'com.google.firebase.messaging.default_notification_channel_id' android/app/src/main/AndroidManifest.xml
+          grep -F '<string name="default_notification_channel_id">apois_rides</string>' android/app/src/main/res/values/strings.xml
+          echo 'APOIS_PASSENGER_RELEASE_MANIFEST_OK'
+
+      - name: Build signed release AAB and homologation APK
+        working-directory: android
+        env:
+          APOIS_VERSION_CODE: "1000001"
+          APOIS_VERSION_NAME: "1.0.0-phase9"
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew bundleRelease assembleDebug --no-daemon --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          echo 'APOIS_PASSENGER_AAB_AND_APK_BUILT'
+
+      - name: Verify release AAB signature
+        run: |
+          set -euo pipefail
+          AAB='android/app/build/outputs/bundle/release/app-release.aab'
+          jarsigner -verify -verbose -certs "$AAB" > "$RUNNER_TEMP/apois-passenger-aab-signature.txt"
+          grep -q 'jar verified.' "$RUNNER_TEMP/apois-passenger-aab-signature.txt" || {
+            cat "$RUNNER_TEMP/apois-passenger-aab-signature.txt"
+            echo 'Release AAB is not signed with a verifiable JAR signature.'
+            exit 1
+          }
+          echo 'APOIS_PASSENGER_SIGNED_AAB_OK'
+
+      - name: Upload Phase 9 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: APOIS-Passenger-Phase9-Android
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            android/app/build/outputs/bundle/release/app-release.aab
+            android/app/build/outputs/apk/debug/app-debug.apk

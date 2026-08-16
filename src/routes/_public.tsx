@@ -3,21 +3,18 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 
 export const Route = createFileRoute("/_public")({
-  beforeLoad: ({ context, location }) => {
-    // This is handled by AuthGuard as well, but this is a static check
-  },
   component: PublicLayout,
 });
 
 function PublicLayout() {
   return (
-    <div className="min-h-screen bg-zinc-950 flex justify-center selection:bg-yellow-500/30">
-      <div className="relative w-full max-w-[430px] min-h-[100dvh] bg-black overflow-hidden flex flex-col">
-        <AuthGuard>
+    <AuthGuard>
+      <div className="app-viewport flex h-[100dvh] min-h-0 justify-center overflow-hidden bg-apois-black selection:bg-apois-yellow/30">
+        <div className="relative flex h-full min-h-0 w-full max-w-[430px] flex-col overflow-hidden bg-apois-black shadow-[0_0_80px_rgba(0,0,0,0.55)]">
           <Outlet />
-        </AuthGuard>
-        <Toaster />
+        </div>
       </div>
-    </div>
+      <Toaster position="top-center" />
+    </AuthGuard>
   );
 }

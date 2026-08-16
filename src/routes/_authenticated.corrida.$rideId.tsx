@@ -1,22 +1,64 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { useActiveRide } from "@/hooks/rides/use-active-ride";
-import PassengerMap from "@/components/map/PassengerMap";
-import { RideStatusHeader } from "@/components/rides/active/RideStatusHeader";
+import { ActiveRideMap } from "@/components/map/ActiveRideMap";
 import { DriverCard } from "@/components/rides/active/DriverCard";
 import { VehicleCard } from "@/components/rides/active/VehicleCard";
-import { SecurityCodeCard } from "@/components/rides/active/SecurityCodeCard";
-import { RideStopsTimeline } from "@/components/rides/active/RideStopsTimeline";
 import { CancellationDialog } from "@/components/rides/active/CancellationDialog";
+import { RideSafetyDialog } from "@/components/rides/active/RideSafetyDialog";
+import { SearchingDriverScreen } from "@/components/rides/active/SearchingDriverScreen";
+import { ActiveJourneyScreen } from "@/components/rides/active/ActiveJourneyScreen";
+import { RideRatingCard } from "@/components/rides/RideRatingCard";
+import { RidePixPaymentCard } from "@/components/payments/RidePixPaymentCard";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Share2, Shield, X, Search, Home, WifiOff, RefreshCw } from "lucide-react";
+import { passengerShareService } from "@/services/safety/passenger-share-service";
+import { FileText, Home, RefreshCw, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { motion, AnimatePresence } from "framer-motion";
-import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/corrida/$rideId")({
   component: ActiveRidePage,
 });
+
+function cleanText(value: unknown, fallback: string): string {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text || fallback;
+}
+
+function firstName(value: unknown): string {
+  const text = cleanText(value, "");
+  return text ? text.split(/\s+/)[0] || "Motorista" : "Motorista";
+}
+
+function normalizedPlate(value: unknown): string {
+  return typeof value === "string" ? value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7) : "";
+}
+
+function safeMoney(value: unknown): number | null {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function formatMoney(value: unknown): string {
+  const amount = safeMoney(value);
+  return amount === null
+    ? "Valor indisponível"
+    : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
+}
+
+function publicShareUrl(token: string): string | null {
+  const safeToken = token.trim();
+  if (!safeToken) return null;
+  const configuredBase = String(import.meta.env.VITE_PUBLIC_APP_URL ?? "").trim();
+  const currentOriginIsPublic =
+    window.location.protocol.startsWith("http") &&
+    !["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
+  const base = configuredBase || (currentOriginIsPublic ? `${window.location.origin}${window.location.pathname}` : "");
+  if (!base) return null;
+
+  const normalizedBase = base.replace(/\/#\/?$/, "").replace(/\/+$/, "");
+  return `${normalizedBase}/#/acompanhar/${encodeURIComponent(safeToken)}`;
+}
 
 function ActiveRidePage() {
   const { rideId } = Route.useParams();
@@ -34,13 +76,27 @@ function ActiveRidePage() {
   } = useActiveRide();
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isSafetyDialogOpen, setIsSafetyDialogOpen] = useState(false);
+  const [isSharingRide, setIsSharingRide] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (rideId) void loadRide(rideId);
+    setIsCancelDialogOpen(false);
+    setIsSafetyDialogOpen(false);
+    setShareError(null);
+    if (rideId?.trim()) void loadRide(rideId);
   }, [rideId, loadRide]);
 
+  const originName = useMemo(() => cleanText(ride?.origin_name, "Origem não informada"), [ride?.origin_name]);
+  const destinationName = useMemo(() => cleanText(ride?.destination_name, "Destino não informado"), [ride?.destination_name]);
+
   const handleBack = () => {
-    if (screenState === "completed" || screenState === "cancelled") clearRide();
+    if (screenState === "completed") {
+      clearRide();
+      void navigate({ to: "/corridas/$rideId", params: { rideId } });
+      return;
+    }
+    if (screenState === "cancelled") clearRide();
     void navigate({ to: "/inicio" });
   };
 
@@ -49,238 +105,186 @@ function ActiveRidePage() {
     void navigate({ to: "/inicio" });
   };
 
+  const handleShareRide = async (): Promise<void> => {
+    if (!ride || isSharingRide) return;
+    setShareError(null);
+
+    if (!publicShareUrl("preview")) {
+      setShareError("O acompanhamento público não está disponível nesta versão do aplicativo.");
+      return;
+    }
+
+    setIsSharingRide(true);
+    try {
+      const session = await passengerShareService.create(ride.id);
+      const trackingUrl = publicShareUrl(cleanText(session.token, ""));
+      if (!trackingUrl) throw new Error("public_share_url_unavailable");
+
+      const vehicle = [cleanText(ride.driver_vehicle_model, ""), cleanText(ride.driver_vehicle_color, "")]
+        .filter(Boolean)
+        .join(" • ");
+      const plate = normalizedPlate(ride.driver_vehicle_plate);
+      const lines = [
+        "Acompanhe minha corrida pela APOIS.",
+        `Origem: ${originName}`,
+        `Destino: ${destinationName}`,
+        ride.driver_name ? `Motorista: ${firstName(ride.driver_name)}` : null,
+        vehicle ? `Veículo: ${vehicle}` : null,
+        plate ? `Placa: ${plate}` : null,
+        `Acompanhamento: ${trackingUrl}`,
+      ].filter((line): line is string => Boolean(line));
+      const text = lines.join("\n");
+
+      if (navigator.share) {
+        await navigator.share({ title: "Acompanhamento de corrida APOIS", text, url: trackingUrl });
+        return;
+      }
+
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard_unavailable");
+      await navigator.clipboard.writeText(text);
+      toast.success("Link protegido de acompanhamento copiado.");
+    } catch (caughtError: unknown) {
+      if (caughtError instanceof DOMException && caughtError.name === "AbortError") return;
+      console.error("[APOIS Passenger Share] share failed", caughtError);
+      setShareError("Não foi possível compartilhar esta corrida agora. Tente novamente.");
+    } finally {
+      setIsSharingRide(false);
+    }
+  };
+
   if (screenState === "loading" || screenState === "idle") {
     return (
-      <div className="flex h-[100dvh] flex-col space-y-6 bg-black p-6">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-10 w-10 rounded-full bg-zinc-900" />
-          <Skeleton className="h-6 w-32 bg-zinc-900" />
+      <div className="flex min-h-[100dvh] min-w-0 flex-col space-y-5 overflow-x-hidden bg-black px-4 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-[calc(env(safe-area-inset-top)+20px)]" role="status" aria-label="Carregando corrida">
+        <div className="flex min-w-0 items-center gap-4">
+          <Skeleton className="h-11 w-11 shrink-0 rounded-full bg-zinc-900" />
+          <div className="min-w-0 flex-1 space-y-2"><Skeleton className="h-5 w-40 max-w-full bg-zinc-900" /><Skeleton className="h-3 w-28 max-w-full bg-zinc-900" /></div>
         </div>
-        <Skeleton className="h-24 w-full rounded-2xl bg-zinc-900" />
-        <Skeleton className="w-full flex-1 rounded-3xl bg-zinc-900" />
-        <div className="space-y-3">
-          <Skeleton className="h-16 w-full rounded-2xl bg-zinc-900" />
-          <Skeleton className="h-16 w-full rounded-2xl bg-zinc-900" />
-        </div>
+        <Skeleton className="h-[clamp(240px,42dvh,330px)] w-full rounded-[26px] bg-zinc-900" />
+        <Skeleton className="h-24 w-full rounded-3xl bg-zinc-900" />
+        <Skeleton className="h-40 w-full rounded-3xl bg-zinc-900" />
       </div>
     );
   }
 
   if (screenState === "not_found" || screenState === "unauthorized" || screenState === "failed") {
+    const canRetry = screenState === "failed";
     return (
-      <div className="flex h-[100dvh] flex-col items-center justify-center space-y-6 bg-black p-8 text-center">
-        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-900">
-          <X className="text-zinc-600" size={40} />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-xl font-black text-white">Ops! Algo deu errado</h2>
-          <p className="text-sm font-medium text-zinc-500">
-            {screenState === "not_found"
-              ? "Esta corrida não foi encontrada."
-              : screenState === "unauthorized"
-                ? "Você não tem permissão para ver esta corrida."
-                : "Não conseguimos carregar os dados no momento."}
+      <div className="flex min-h-[100dvh] min-w-0 flex-col items-center justify-center space-y-6 overflow-x-hidden bg-black px-5 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-[calc(env(safe-area-inset-top)+24px)] text-center" role={canRetry ? "alert" : undefined}>
+        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-white/8 bg-zinc-900" aria-hidden="true"><X className="text-zinc-600" size={40} /></div>
+        <div className="min-w-0 max-w-sm space-y-2">
+          <h2 className="break-words text-xl font-black text-white">Não foi possível abrir a corrida</h2>
+          <p className="break-words text-sm font-medium leading-6 text-zinc-400">
+            {screenState === "not_found" ? "Esta corrida não foi encontrada." : screenState === "unauthorized" ? "Você não tem permissão para visualizar esta corrida." : "Não conseguimos carregar os dados agora."}
           </p>
         </div>
-        <Button
-          onClick={handleReturnHome}
-          className="h-12 w-full rounded-2xl bg-apois-yellow font-black text-black"
-        >
-          Voltar para o Início
-        </Button>
+        {canRetry ? <Button onClick={() => void loadRide(rideId)} className="min-h-12 w-full max-w-sm rounded-2xl border border-white/10 bg-zinc-900 font-black text-white focus-visible:ring-2 focus-visible:ring-apois-yellow"><RefreshCw size={17} aria-hidden="true" />Tentar novamente</Button> : null}
+        <Button onClick={handleReturnHome} className="min-h-12 w-full max-w-sm rounded-2xl bg-apois-yellow font-black text-black focus-visible:ring-2 focus-visible:ring-white">Voltar para o início</Button>
       </div>
     );
   }
 
-  if (!ride || !status) return null;
+  if (!ride || !status) {
+    return <div className="flex min-h-[100dvh] items-center justify-center bg-black px-5 text-center text-sm font-bold text-zinc-400" role="status">Atualizando dados da corrida...</div>;
+  }
 
-  const hasDriverLocation =
-    ride.driver_latitude !== undefined && ride.driver_longitude !== undefined;
+  const isQueuedRide = status === "procurar_motorista" && Boolean(ride.driver_id && ride.queued_after_ride_id);
+
+  if (status === "aguardando_pagamento" && screenState === "active") {
+    return (
+      <>
+        <div className="app-screen min-h-0 min-w-0 bg-black text-white">
+          <header className="app-safe-top app-safe-x shrink-0 border-b border-white/5 bg-black pb-3 pt-3 text-center">
+            <p className="break-words text-[11px] font-black uppercase tracking-[0.18em] text-apois-yellow">APOIS</p>
+            <h1 className="mt-1 break-words text-xl font-black">Pagamento da corrida</h1>
+            <p className="mt-1 break-words text-xs leading-5 text-zinc-400">Nenhum motorista será chamado enquanto o Pix estiver pendente.</p>
+          </header>
+
+          <div className="app-scroll min-w-0 flex-1 space-y-3 px-4 py-4">
+            <section className="h-[clamp(170px,28dvh,210px)] min-w-0 overflow-hidden rounded-[26px] border border-white/8 bg-zinc-900" aria-label="Mapa da rota confirmada"><ActiveRideMap ride={ride} /></section>
+
+            <section className="min-w-0 rounded-3xl border border-white/8 bg-[#0e1014] p-4" aria-label="Rota confirmada">
+              <p className="break-words text-[11px] font-black uppercase tracking-[0.14em] text-zinc-500">Rota confirmada</p>
+              <p className="mt-2 break-words text-sm font-bold leading-5 text-zinc-300 [overflow-wrap:anywhere]">{originName}</p>
+              <p className="my-1 text-xs text-zinc-500" aria-hidden="true">até</p>
+              <p className="break-words text-sm font-bold leading-5 text-zinc-300 [overflow-wrap:anywhere]">{destinationName}</p>
+            </section>
+
+            <RidePixPaymentCard rideId={ride.id} officialAmount={ride.estimated_price} />
+
+            <button type="button" onClick={() => void refreshRide()} disabled={isRefreshing} aria-busy={isRefreshing} className="app-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-center text-xs font-black text-zinc-300 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow">
+              <RefreshCw size={16} className={isRefreshing ? "animate-spin motion-reduce:animate-none" : ""} aria-hidden="true" />
+              {isRefreshing ? "Atualizando status..." : "Atualizar status da corrida"}
+            </button>
+
+            {actionAvailability?.canCancel ? <button type="button" onClick={() => setIsCancelDialogOpen(true)} disabled={isRefreshing} className="app-pressable min-h-12 w-full rounded-2xl border border-red-400/20 bg-red-400/5 px-4 text-xs font-black text-red-300 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300">Cancelar solicitação</button> : null}
+          </div>
+        </div>
+
+        <CancellationDialog isOpen={isCancelDialogOpen} onClose={() => setIsCancelDialogOpen(false)} rideId={ride.id} rideCreatedAt={ride.created_at} onSuccess={() => { setIsCancelDialogOpen(false); clearRide(); void navigate({ to: "/inicio", replace: true }); }} />
+      </>
+    );
+  }
+
+  if (status === "procurar_motorista" && !isQueuedRide && screenState === "active") {
+    return (
+      <>
+        <SearchingDriverScreen ride={ride} isRefreshing={isRefreshing} isRealtimeConnected={isRealtimeConnected} canCancel={Boolean(actionAvailability?.canCancel)} onRefresh={() => void refreshRide()} onCancel={() => setIsCancelDialogOpen(true)} />
+        <CancellationDialog isOpen={isCancelDialogOpen} onClose={() => setIsCancelDialogOpen(false)} rideId={ride.id} rideCreatedAt={ride.created_at} onSuccess={() => { setIsCancelDialogOpen(false); clearRide(); void navigate({ to: "/inicio", replace: true }); }} />
+      </>
+    );
+  }
+
+  if (screenState === "active" && ["motorista_a_caminho", "motorista_chegou", "em_viagem"].includes(status)) {
+    return (
+      <>
+        {shareError ? <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+12px)] z-[70] mx-auto max-w-md rounded-2xl border border-red-400/20 bg-zinc-950/95 p-3 text-xs font-bold leading-5 text-red-300 shadow-xl backdrop-blur" role="alert" aria-live="assertive">{shareError}</div> : null}
+        <ActiveJourneyScreen ride={ride} status={status} isRefreshing={isRefreshing} isRealtimeConnected={isRealtimeConnected} canCancel={Boolean(actionAvailability?.canCancel)} canShare={Boolean(actionAvailability?.canShareRide)} canOpenSafety={Boolean(actionAvailability?.canOpenSafety)} isSharing={isSharingRide} onBack={handleBack} onRefresh={() => void refreshRide()} onCancel={() => setIsCancelDialogOpen(true)} onShare={() => void handleShareRide()} onSafety={() => setIsSafetyDialogOpen(true)} />
+        <CancellationDialog isOpen={isCancelDialogOpen} onClose={() => setIsCancelDialogOpen(false)} rideId={ride.id} rideCreatedAt={ride.created_at} onSuccess={() => { setIsCancelDialogOpen(false); clearRide(); void navigate({ to: "/inicio", replace: true }); }} />
+        <RideSafetyDialog open={isSafetyDialogOpen} onOpenChange={setIsSafetyDialogOpen} driverName={ride.driver_name} driverPhone={ride.driver_phone} onShareRide={async () => { setIsSafetyDialogOpen(false); await handleShareRide(); }} />
+      </>
+    );
+  }
+
+  if (screenState === "completed" || screenState === "cancelled") {
+    const totalPrice = safeMoney(ride.final_price ?? ride.estimated_price);
+    return (
+      <div className="app-screen min-h-0 min-w-0 bg-black text-white">
+        <header className="app-safe-top app-safe-x shrink-0 border-b border-white/5 bg-black pb-3 pt-3 text-center">
+          <p className="break-words text-[11px] font-black uppercase tracking-[0.18em] text-apois-yellow">APOIS</p>
+          <h1 className="mt-1 break-words text-xl font-black">{screenState === "completed" ? "Corrida finalizada" : "Corrida encerrada"}</h1>
+        </header>
+
+        <div className="app-scroll min-w-0 flex-1 space-y-3 px-4 py-4">
+          <section className="h-[clamp(180px,30dvh,220px)] min-w-0 overflow-hidden rounded-[26px] border border-white/8 bg-zinc-900" aria-label="Mapa da corrida encerrada"><ActiveRideMap ride={ride} /></section>
+
+          <section className="min-w-0 rounded-3xl border border-white/8 bg-[#0e1014] p-4" role="status">
+            <p className="break-words text-[11px] font-black uppercase tracking-[0.14em] text-zinc-500">Valor total</p>
+            <p className="mt-1 max-w-full break-words text-[clamp(24px,9vw,30px)] font-black tabular-nums text-apois-yellow">{totalPrice === null ? "Valor indisponível" : formatMoney(totalPrice)}</p>
+          </section>
+
+          {screenState === "completed" ? <RideRatingCard rideId={ride.id} driverName={ride.driver_name} currentRating={ride.passenger_rating ?? null} onRated={() => loadRide(ride.id)} /> : null}
+
+          {screenState === "completed" ? <Button onClick={() => { clearRide(); void navigate({ to: "/corridas/$rideId", params: { rideId: ride.id } }); }} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow px-4 text-center font-black text-black focus-visible:ring-2 focus-visible:ring-white"><FileText size={18} aria-hidden="true" />Ver comprovante e detalhes</Button> : null}
+
+          <Button onClick={handleReturnHome} className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 text-center font-black text-black focus-visible:ring-2 focus-visible:ring-apois-yellow"><Home size={18} aria-hidden="true" />Voltar ao início</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative flex h-[100dvh] flex-col overflow-hidden bg-black">
-      <div className="pointer-events-none absolute left-6 right-6 top-6 z-20 flex items-center justify-between">
-        <button
-          type="button"
-          aria-label="Voltar"
-          onClick={handleBack}
-          className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 backdrop-blur-md transition-transform active:scale-95"
-        >
-          <ChevronLeft className="text-white" size={20} />
-        </button>
-
-        <div className="pointer-events-auto flex gap-3">
-          {actionAvailability?.canShareRide && (
-            <button
-              type="button"
-              aria-label="Compartilhar corrida"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/60 backdrop-blur-md transition-transform active:scale-95"
-            >
-              <Share2 className="text-white" size={18} />
-            </button>
-          )}
-          {actionAvailability?.canOpenSafety && (
-            <button
-              type="button"
-              aria-label="Abrir recursos de segurança"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-red-500/20 bg-red-500/80 backdrop-blur-md transition-transform active:scale-95"
-            >
-              <Shield className="text-white" size={18} />
-            </button>
-          )}
+    <div className="app-screen min-h-0 min-w-0 bg-black text-white">
+      <div className="relative min-h-[280px] flex-1">
+        <ActiveRideMap ride={ride} />
+        <div className="absolute inset-x-3 top-[calc(env(safe-area-inset-top)+12px)] min-w-0 rounded-2xl border border-apois-yellow/20 bg-black/85 p-4 backdrop-blur-xl sm:inset-x-4" role="status" aria-live="polite">
+          <p className="break-words text-[11px] font-black uppercase tracking-[0.14em] text-apois-yellow">{isQueuedRide ? "Motorista confirmado" : "Corrida programada"}</p>
+          <p className="mt-2 break-words text-sm font-black leading-5">{isQueuedRide ? "Sua corrida já está reservada. Seu motorista está finalizando uma viagem próxima." : "Acompanhe aqui quando a corrida ficar disponível."}</p>
         </div>
       </div>
-
-      <div className="relative flex-1">
-        <PassengerMap
-          origin={ride.origin}
-          destination={ride.destination}
-          encodedPolyline={ride.encoded_polyline}
-          driverLocation={
-            hasDriverLocation
-              ? {
-                  lat: ride.driver_latitude as number,
-                  lng: ride.driver_longitude as number,
-                  ...(ride.driver_heading !== undefined ? { heading: ride.driver_heading } : {}),
-                }
-              : undefined
-          }
-          isStatic={screenState === "completed" || screenState === "cancelled"}
-        />
-
-        <div className="absolute left-6 right-6 top-20 z-10 space-y-3">
-          <RideStatusHeader status={status} isRefreshing={isRefreshing} />
-
-          {screenState === "active" && !isRealtimeConnected && (
-            <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-400/20 bg-black/80 px-4 py-3 text-white backdrop-blur-md">
-              <div className="flex min-w-0 items-center gap-3">
-                <WifiOff className="shrink-0 text-amber-400" size={18} />
-                <div className="min-w-0">
-                  <p className="text-xs font-black">Reconectando a corrida</p>
-                  <p className="truncate text-[10px] text-zinc-400">
-                    Os dados serão atualizados assim que a conexão voltar.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                aria-label="Atualizar corrida"
-                onClick={() => void refreshRide()}
-                disabled={isRefreshing}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 disabled:opacity-50"
-              >
-                <RefreshCw className={isRefreshing ? "animate-spin" : ""} size={16} />
-              </button>
-            </div>
-          )}
-        </div>
+      <div className="min-w-0 shrink-0 space-y-3 rounded-t-[28px] border-t border-white/8 bg-[#0e1014] px-4 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4 sm:p-5">
+        {isQueuedRide ? <><DriverCard ride={ride} /><VehicleCard ride={ride} /></> : null}
+        <button type="button" onClick={() => void refreshRide()} disabled={isRefreshing} aria-busy={isRefreshing} className="app-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 text-center text-xs font-black text-zinc-300 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow"><RefreshCw size={16} className={isRefreshing ? "animate-spin motion-reduce:animate-none" : ""} aria-hidden="true" />{isRefreshing ? "Atualizando corrida..." : "Atualizar corrida"}</button>
       </div>
-
-      <motion.div
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="max-h-[60vh] space-y-4 overflow-y-auto rounded-t-[32px] border-t border-white/5 bg-zinc-950 px-6 pb-8 pt-6 shadow-[0_-8px_32px_rgba(0,0,0,0.5)] scrollbar-hide"
-      >
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={status}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="space-y-4"
-          >
-            {status !== "procurar_motorista" && status !== "agendada" && (
-              <>
-                <DriverCard ride={ride} />
-                <VehicleCard ride={ride} />
-                {status === "motorista_a_caminho" && (
-                  <SecurityCodeCard code={ride.security_code} />
-                )}
-              </>
-            )}
-
-            {status === "procurar_motorista" && (
-              <div className="flex flex-col items-center justify-center space-y-4 rounded-2xl border border-white/5 bg-zinc-900/50 p-8 text-center">
-                <div className="relative">
-                  <div className="h-16 w-16 animate-spin rounded-full border-2 border-apois-yellow/20 border-t-apois-yellow" />
-                  <Search
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-apois-yellow"
-                    size={24}
-                  />
-                </div>
-                <div>
-                  <h4 className="font-black text-white">Buscando motoristas</h4>
-                  <p className="mt-1 text-[10px] font-medium text-zinc-500">
-                    Isso geralmente leva menos de 2 minutos.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {(screenState === "completed" || screenState === "cancelled") && (
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between rounded-2xl border border-white/5 bg-zinc-900/50 p-4">
-                  <span className="text-xs font-black uppercase text-zinc-500">Valor Total</span>
-                  <span className="text-xl font-black text-white">
-                    R$ {(ride.final_price ?? ride.estimated_price).toFixed(2).replace(".", ",")}
-                  </span>
-                </div>
-
-                <Button
-                  onClick={handleReturnHome}
-                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-white font-black text-black"
-                >
-                  <Home size={18} />
-                  Voltar ao Início
-                </Button>
-              </div>
-            )}
-
-            <RideStopsTimeline ride={ride} />
-
-            {screenState === "active" && (
-              <div className="flex items-center justify-between px-1 pt-2">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                    Estimativa
-                  </p>
-                  <p className="text-lg font-black text-white">
-                    R$ {ride.estimated_price.toFixed(2).replace(".", ",")}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                    Pagamento
-                  </p>
-                  <p className="text-sm font-black uppercase tracking-tighter text-white">
-                    {ride.payment_method}
-                  </p>
-                </div>
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
-
-        {actionAvailability?.canCancel && (
-          <Button
-            variant="ghost"
-            onClick={() => setIsCancelDialogOpen(true)}
-            className="h-12 w-full rounded-2xl text-xs font-black text-zinc-600 transition-colors hover:bg-red-500/5 hover:text-red-500"
-          >
-            CANCELAR CORRIDA
-          </Button>
-        )}
-      </motion.div>
-
-      <CancellationDialog
-        isOpen={isCancelDialogOpen}
-        onClose={() => setIsCancelDialogOpen(false)}
-        rideId={ride.id}
-        onSuccess={() => {
-          setIsCancelDialogOpen(false);
-          void loadRide(ride.id);
-        }}
-      />
     </div>
   );
 }

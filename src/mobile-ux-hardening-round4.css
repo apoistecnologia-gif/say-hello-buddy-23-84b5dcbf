@@ -1,0 +1,114 @@
+/* APOIS Passageiro — rodada 4: correções residuais de UI/UX mobile. */
+
+/* 01 — qualquer tela autenticada não pode vazar horizontalmente. */
+.app-screen,
+.app-scroll { max-width: 100%; overflow-x: hidden; }
+
+/* 02 — cards flexíveis precisam permitir encolhimento real dos textos. */
+.app-screen .flex > .min-w-0,
+.app-dialog-content .flex > .min-w-0 { min-width: 0; }
+
+/* 03 — títulos longos não devem empurrar ações para fora da viewport. */
+.app-screen h1,
+.app-screen h2,
+.app-screen h3 { overflow-wrap: anywhere; }
+
+/* 04 — e-mails, IDs e chaves extensas quebram de forma segura. */
+.app-screen [class*="font-mono"],
+.app-dialog-content [class*="font-mono"] { overflow-wrap: anywhere; word-break: break-word; }
+
+/* 05 — imagens de avatar nunca ultrapassam o contêiner. */
+.app-screen img,
+.app-dialog-content img { max-width: 100%; }
+
+/* 06 — botões desabilitados continuam legíveis sem parecer ativos. */
+.app-screen button:disabled { cursor: not-allowed; }
+
+/* 07 — itens de navegação inferior mantêm rótulo dentro da célula. */
+.app-screen nav button > span { max-width: 100%; overflow-wrap: anywhere; }
+
+/* 08 — textos do bottom nav não criam largura mínima invisível. */
+.app-screen nav button { min-width: 0; }
+
+/* 09 — drawers e folhas inferiores respeitam o recorte inferior. */
+.app-screen [class*="fixed"][class*="bottom-0"],
+.app-dialog-content [class*="fixed"][class*="bottom-0"] { padding-bottom: max(0px, env(safe-area-inset-bottom)); }
+
+/* 10 — overlays fixos superiores respeitam notch. */
+.app-screen [class*="fixed"][class*="top-0"] { padding-top: max(0px, env(safe-area-inset-top)); }
+
+/* 11 — campos nunca extrapolam cards estreitos. */
+.app-screen input,
+.app-screen select,
+.app-screen textarea,
+.app-dialog-content input,
+.app-dialog-content select,
+.app-dialog-content textarea { max-width: 100%; min-width: 0; }
+
+/* 12 — textos digitados em textarea não ficam visualmente cortados. */
+.app-screen textarea,
+.app-dialog-content textarea { line-height: 1.4; }
+
+/* 13 — conteúdo de modal ganha scroll-padding para o último botão. */
+.app-dialog-content { scroll-padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+
+/* 14 — barras sticky internas não escondem foco/erro no topo. */
+.app-scroll { scroll-padding-top: calc(0.75rem + env(safe-area-inset-top)); }
+
+/* 15 — grupos de badges/pílulas podem quebrar em vez de comprimir texto. */
+.app-screen .flex.flex-wrap { min-width: 0; }
+
+/* 16 — preço/valor grande reduz de forma fluida em aparelhos compactos. */
+@media (max-width: 359px) {
+  .app-screen [class~="text-[20px]"],
+  .app-screen [class~="text-[22px]"],
+  .app-screen [class~="text-[24px]"] { font-size: clamp(17px, 5.6vw, 20px); }
+}
+
+/* 17 — cabeçalhos com avatar + saldo não espremem o nome em 320px. */
+@media (max-width: 359px) {
+  .app-screen header .flex.items-center.justify-between { gap: 0.5rem; }
+  .app-screen header button[class*="max-w-[46%]"] { max-width: 42%; padding-inline: 0.5rem; }
+}
+
+/* 18 — mensagens de localização não cobrem toda a largura em telas estreitas. */
+@media (max-width: 359px) {
+  .app-screen button[class*="max-w-[min(190px"] { max-width: calc(100% - 24px); right: 12px; }
+}
+
+/* 19 — cartões de ações rápidas não forçam palavras em uma única linha. */
+@media (max-width: 359px) {
+  .app-scroll .grid.grid-cols-4 button span { white-space: normal; }
+}
+
+/* 20 — listas horizontais preservam snap e não exibem scrollbar nativa. */
+.app-scroll [class*="overflow-x-auto"] { scrollbar-width: none; overscroll-behavior-x: contain; }
+.app-scroll [class*="overflow-x-auto"]::-webkit-scrollbar { display: none; }
+
+/* 21 — ícones nunca roubam a largura do texto adjacente. */
+.app-screen svg,
+.app-dialog-content svg { flex-shrink: 0; }
+
+/* 22 — pares rótulo/valor podem quebrar no último degrau de largura. */
+@media (max-width: 339px) {
+  .app-scroll .flex.items-center.justify-between,
+  .app-scroll .flex.items-baseline.justify-between,
+  .app-dialog-content .flex.items-center.justify-between,
+  .app-dialog-content .flex.items-baseline.justify-between { flex-wrap: wrap; gap: 0.5rem; }
+}
+
+/* 23 — botões lado a lado viram coluna quando não há largura útil. */
+@media (max-width: 339px) {
+  .app-scroll .grid[class*="grid-cols-[minmax(0,1fr)_auto]"] { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 24 — telas muito baixas/landscape reduzem painéis absolutos da Home. */
+@media (max-height: 560px) and (orientation: landscape) {
+  .app-screen section[class*="max-h-[54dvh]"] { max-height: 48dvh; }
+}
+
+/* 25 — preferência de movimento reduzido elimina animações não essenciais. */
+@media (prefers-reduced-motion: reduce) {
+  .app-screen *,
+  .app-dialog-content * { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

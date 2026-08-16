@@ -3,79 +3,229 @@
 @theme {
   --color-primary: #ffb800;
   --color-secondary: #ff5c00;
-  --color-surface: #1e1e1e;
   --color-apois-yellow: #ffb800;
+  --color-apois-gold: #f5a900;
+  --color-apois-black: #050505;
+  --color-apois-ink: #0b0c0f;
+  --color-apois-surface: #14161b;
+  --color-apois-surface-soft: #1b1e25;
+  --color-apois-border: #292d36;
+  --color-apois-muted: #9298a5;
+  --color-apois-success: #29c96f;
+  --color-apois-danger: #ff5d67;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
+  --radius-lg: 0.875rem;
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
+  --radius-3xl: 2rem;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  background: #050505;
+  color: #ffffff;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-right: env(safe-area-inset-right, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-left: env(safe-area-inset-left, 0px);
+  --app-nav-height: 76px;
 }
 
 @layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    height: 100dvh;
+    min-height: 100%;
+    min-height: 100dvh;
+    overflow: hidden;
+    background: #050505;
+  }
+
+  html {
+    overscroll-behavior: none;
+  }
+
   body {
-    @apply bg-black text-white antialiased overflow-x-hidden;
+    margin: 0;
+    min-width: 320px;
+    overflow: hidden;
+    background: #050505;
+    color: #ffffff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-      env(safe-area-inset-left);
   }
 
+  button,
   input,
-  button {
-    @apply outline-none transition-all duration-200;
+  textarea,
+  select {
+    font: inherit;
   }
 
-  /* Prevent zoom on input focus for iOS/Android */
+  button,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid #ffb800;
+    outline-offset: 3px;
+  }
+
   input[type="text"],
   input[type="password"],
   input[type="email"],
-  textarea {
+  input[type="tel"],
+  input[type="search"],
+  textarea,
+  select {
     font-size: 16px !important;
   }
 
-  /* Scrollbar Hide Utility */
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
+  ::selection {
+    background: rgb(255 184 0 / 28%);
+    color: #ffffff;
   }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+}
+
+@layer components {
+  .app-viewport {
+    position: relative;
+    width: 100%;
+    min-height: 100dvh;
+    background:
+      radial-gradient(circle at 50% -10%, rgb(255 184 0 / 9%), transparent 34%),
+      #050505;
+    color: #ffffff;
+    isolation: isolate;
   }
 
-  /* Ripple Effect Mock */
+  .app-screen {
+    position: relative;
+    display: flex;
+    min-height: 100%;
+    flex: 1 1 auto;
+    flex-direction: column;
+    background: #050505;
+  }
+
+  .app-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .app-scroll::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .app-surface {
+    border: 1px solid rgb(255 255 255 / 7%);
+    background: linear-gradient(180deg, rgb(27 30 37 / 96%), rgb(18 20 25 / 96%));
+    box-shadow: 0 18px 50px rgb(0 0 0 / 30%);
+  }
+
+  .app-hairline {
+    border-color: rgb(255 255 255 / 8%);
+  }
+
+  .app-gold-glow {
+    box-shadow: 0 16px 45px rgb(255 184 0 / 18%);
+  }
+
+  .app-pressable {
+    transition:
+      transform 160ms ease,
+      opacity 160ms ease,
+      border-color 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .app-pressable:active {
+    transform: scale(0.975);
+  }
+
+  .app-safe-top,
+  .safe-top {
+    padding-top: max(16px, var(--app-safe-top));
+  }
+
+  .app-safe-bottom,
+  .safe-bottom {
+    padding-bottom: max(16px, var(--app-safe-bottom));
+  }
+
+  .app-safe-x {
+    padding-right: max(16px, var(--app-safe-right));
+    padding-left: max(16px, var(--app-safe-left));
+  }
+
+  .app-bottom-nav-spacer {
+    padding-bottom: calc(var(--app-nav-height) + var(--app-safe-bottom));
+  }
+
   .ripple-effect {
     position: relative;
     overflow: hidden;
   }
+
   .ripple-effect:active::after {
-    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
     width: 100%;
     height: 100%;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 10%);
+    content: "";
     transform: translate(-50%, -50%) scale(2);
-    animation: ripple 0.4s ease-out;
+    animation: app-ripple 400ms ease-out;
   }
+}
 
-  @keyframes ripple {
-    from {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(0);
-    }
-    to {
-      opacity: 0;
-      transform: translate(-50%, -50%) scale(2.5);
-    }
+@keyframes app-ripple {
+  from {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.5);
   }
 }
 
 @utility pb-safe-area-inset-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--app-safe-bottom);
 }
 
 @utility pt-safe-area-inset-top {
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--app-safe-top);
+}
+
+@utility px-safe-area-inset {
+  padding-right: var(--app-safe-right);
+  padding-left: var(--app-safe-left);
 }

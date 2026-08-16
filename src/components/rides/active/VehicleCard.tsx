@@ -1,50 +1,66 @@
-import React from "react";
-import { ActiveRide } from "@/types/rides/active-ride";
+import type { ActiveRide } from "@/types/rides/active-ride";
 import { Car } from "lucide-react";
 
 interface VehicleCardProps {
   ride: ActiveRide;
 }
 
-export const VehicleCard: React.FC<VehicleCardProps> = ({ ride }) => {
-  if (!ride.driver_vehicle_model && !ride.driver_vehicle_plate) return null;
+function normalizePlate(value: unknown): string {
+  return String(value ?? "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 7);
+}
+
+export function VehicleCard({ ride }: VehicleCardProps) {
+  const model = ride.driver_vehicle_model?.trim() || "";
+  const color = ride.driver_vehicle_color?.trim() || "";
+  const plate = normalizePlate(ride.driver_vehicle_plate);
+
+  if (!model && !plate && !color) return null;
 
   return (
-    <div className="bg-zinc-900/50 rounded-2xl p-4 border border-white/5 space-y-3 animate-in fade-in slide-in-from-bottom duration-700">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-500">
+    <section
+      className="min-w-0 space-y-3 rounded-2xl border border-white/5 bg-zinc-900/50 p-4 animate-in fade-in slide-in-from-bottom duration-700 motion-reduce:animate-none"
+      aria-labelledby="active-ride-vehicle-title"
+    >
+      <div className="flex min-w-0 items-start justify-between gap-3 max-[379px]:flex-col">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-zinc-500" aria-hidden="true">
             <Car size={20} />
           </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+          <div className="min-w-0 flex-1">
+            <p id="active-ride-vehicle-title" className="break-words text-xs font-black uppercase leading-5 tracking-wide text-zinc-500">
               Veículo
             </p>
-            <p className="font-bold text-white text-sm">
-              {ride.driver_vehicle_model}{" "}
-              {ride.driver_vehicle_color && (
-                <span className="text-zinc-500 font-medium">• {ride.driver_vehicle_color}</span>
-              )}
+            <p className="break-words text-sm font-bold leading-5 text-white [overflow-wrap:anywhere]">
+              {model || "Modelo não informado"}
+              {color ? <span className="font-medium text-zinc-400"> • {color}</span> : null}
             </p>
           </div>
         </div>
 
-        <div className="bg-white px-3 py-1.5 rounded-lg border-2 border-zinc-300 shadow-inner">
-          <p className="text-[10px] font-black text-zinc-400 leading-none mb-0.5 uppercase tracking-tighter">
-            Brasil
+        {plate ? (
+          <div
+            className="max-w-full shrink-0 rounded-lg border-2 border-zinc-300 bg-white px-3 py-2 shadow-inner max-[379px]:ml-[56px] max-[339px]:ml-0"
+            aria-label={`Placa do veículo ${plate.split("").join(" ")}`}
+          >
+            <p className="mb-1 text-xs font-black uppercase leading-none tracking-tight text-zinc-500">Brasil</p>
+            <p className="break-all text-base font-black uppercase leading-none tracking-[0.14em] text-black">{plate}</p>
+          </div>
+        ) : (
+          <p className="max-w-full break-words rounded-xl border border-white/5 bg-black/20 px-3 py-2 text-xs font-medium leading-5 text-zinc-500 max-[379px]:ml-[56px] max-[339px]:ml-0">
+            Placa não informada
           </p>
-          <p className="text-black font-black text-sm tracking-widest leading-none">
-            {ride.driver_vehicle_plate}
-          </p>
-        </div>
+        )}
       </div>
 
-      <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 flex gap-3 items-center">
-        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-        <p className="text-[10px] text-blue-400 font-medium">
-          Confira a placa e o veículo antes de embarcar.
+      <div className="flex min-w-0 items-start gap-3 rounded-xl border border-blue-500/10 bg-blue-500/5 p-3" role="note">
+        <div className="mt-2 h-2 w-2 shrink-0 animate-pulse rounded-full bg-blue-500 motion-reduce:animate-none" aria-hidden="true" />
+        <p className="min-w-0 break-words text-xs font-medium leading-5 text-blue-300 [overflow-wrap:anywhere]">
+          Confira a placa, o modelo e a cor antes de embarcar. Se os dados não coincidirem, não entre no veículo.
         </p>
       </div>
-    </div>
+    </section>
   );
-};
+}

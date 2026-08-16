@@ -6,12 +6,14 @@ import {
   initializePush,
   setPushNavigationHandler,
   subscribeToPushState,
+  teardownPush,
   type PushState,
 } from "@/services/push/push-service";
 
 /**
  * Integra o push ao ciclo de vida autenticado.
- * Só registra o dispositivo após a sessão existir e nunca duplica listeners.
+ * Registra o dispositivo somente depois da sessão existir e reinicia o
+ * serviço quando a conta muda ou deixa de estar autenticada.
  */
 export const usePushNotifications = (): PushState => {
   const { user, authState } = useAuth();
@@ -29,10 +31,36 @@ export const usePushNotifications = (): PushState => {
   }, [navigate]);
 
   useEffect(() => {
-    if (authState !== "authenticated" || !user?.id) return;
-    if (startedForUser.current === user.id) return;
-    startedForUser.current = user.id;
-    void initializePush();
+    let cancelled = false;
+
+    const syncPushSession = async () => {
+      const nextUserId = authState === "authenticated" ? (user?.id ?? null) : null;
+      const previousUserId = startedForUser.current;
+
+      if (!nextUserId) {
+        if (previousUserId) {
+          startedForUser.current = null;
+          await teardownPush();
+        }
+        return;
+      }
+
+      if (previousUserId === nextUserId) return;
+
+      if (previousUserId) {
+        startedForUser.current = null;
+        await teardownPush();
+        if (cancelled) return;
+      }
+
+      startedForUser.current = nextUserId;
+      await initializePush(nextUserId);
+    };
+
+    void syncPushSession();
+    return () => {
+      cancelled = true;
+    };
   }, [authState, user?.id]);
 
   return state;

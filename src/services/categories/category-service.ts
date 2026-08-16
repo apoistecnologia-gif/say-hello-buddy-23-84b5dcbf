@@ -1,5 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
-import { RideCategory, RideCategoryCode } from "@/types/pricing";
+import type { RideCategory, RideCategoryCode } from "@/types/pricing";
+
+const normalizeCategoryCode = (value: string): RideCategoryCode | null => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "carro") return "carros";
+  if (normalized === "moto") return "motos";
+  if (["carros", "motos", "fretes", "guincho", "envios"].includes(normalized)) {
+    return normalized as RideCategoryCode;
+  }
+  return null;
+};
 
 class CategoryService {
   async getCategories(): Promise<RideCategory[]> {
@@ -14,21 +24,33 @@ class CategoryService {
       throw error;
     }
 
-    return (data || []).map((cat) => ({
-      id: cat.id,
-      code: cat.code,
-      key: cat.code as RideCategoryCode,
-      name: cat.name,
-      label: cat.name,
-      description: cat.description,
-      icon: cat.icon,
-      imageUrl: cat.image_url,
-      isActive: cat.is_active || false,
-      sortOrder: cat.sort_order || 0,
-      capacityLabel: cat.capacity_label,
-      etaLabel: cat.eta_label,
-      details: {},
-    }));
+    return (data || []).flatMap((category) => {
+      const code = normalizeCategoryCode(category.code);
+      if (!code) {
+        console.warn("[CategoryService] Ignoring unsupported category code", {
+          id: category.id,
+          code: category.code,
+        });
+        return [];
+      }
+
+      return [
+        {
+          id: category.id,
+          code,
+          key: code,
+          name: category.name,
+          label: category.name,
+          description: category.description,
+          icon: category.icon,
+          imageUrl: category.image_url,
+          isActive: category.is_active || false,
+          sortOrder: category.sort_order || 0,
+          capacityLabel: category.capacity_label,
+          etaLabel: category.eta_label,
+        },
+      ];
+    });
   }
 }
 
