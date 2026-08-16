@@ -16,6 +16,10 @@ function firstName(value: string | null | undefined, fallback: string) {
   return normalized || fallback;
 }
 
+function normalizedPhone(value: string): string {
+  return value.trim().replace(/[^\d+]/g, "");
+}
+
 export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
   const [driverPhotoUrl, setDriverPhotoUrl] = useState<string | null>(null);
 
@@ -54,11 +58,10 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
 
   if (!ride.driver_id && !ride.driver_name) return null;
 
-  // Em superfícies compartilhadas Passageiro ↔ Motorista exibimos somente o
-  // primeiro nome. O nome completo continua preservado no domínio/admin.
   const driverName = firstName(ride.driver_name, "Motorista");
   const hasRating =
     typeof ride.driver_rating === "number" && Number.isFinite(ride.driver_rating);
+  const phone = ride.driver_phone ? normalizedPhone(ride.driver_phone) : "";
 
   return (
     <section className="app-surface flex min-w-0 items-center gap-3 rounded-2xl p-3 animate-in fade-in slide-in-from-bottom duration-500">
@@ -70,7 +73,7 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
             className="h-full w-full object-cover"
           />
         ) : (
-          <User className="text-zinc-600" size={21} />
+          <User className="text-zinc-600" size={21} aria-hidden="true" />
         )}
       </div>
 
@@ -78,9 +81,9 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
         <h4 className="break-words text-sm font-black leading-5 text-white">{driverName}</h4>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
           {hasRating ? (
-            <div className="flex items-center gap-1 text-apois-yellow">
-              <Star size={11} fill="currentColor" />
-              <span className="text-[11px] font-black">{ride.driver_rating?.toFixed(1)}</span>
+            <div className="flex items-center gap-1 text-apois-yellow" aria-label={`Nota ${ride.driver_rating?.toFixed(1).replace(".", ",")} de 5`}>
+              <Star size={11} fill="currentColor" aria-hidden="true" />
+              <span className="text-[11px] font-black">{ride.driver_rating?.toFixed(1).replace(".", ",")}</span>
             </div>
           ) : (
             <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
@@ -90,13 +93,13 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
         </div>
       </div>
 
-      {ride.driver_phone ? (
+      {phone ? (
         <a
-          href={`tel:${ride.driver_phone}`}
+          href={`tel:${phone}`}
           aria-label={`Ligar para ${driverName}`}
-          className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-apois-yellow text-black"
+          className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-apois-yellow text-black focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
-          <Phone size={17} />
+          <Phone size={17} aria-hidden="true" />
         </a>
       ) : null}
     </section>
