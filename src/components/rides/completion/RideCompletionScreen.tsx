@@ -43,11 +43,12 @@ const paymentLabels: Record<string, string> = {
   cash: "Dinheiro",
   money: "Dinheiro",
   wallet: "Carteira APOIS",
+  corporate: "Corporativo",
 };
 
 function safeRating(value: unknown): number {
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 1 && parsed <= 5 ? parsed : 0;
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 5 ? parsed : 0;
 }
 
 function firstName(value: string | null | undefined): string {
@@ -62,13 +63,15 @@ function safeMoney(value: unknown): string {
 function safeDistance(value: unknown): string | null {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) return null;
+  if (parsed < 0.1) return "Menos de 0,1 km";
   return `${parsed.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`;
 }
 
 function safeDuration(value: unknown): string | null {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) return null;
-  return `${Math.max(1, Math.round(parsed))} min`;
+  if (parsed < 1) return "Menos de 1 min";
+  return `${Math.round(parsed)} min`;
 }
 
 export function RideCompletionScreen({
@@ -99,8 +102,10 @@ export function RideCompletionScreen({
   const destinationLabel = ride.destination_name?.trim() || "Destino não informado";
   const vehicleModel = ride.driver_vehicle_model?.trim() || "";
   const vehiclePlate = ride.driver_vehicle_plate?.trim().toUpperCase() || "";
+  const driverPhoto = ride.driver_photo?.trim() || "";
 
   const toggleTag = (tag: string) => {
+    if (isSubmitting || submitted) return;
     setSelectedTags((current) =>
       current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag],
     );
@@ -123,7 +128,11 @@ export function RideCompletionScreen({
       });
       setSubmitted(true);
       toast.success("Avaliação enviada. Obrigado!");
-      await onReviewSubmitted();
+      try {
+        await onReviewSubmitted();
+      } catch (refreshError: unknown) {
+        console.warn("[RideCompletionScreen] review refresh failed", refreshError);
+      }
     } catch (error: unknown) {
       console.error("[RideCompletionScreen] review submission failed", error);
       toast.error("Não foi possível enviar sua avaliação agora. Tente novamente.");
@@ -167,9 +176,9 @@ export function RideCompletionScreen({
 
         <section className="app-surface mt-4 flex min-w-0 flex-wrap items-center gap-4 rounded-3xl p-4 sm:flex-nowrap sm:p-5" aria-label="Motorista da corrida">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-zinc-800 text-zinc-500">
-            {ride.driver_photo ? (
+            {driverPhoto ? (
               <img
-                src={ride.driver_photo}
+                src={driverPhoto}
                 alt={`Foto de ${driverName}`}
                 className="h-full w-full object-cover"
               />
@@ -194,7 +203,7 @@ export function RideCompletionScreen({
 
         <section className="app-surface mt-4 min-w-0 rounded-3xl p-4 text-center sm:p-5" aria-busy={isSubmitting} aria-labelledby="ride-review-title">
           {submitted ? (
-            <div className="py-2" role="status" aria-live="polite">
+            <div className="py-2" role="status" aria-live="polite" aria-atomic="true">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-apois-yellow/10 text-apois-yellow">
                 <Star size={28} fill="currentColor" aria-hidden="true" />
               </div>
@@ -237,11 +246,12 @@ export function RideCompletionScreen({
                       role="radio"
                       aria-checked={rating === value}
                       aria-label={`${value} ${value === 1 ? "estrela" : "estrelas"}`}
+                      disabled={isSubmitting}
                       onClick={() => {
                         setRating(value);
                         setSelectedTags([]);
                       }}
-                      className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-black/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow sm:h-12 sm:w-12"
+                      className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-black/35 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow sm:h-12 sm:w-12"
                     >
                       <Star
                         size={26}
@@ -263,8 +273,9 @@ export function RideCompletionScreen({
                         key={tag}
                         type="button"
                         aria-pressed={selected}
+                        disabled={isSubmitting}
                         onClick={() => toggleTag(tag)}
-                        className={`app-pressable min-h-11 max-w-full rounded-full border px-4 py-2 text-xs font-bold leading-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow ${
+                        className={`app-pressable min-h-11 max-w-full rounded-full border px-4 py-2 text-xs font-bold leading-4 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-apois-yellow ${
                           selected
                             ? "border-apois-yellow bg-apois-yellow text-black"
                             : "border-white/10 bg-white/5 text-zinc-400"
@@ -283,13 +294,15 @@ export function RideCompletionScreen({
                 </span>
                 <textarea
                   value={comment}
+                  disabled={isSubmitting}
                   onChange={(event) => setComment(event.target.value.slice(0, 500))}
                   rows={3}
                   maxLength={500}
+                  aria-describedby="ride-review-comment-count"
                   placeholder="Conte o que foi bom ou o que pode melhorar."
-                  className="w-full min-w-0 max-w-full resize-y rounded-2xl border border-white/10 bg-black/40 p-4 text-base text-white outline-none placeholder:text-zinc-600 focus:border-apois-yellow focus:ring-2 focus:ring-apois-yellow/30"
+                  className="w-full min-w-0 max-w-full resize-y rounded-2xl border border-white/10 bg-black/40 p-4 text-base text-white outline-none placeholder:text-zinc-600 disabled:opacity-50 focus:border-apois-yellow focus:ring-2 focus:ring-apois-yellow/30"
                 />
-                <span className="mt-1 block text-right text-[10px] text-zinc-600" aria-live="polite">
+                <span id="ride-review-comment-count" className="mt-1 block text-right text-[10px] text-zinc-600" aria-live="polite">
                   {comment.length}/500
                 </span>
               </label>
@@ -301,7 +314,7 @@ export function RideCompletionScreen({
                 aria-busy={isSubmitting}
                 className="app-pressable app-gold-glow mt-5 flex min-h-14 w-full items-center justify-center rounded-2xl bg-apois-yellow px-4 py-3 text-center text-base font-black leading-5 text-black disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none"
               >
-                {isSubmitting ? <Loader2 className="mr-2 shrink-0 animate-spin" size={20} aria-hidden="true" /> : null}
+                {isSubmitting ? <Loader2 className="mr-2 shrink-0 animate-spin motion-reduce:animate-none" size={20} aria-hidden="true" /> : null}
                 {isSubmitting ? "Enviando avaliação..." : "Enviar avaliação"}
               </button>
             </>
