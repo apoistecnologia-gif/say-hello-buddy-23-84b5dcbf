@@ -13,6 +13,8 @@ export function SecurityCodeCard({ code }: SecurityCodeCardProps) {
     <section
       className="min-w-0 overflow-hidden rounded-[20px] border border-apois-yellow/25 bg-zinc-950 shadow-[0_16px_40px_-28px_rgba(0,0,0,0.95)] animate-in fade-in zoom-in duration-300"
       aria-label="Código PIN da corrida"
+      role="status"
+      aria-live="polite"
     >
       <div className="flex min-w-0 items-start gap-2.5 border-b border-white/5 bg-apois-yellow/[0.06] px-3.5 py-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-apois-yellow/20 bg-apois-yellow/10" aria-hidden="true">
@@ -41,7 +43,7 @@ export function SecurityCodeCard({ code }: SecurityCodeCardProps) {
             <div
               key={`${index}-${digit}`}
               aria-hidden="true"
-              className="flex min-w-0 h-12 items-center justify-center rounded-xl border border-apois-yellow/25 bg-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.025),0_8px_22px_-18px_rgba(0,0,0,1)]"
+              className="flex h-12 min-w-0 items-center justify-center rounded-xl border border-apois-yellow/25 bg-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.025),0_8px_22px_-18px_rgba(0,0,0,1)]"
             >
               <span className="text-[clamp(22px,8vw,26px)] font-black tabular-nums leading-none text-apois-yellow">
                 {digit}
