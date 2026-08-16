@@ -62,7 +62,7 @@ export function SearchingDriverScreen({
   return (
     <div className="relative flex h-[100dvh] min-h-0 min-w-0 flex-col overflow-hidden bg-black text-white">
       <header className="app-safe-top app-safe-x relative z-30 shrink-0 bg-black/96 pb-2 pt-2 backdrop-blur-xl">
-        <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2">
+        <div className="grid min-w-0 grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 max-[359px]:grid-cols-[44px_minmax(0,1fr)]">
           <button
             type="button"
             onClick={canCancel ? onCancel : onRefresh}
@@ -71,24 +71,24 @@ export function SearchingDriverScreen({
             aria-busy={!canCancel && isRefreshing}
             className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-apois-yellow disabled:opacity-50"
           >
-            {canCancel ? <X size={25} strokeWidth={2.4} aria-hidden="true" /> : <RefreshCw size={20} aria-hidden="true" className={isRefreshing ? "animate-spin" : ""} />}
+            {canCancel ? <X size={25} strokeWidth={2.4} aria-hidden="true" /> : <RefreshCw size={20} aria-hidden="true" className={isRefreshing ? "animate-spin motion-reduce:animate-none" : ""} />}
           </button>
 
           <div className="min-w-0 text-center">
             <h1 className="break-words text-[17px] font-black leading-5 tracking-tight">Procurando motorista</h1>
-            <p className="mt-0.5 break-words text-[10px] font-medium leading-4 text-zinc-500">
-              Estamos buscando o melhor motorista disponível para você.
+            <p className="mt-0.5 break-words text-[11px] font-medium leading-4 text-zinc-500">
+              Estamos buscando um motorista disponível para você.
             </p>
           </div>
 
-          <div className="max-w-[76px] justify-self-end text-right">
+          <div className="max-w-[76px] justify-self-end text-right max-[359px]:hidden" aria-hidden="true">
             <p className="break-words text-[15px] font-black tracking-[0.08em] text-white sm:text-[17px] sm:tracking-[0.12em]">APOIS</p>
             <p className="break-words text-[10px] font-black uppercase leading-3 tracking-[0.12em] text-apois-yellow sm:tracking-[0.18em]">Vamos juntos</p>
           </div>
         </div>
       </header>
 
-      <div className="relative min-h-[250px] flex-[0.95] overflow-hidden border-y border-white/5 sm:min-h-[300px]">
+      <div className="relative min-h-[250px] flex-[0.95] overflow-hidden border-y border-white/5 max-h-[460px] max-[height:620px]:min-h-[210px] sm:min-h-[300px]">
         <ActiveRideMap ride={ride} />
 
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/35" />
@@ -126,19 +126,19 @@ export function SearchingDriverScreen({
         <div className="mx-auto min-w-0 max-w-[430px] space-y-2.5">
           <section className="min-w-0 rounded-2xl border border-white/10 bg-[#0e1014] p-3.5 shadow-xl" aria-busy={isRefreshing}>
             <div className="flex min-w-0 items-start gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-apois-yellow/25 bg-apois-yellow/10 text-apois-yellow">
-                <Car size={20} aria-hidden="true" />
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-apois-yellow/25 bg-apois-yellow/10 text-apois-yellow" aria-hidden="true">
+                <Car size={20} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="break-words text-[14px] font-black leading-5 text-white">Buscando motoristas próximos…</p>
-                <p className="mt-0.5 break-words text-[10px] font-medium leading-4 text-zinc-500">Isso pode levar alguns segundos.</p>
+                <p className="mt-0.5 break-words text-[11px] font-medium leading-4 text-zinc-500">A busca é atualizada automaticamente.</p>
                 <div
                   className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800"
                   role="progressbar"
                   aria-label="Busca de motorista em andamento"
                   aria-valuetext="Procurando motoristas disponíveis"
                 >
-                  <div className="h-full w-3/5 animate-pulse rounded-full bg-apois-yellow motion-reduce:animate-none" />
+                  <div className="h-full w-full origin-left animate-pulse rounded-full bg-gradient-to-r from-transparent via-apois-yellow to-transparent motion-reduce:animate-none" />
                 </div>
               </div>
               <button
@@ -153,15 +153,15 @@ export function SearchingDriverScreen({
               </button>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 divide-x divide-white/8 text-center max-[359px]:grid-cols-1 max-[359px]:divide-x-0 max-[359px]:divide-y" aria-label="Etapas da busca">
-              <SearchStage checked label="Solicitação enviada" />
-              <SearchStage active label="Buscando motoristas" />
-              <SearchStage label="Aguardando aceite" />
-            </div>
+            <ol className="mt-3 grid grid-cols-3 divide-x divide-white/8 text-center max-[359px]:grid-cols-1 max-[359px]:divide-x-0 max-[359px]:divide-y" aria-label="Etapas da busca">
+              <li><SearchStage checked label="Solicitação enviada" /></li>
+              <li><SearchStage active label="Buscando motoristas" /></li>
+              <li><SearchStage label="Aguardando aceite" /></li>
+            </ol>
 
             {!isRealtimeConnected ? (
-              <p className="mt-3 break-words rounded-xl border border-amber-400/15 bg-amber-400/5 px-3 py-2 text-center text-[10px] font-medium leading-4 text-amber-200" role="status" aria-live="polite">
-                Reconectando atualizações. A busca continua normalmente.
+              <p className="mt-3 break-words rounded-xl border border-amber-400/15 bg-amber-400/5 px-3 py-2 text-center text-[11px] font-medium leading-4 text-amber-200" role="status" aria-live="polite">
+                Tentando reconectar as atualizações da busca.
               </p>
             ) : null}
           </section>
@@ -178,7 +178,7 @@ export function SearchingDriverScreen({
               <ShieldCheck size={20} className="mt-0.5 shrink-0 text-apois-yellow" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <p className="break-words text-[11px] font-black text-apois-yellow">Sua segurança é prioridade</p>
-                <p className="mt-0.5 break-words text-[10px] leading-4 text-zinc-400">
+                <p className="mt-0.5 break-words text-[11px] leading-4 text-zinc-400">
                   O PIN só é liberado após um motorista aceitar a corrida e antes do início da viagem.
                 </p>
               </div>
@@ -203,7 +203,7 @@ export function SearchingDriverScreen({
 function SearchStage({ checked = false, active = false, label }: { checked?: boolean; active?: boolean; label: string }) {
   const stateLabel = checked ? "Concluída" : active ? "Em andamento" : "Aguardando";
   return (
-    <div className="min-w-0 px-2 py-2" role="status" aria-label={`${label}: ${stateLabel}`}>
+    <div className="min-w-0 px-2 py-2" aria-label={`${label}: ${stateLabel}`}>
       <span
         className={cn(
           "mx-auto flex h-7 w-7 items-center justify-center rounded-full border",
@@ -218,6 +218,7 @@ function SearchStage({ checked = false, active = false, label }: { checked?: boo
         {checked ? <Check size={14} strokeWidth={3} /> : active ? <Car size={14} /> : <Clock3 size={14} />}
       </span>
       <p className={cn("mt-1.5 break-words text-[10px] font-bold leading-4", checked || active ? "text-zinc-200" : "text-zinc-600")}>{label}</p>
+      <span className="sr-only">{stateLabel}</span>
     </div>
   );
 }
