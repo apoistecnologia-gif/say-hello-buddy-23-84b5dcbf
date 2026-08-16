@@ -285,9 +285,9 @@ export function DestinationSearchScreen({
   };
 
   const favoriteIcon = (icon?: FavoriteIconType) => {
-    if (icon === "home") return <Home className="h-5 w-5" />;
-    if (icon === "briefcase") return <Briefcase className="h-5 w-5" />;
-    return <Heart className="h-5 w-5" />;
+    if (icon === "home") return <Home aria-hidden="true" className="h-5 w-5" />;
+    if (icon === "briefcase") return <Briefcase aria-hidden="true" className="h-5 w-5" />;
+    return <Heart aria-hidden="true" className="h-5 w-5" />;
   };
 
   const searchFailed = [
@@ -332,20 +332,20 @@ export function DestinationSearchScreen({
                   className="app-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/8 text-white disabled:opacity-50"
                   aria-label="Voltar para a busca"
                 >
-                  <ArrowLeft size={21} />
+                  <ArrowLeft aria-hidden="true" size={21} />
                 </button>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-white">
+                  <p className="break-words text-sm font-black leading-5 text-white">
                     {isStopSelection ? "Escolha a parada no mapa" : "Escolha o destino no mapa"}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-zinc-400">
+                  <p className="mt-0.5 break-words text-[11px] leading-4 text-zinc-400">
                     Arraste o mapa e posicione o marcador no local exato.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full" aria-hidden="true">
               <motion.div
                 animate={{ y: [0, -5, 0] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
@@ -362,27 +362,30 @@ export function DestinationSearchScreen({
             <div className="app-safe-bottom app-safe-x pointer-events-auto absolute inset-x-0 bottom-0 pb-4">
               <div className="rounded-3xl border border-white/8 bg-black/90 p-4 shadow-2xl backdrop-blur-xl">
                 {mapSelectionError ? (
-                  <div className="mb-3 flex items-start gap-2 rounded-xl border border-apois-danger/20 bg-apois-danger/10 p-3 text-xs leading-5 text-red-300">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-apois-danger" />
-                    {mapSelectionError}
+                  <div role="alert" className="mb-3 flex min-w-0 items-start gap-2 rounded-xl border border-apois-danger/20 bg-apois-danger/10 p-3 text-xs leading-5 text-red-300">
+                    <AlertCircle aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-apois-danger" />
+                    <span className="min-w-0 flex-1 break-words">{mapSelectionError}</span>
                   </div>
                 ) : null}
                 <button
                   type="button"
                   onClick={() => void confirmMapSelection()}
                   disabled={!mapCenter || isResolvingMap}
-                  className="app-pressable app-gold-glow flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow px-5 font-black text-black disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none"
+                  aria-busy={isResolvingMap}
+                  className="app-pressable app-gold-glow flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-apois-yellow px-5 text-center font-black text-black disabled:bg-zinc-800 disabled:text-zinc-500 disabled:shadow-none"
                 >
                   {isResolvingMap ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 aria-hidden="true" className="h-5 w-5 shrink-0 animate-spin" />
                   ) : (
-                    <Check className="h-5 w-5" strokeWidth={3} />
+                    <Check aria-hidden="true" className="h-5 w-5 shrink-0" strokeWidth={3} />
                   )}
-                  {isResolvingMap
-                    ? "Identificando endereço..."
-                    : isStopSelection
-                      ? "Confirmar parada"
-                      : "Confirmar destino"}
+                  <span className="break-words">
+                    {isResolvingMap
+                      ? "Identificando endereço..."
+                      : isStopSelection
+                        ? "Confirmar parada"
+                        : "Confirmar destino"}
+                  </span>
                 </button>
               </div>
             </div>
@@ -397,21 +400,21 @@ export function DestinationSearchScreen({
       >
         <div className="flex h-full min-h-0 flex-col">
           <div className="sticky top-0 z-30 bg-[#1a1a1a] pb-4 pt-2">
-            <div className="mb-5 flex items-center gap-3">
+            <div className="mb-5 flex items-start gap-3">
               <button
                 type="button"
                 onClick={requestClose}
                 aria-label="Voltar"
-                className="app-pressable -ml-2 flex h-10 w-10 items-center justify-center rounded-full text-white"
+                className="app-pressable -ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white"
               >
-                <ArrowLeft className="h-6 w-6" />
+                <ArrowLeft aria-hidden="true" className="h-6 w-6" />
               </button>
-              <div className="min-w-0 flex-1">
-                <h1 className="text-xl font-black tracking-tight text-white">
+              <div className="min-w-0 flex-1 pt-1">
+                <h1 className="break-words text-xl font-black leading-6 tracking-tight text-white">
                   {isStopSelection ? "Adicionar parada" : "Para onde vamos?"}
                 </h1>
                 {pendingFavoriteIcon ? (
-                  <p className="mt-0.5 text-[11px] font-bold text-apois-yellow">
+                  <p className="mt-0.5 break-words text-[11px] font-bold leading-4 text-apois-yellow">
                     O endereço escolhido será salvo como {pendingFavoriteIcon === "home" ? "Casa" : "Trabalho"}.
                   </p>
                 ) : null}
@@ -419,18 +422,18 @@ export function DestinationSearchScreen({
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center gap-4 rounded-xl border border-white/6 bg-[#282a30] px-4 py-3">
-                <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-apois-success" />
+              <div className="flex items-start gap-4 rounded-xl border border-white/6 bg-[#282a30] px-4 py-3">
+                <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-apois-success" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Ponto de partida</p>
-                  <p className="truncate text-sm font-medium text-zinc-300">
+                  <p className="break-words text-sm font-medium leading-5 text-zinc-300">
                     {pickupLabel || "Identificando sua localização..."}
                   </p>
                 </div>
               </div>
 
               <div className="relative flex items-center">
-                <div className="absolute left-4 z-10">
+                <div className="pointer-events-none absolute left-4 z-10" aria-hidden="true">
                   {isLoading || isSelecting ? (
                     <Loader2 className="h-5 w-5 animate-spin text-apois-yellow" />
                   ) : (
@@ -443,37 +446,38 @@ export function DestinationSearchScreen({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={isStopSelection ? "Onde deseja parar?" : "Digite seu destino"}
+                  aria-label={isStopSelection ? "Buscar endereço da parada" : "Buscar destino"}
                   autoComplete="off"
                   enterKeyHint="search"
-                  className="h-14 w-full rounded-xl border-2 border-apois-yellow/25 bg-[#282a30] pl-12 pr-12 text-base font-semibold text-white outline-none placeholder:text-zinc-500 focus:border-apois-yellow"
+                  className="h-14 w-full min-w-0 rounded-xl border-2 border-apois-yellow/25 bg-[#282a30] pl-12 pr-14 text-base font-semibold text-white outline-none placeholder:text-zinc-500 focus:border-apois-yellow"
                 />
                 {query ? (
                   <button
                     type="button"
                     onClick={clearQuery}
-                    className="app-pressable absolute right-3 flex h-9 w-9 items-center justify-center rounded-full text-zinc-400"
+                    className="app-pressable absolute right-2 flex h-11 w-11 items-center justify-center rounded-full text-zinc-400"
                     aria-label="Limpar busca"
                   >
-                    <X className="h-5 w-5" />
+                    <X aria-hidden="true" className="h-5 w-5" />
                   </button>
                 ) : null}
               </div>
             </div>
           </div>
 
-          <div className="app-scroll mt-2 min-h-0 flex-1 pb-4">
+          <div className="app-scroll mt-2 min-h-0 flex-1 pb-[calc(1rem+env(safe-area-inset-bottom))]">
             {query.trim().length < 2 ? (
               <div className="space-y-6">
                 {!isStopSelection ? (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-3 max-[339px]:grid-cols-1">
                     <QuickAddressButton
-                      icon={<Home size={19} />}
+                      icon={<Home aria-hidden="true" size={19} />}
                       title="Casa"
                       description={homeFavorite?.label || "Adicionar"}
                       onClick={() => selectQuickAddress("home")}
                     />
                     <QuickAddressButton
-                      icon={<Briefcase size={19} />}
+                      icon={<Briefcase aria-hidden="true" size={19} />}
                       title="Trabalho"
                       description={workFavorite?.label || "Adicionar"}
                       onClick={() => selectQuickAddress("briefcase")}
@@ -484,14 +488,14 @@ export function DestinationSearchScreen({
                 <button
                   type="button"
                   onClick={openMapPicker}
-                  className="app-pressable flex w-full items-center gap-4 rounded-2xl border border-apois-yellow/15 bg-apois-yellow/8 p-4 text-left"
+                  className="app-pressable flex min-h-14 w-full items-center gap-4 rounded-2xl border border-apois-yellow/15 bg-apois-yellow/8 p-4 text-left"
                 >
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-apois-yellow/12 text-apois-yellow">
-                    <MapIcon className="h-5 w-5" />
+                    <MapIcon aria-hidden="true" className="h-5 w-5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-black text-white">Escolher no mapa</span>
-                    <span className="mt-0.5 block text-xs text-zinc-500">Marque o ponto exato arrastando o mapa.</span>
+                    <span className="block break-words text-sm font-black text-white">Escolher no mapa</span>
+                    <span className="mt-0.5 block break-words text-xs leading-5 text-zinc-500">Marque o ponto exato arrastando o mapa.</span>
                   </span>
                 </button>
 
@@ -507,7 +511,7 @@ export function DestinationSearchScreen({
                       />
                     ))
                   ) : (
-                    <p className="rounded-2xl border border-dashed border-white/8 px-4 py-5 text-center text-xs text-zinc-500">
+                    <p className="break-words rounded-2xl border border-dashed border-white/8 px-4 py-5 text-center text-xs leading-5 text-zinc-500">
                       Seus endereços favoritos aparecerão aqui.
                     </p>
                   )}
@@ -520,16 +524,16 @@ export function DestinationSearchScreen({
                       <button
                         type="button"
                         onClick={() => void clearAllRecent()}
-                        className="app-pressable flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold text-zinc-500"
+                        className="app-pressable flex min-h-11 items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-bold text-zinc-500"
                       >
-                        <Trash2 size={12} /> Limpar
+                        <Trash2 aria-hidden="true" size={12} /> Limpar
                       </button>
                     }
                   >
                     {recent.map((item) => (
                       <AddressRow
                         key={item.id || item.placeId}
-                        icon={<Clock className="h-5 w-5" />}
+                        icon={<Clock aria-hidden="true" className="h-5 w-5" />}
                         title={item.label}
                         subtitle={item.formattedAddress}
                         onClick={() => selectHistoryItem(item)}
@@ -542,14 +546,14 @@ export function DestinationSearchScreen({
               <div className="space-y-1">
                 {status === "debouncing" || status === "loading" ? (
                   <StatusMessage
-                    icon={<Loader2 className="h-8 w-8 animate-spin text-apois-yellow" />}
+                    icon={<Loader2 aria-hidden="true" className="h-8 w-8 animate-spin text-apois-yellow" />}
                     title="Buscando endereços..."
                   />
                 ) : null}
 
                 {status === "empty" ? (
                   <StatusMessage
-                    icon={<AlertCircle className="h-8 w-8 text-zinc-700" />}
+                    icon={<AlertCircle aria-hidden="true" className="h-8 w-8 text-zinc-700" />}
                     title="Nenhum endereço encontrado."
                     description="Tente informar rua, número, bairro ou um ponto conhecido."
                   />
@@ -557,7 +561,7 @@ export function DestinationSearchScreen({
 
                 {searchFailed ? (
                   <StatusMessage
-                    icon={<AlertCircle className="h-8 w-8 text-apois-danger" />}
+                    icon={<AlertCircle aria-hidden="true" className="h-8 w-8 text-apois-danger" />}
                     title="Não foi possível pesquisar agora."
                     description={error?.message || "Verifique a conexão e tente novamente."}
                     action={
@@ -576,7 +580,7 @@ export function DestinationSearchScreen({
                   ? suggestions.map((suggestion) => (
                       <AddressRow
                         key={suggestion.placeId}
-                        icon={<MapPin className="h-5 w-5 text-apois-yellow" />}
+                        icon={<MapPin aria-hidden="true" className="h-5 w-5 text-apois-yellow" />}
                         title={suggestion.primaryText}
                         subtitle={suggestion.secondaryText || suggestion.fullText}
                         disabled={isSelecting}
@@ -608,12 +612,12 @@ function QuickAddressButton({
     <button
       type="button"
       onClick={onClick}
-      className="app-pressable flex min-w-0 items-center gap-3 rounded-2xl border border-white/7 bg-[#282a30] p-3 text-left"
+      className="app-pressable flex min-h-14 min-w-0 items-center gap-3 rounded-2xl border border-white/7 bg-[#282a30] p-3 text-left"
     >
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-apois-yellow/10 text-apois-yellow">{icon}</span>
-      <span className="min-w-0">
-        <span className="block text-xs font-black text-white">{title}</span>
-        <span className="mt-0.5 block truncate text-[10px] text-zinc-500">{description}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block break-words text-xs font-black text-white">{title}</span>
+        <span className="mt-0.5 block break-words text-[10px] leading-4 text-zinc-500">{description}</span>
       </span>
     </button>
   );
@@ -630,8 +634,8 @@ function AddressSection({
 }) {
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-[10px] font-black uppercase tracking-widest text-zinc-600">{title}</h2>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
+        <h2 className="break-words text-[10px] font-black uppercase tracking-widest text-zinc-600">{title}</h2>
         {action}
       </div>
       <div className="space-y-1">{children}</div>
@@ -657,12 +661,12 @@ function AddressRow({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="app-pressable flex w-full items-center gap-4 border-b border-white/5 p-3 text-left disabled:opacity-50"
+      className="app-pressable flex min-h-14 w-full items-start gap-3 border-b border-white/5 p-3 text-left disabled:opacity-50 sm:gap-4"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#282a30] text-zinc-500">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-bold text-white">{title}</span>
-        <span className="mt-0.5 block truncate text-xs text-zinc-500">{subtitle}</span>
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#282a30] text-zinc-500">{icon}</span>
+      <span className="min-w-0 flex-1 pt-0.5">
+        <span className="block break-words text-sm font-bold leading-5 text-white">{title}</span>
+        <span className="mt-0.5 block break-words text-xs leading-5 text-zinc-500">{subtitle}</span>
       </span>
     </button>
   );
@@ -680,11 +684,11 @@ function StatusMessage({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 py-12 text-center">
+    <div className="flex flex-col items-center gap-3 py-12 text-center" role="status" aria-live="polite">
       {icon}
-      <div>
-        <p className="text-sm font-bold text-zinc-400">{title}</p>
-        {description ? <p className="mt-1 max-w-xs text-xs leading-5 text-zinc-600">{description}</p> : null}
+      <div className="min-w-0">
+        <p className="break-words text-sm font-bold text-zinc-400">{title}</p>
+        {description ? <p className="mt-1 max-w-xs break-words text-xs leading-5 text-zinc-600">{description}</p> : null}
       </div>
       {action}
     </div>
