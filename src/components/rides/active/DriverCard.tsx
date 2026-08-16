@@ -75,15 +75,15 @@ export const DriverCard: React.FC<DriverCardProps> = ({ ride }) => {
       </div>
 
       <div className="min-w-0 flex-1">
-        <h4 className="truncate text-sm font-black leading-5 text-white">{driverName}</h4>
-        <div className="mt-0.5 flex min-w-0 items-center gap-2">
+        <h4 className="break-words text-sm font-black leading-5 text-white">{driverName}</h4>
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-2">
           {hasRating ? (
             <div className="flex items-center gap-1 text-apois-yellow">
               <Star size={11} fill="currentColor" />
               <span className="text-[11px] font-black">{ride.driver_rating?.toFixed(1)}</span>
             </div>
           ) : (
-            <span className="truncate text-[9px] font-bold uppercase tracking-wide text-zinc-600">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
               Novo
             </span>
           )}
