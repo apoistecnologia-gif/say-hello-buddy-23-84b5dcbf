@@ -1,0 +1,107 @@
+/* APOIS Passageiro — rodada 6: 25 correções adicionais de UI/UX mobile. */
+
+/* 01 — evita redimensionamento automático de texto pelo WebView em rotação. */
+.app-screen,
+.app-dialog-content { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* 02 — links de telefone usados em suporte precisam de alvo tocável. */
+.app-screen a[href^="tel:"],
+.app-dialog-content a[href^="tel:"] { min-height: 44px; display: inline-flex; align-items: center; }
+
+/* 03 — links de e-mail também recebem alvo mínimo. */
+.app-screen a[href^="mailto:"],
+.app-dialog-content a[href^="mailto:"] { min-height: 44px; display: inline-flex; align-items: center; }
+
+/* 04 — elementos summary clicáveis não ficam com altura de uma linha de texto. */
+.app-screen summary,
+.app-dialog-content summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }
+
+/* 05 — input de arquivo/documento ocupa uma área tocável adequada. */
+.app-screen input[type="file"],
+.app-dialog-content input[type="file"] { min-height: 44px; max-width: 100%; }
+
+/* 06 — campos somente leitura continuam identificáveis sem parecer desabilitados. */
+.app-screen input[readonly],
+.app-dialog-content input[readonly],
+.app-screen textarea[readonly],
+.app-dialog-content textarea[readonly] { opacity: 1; }
+
+/* 07 — autofill nativo não introduz texto ilegível no tema escuro. */
+.app-screen input:-webkit-autofill,
+.app-dialog-content input:-webkit-autofill { -webkit-text-fill-color: currentColor; caret-color: currentColor; }
+
+/* 08 — blocos preformatados/diagnóstico rolam localmente em vez de alargar a tela. */
+.app-screen pre,
+.app-dialog-content pre { max-width: 100%; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* 09 — código inline longo pode quebrar em IDs e tokens exibidos ao usuário. */
+.app-screen code,
+.app-dialog-content code { word-break: break-word; }
+
+/* 10 — fieldsets de formulários não preservam min-width implícito do navegador. */
+.app-screen fieldset,
+.app-dialog-content fieldset { min-width: 0; max-width: 100%; }
+
+/* 11 — legends grandes podem quebrar sem estourar o formulário. */
+.app-screen legend,
+.app-dialog-content legend { max-width: 100%; overflow-wrap: anywhere; }
+
+/* 12 — labels longas podem ocupar múltiplas linhas. */
+.app-screen label,
+.app-dialog-content label { overflow-wrap: anywhere; }
+
+/* 13 — mídia incorporada nunca ultrapassa card/dialog. */
+.app-screen iframe,
+.app-dialog-content iframe,
+.app-screen audio,
+.app-dialog-content audio { max-width: 100%; }
+
+/* 14 — barras de progresso respeitam a largura útil. */
+.app-screen progress,
+.app-dialog-content progress { max-width: 100%; }
+
+/* 15 — sticky inferior ganha safe-area quando o componente não a soma por conta própria. */
+.app-screen [class*="sticky"][class*="bottom-0"] { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
+
+/* 16 — sticky superior não invade notch em telas que não usam app-safe-top. */
+.app-screen [class*="sticky"][class*="top-0"] { padding-top: max(0.25rem, env(safe-area-inset-top)); }
+
+/* 17 — menus/dropdowns não podem ser mais largos que a viewport. */
+.app-screen [role="menu"],
+.app-dialog-content [role="menu"] { max-width: calc(100vw - 16px); }
+
+/* 18 — listboxes/autocomplete têm altura máxima segura em aparelhos baixos. */
+.app-screen [role="listbox"],
+.app-dialog-content [role="listbox"] { max-width: calc(100vw - 16px); max-height: min(60dvh, 420px); overflow-y: auto; }
+
+/* 19 — tooltips extensos não vazam horizontalmente. */
+.app-screen [role="tooltip"],
+.app-dialog-content [role="tooltip"] { max-width: min(280px, calc(100vw - 24px)); overflow-wrap: anywhere; }
+
+/* 20 — dialogs aninhados mantêm box-sizing previsível. */
+.app-dialog-content,
+.app-dialog-content * { box-sizing: border-box; }
+
+/* 21 — itens clicáveis muito largos em listas não preservam max-content implícito. */
+.app-screen button,
+.app-screen a,
+.app-dialog-content button,
+.app-dialog-content a { max-width: 100%; }
+
+/* 22 — imagens sem dimensão explícita preservam proporção e evitam deformação. */
+.app-screen img,
+.app-dialog-content img { height: auto; }
+
+/* 23 — em 320–339px, títulos de navegação não precisam permanecer em uma linha. */
+@media (max-width: 339px) {
+  .app-screen nav span { white-space: normal; line-height: 1.15; }
+}
+
+/* 24 — em landscape baixo, dialogs deixam respiro para barras do sistema. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .app-dialog-content { max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px); }
+}
+
+/* 25 — conteúdo focado não fica encostado nas laterais durante scroll programático. */
+.app-screen :focus,
+.app-dialog-content :focus { scroll-margin-inline: 8px; }
