@@ -11,13 +11,15 @@ interface RideStatusHeaderProps {
 }
 
 function formatDistance(distanceMeters: number): string {
-  if (distanceMeters < 1000) return `${Math.max(50, Math.round(distanceMeters / 50) * 50)} m`;
+  if (!Number.isFinite(distanceMeters) || distanceMeters < 0) return "Distância atualizando";
+  if (distanceMeters < 50) return "a menos de 50 m";
+  if (distanceMeters < 1000) return `${Math.round(distanceMeters / 50) * 50} m`;
   return `${(distanceMeters / 1000).toFixed(distanceMeters < 10_000 ? 1 : 0).replace(".", ",")} km`;
 }
 
 export function RideStatusHeader({
   status,
-  isRefreshing,
+  isRefreshing = false,
   driverDistanceMeters,
   estimatedArrivalMinutes,
   isQueuedRide = false,
@@ -29,7 +31,8 @@ export function RideStatusHeader({
   const hasRealArrival =
     typeof estimatedArrivalMinutes === "number" &&
     Number.isFinite(estimatedArrivalMinutes) &&
-    estimatedArrivalMinutes > 0;
+    estimatedArrivalMinutes > 0 &&
+    estimatedArrivalMinutes <= 240;
 
   const getStatusConfig = () => {
     switch (status) {
@@ -52,7 +55,7 @@ export function RideStatusHeader({
         return {
           title: "Procurando motorista",
           subtitle: "Enviando a solicitação aos motoristas disponíveis.",
-          icon: <Search aria-hidden="true" className="animate-pulse text-apois-yellow" size={18} />,
+          icon: <Search aria-hidden="true" className="animate-pulse text-apois-yellow motion-reduce:animate-none" size={18} />,
           color: "border-apois-yellow/25 bg-black/88",
         };
       case "motorista_a_caminho":
@@ -110,6 +113,13 @@ export function RideStatusHeader({
           icon: <MapPin aria-hidden="true" className="text-apois-yellow" size={18} />,
           color: "border-apois-yellow/25 bg-black/88",
         };
+      default:
+        return {
+          title: "Atualizando sua corrida",
+          subtitle: "Estamos sincronizando o status mais recente da viagem.",
+          icon: <Navigation aria-hidden="true" className="text-apois-yellow" size={18} />,
+          color: "border-white/10 bg-black/90",
+        };
     }
   };
 
@@ -119,8 +129,10 @@ export function RideStatusHeader({
     <div
       role="status"
       aria-live="polite"
+      aria-atomic="true"
+      aria-busy={isRefreshing}
       className={cn(
-        "flex min-w-0 items-start gap-2.5 rounded-2xl border px-3 py-2.5 shadow-[0_12px_32px_-22px_rgba(0,0,0,1)] backdrop-blur-xl transition-all duration-500",
+        "flex min-w-0 items-start gap-2.5 rounded-2xl border px-3 py-2.5 shadow-[0_12px_32px_-22px_rgba(0,0,0,1)] backdrop-blur-xl transition-all duration-500 motion-reduce:transition-none",
         config.color,
       )}
     >
@@ -129,13 +141,13 @@ export function RideStatusHeader({
       </div>
       <div className="min-w-0 flex-1 py-0.5">
         <h3 className="break-words text-[14px] font-black leading-5 text-white">{config.title}</h3>
-        <p className="mt-0.5 break-words text-[10px] font-medium leading-[15px] text-zinc-400">
+        <p className="mt-0.5 break-words text-[11px] font-medium leading-4 text-zinc-400">
           {config.subtitle}
         </p>
       </div>
       {isRefreshing ? (
-        <span className="mt-1.5 flex h-3 w-3 shrink-0 items-center justify-center" aria-label="Atualizando localização">
-          <span className="h-2 w-2 animate-ping rounded-full bg-apois-yellow" aria-hidden="true" />
+        <span className="mt-1.5 flex h-4 w-4 shrink-0 items-center justify-center" aria-label="Atualizando localização">
+          <span className="h-2 w-2 animate-ping rounded-full bg-apois-yellow motion-reduce:animate-none" aria-hidden="true" />
         </span>
       ) : null}
     </div>
