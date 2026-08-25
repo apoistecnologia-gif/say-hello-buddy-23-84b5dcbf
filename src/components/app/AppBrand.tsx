@@ -17,7 +17,7 @@ export function AppBrand({ className, compact = false, subtitle }: AppBrandProps
         )}
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(255,184,0,0.16),transparent_66%)]" />
-        <img src={logo} alt="APOIS VAMO" className="relative h-full w-full object-cover" loading="eager" />
+        <img src={logo} alt="APOIS VAMOS" className="relative h-full w-full object-cover" loading="eager" />
       </div>
 
       <div className={cn("mt-5", compact && "mt-3")}>
@@ -25,7 +25,7 @@ export function AppBrand({ className, compact = false, subtitle }: AppBrandProps
           APOIS
         </p>
         <p className={cn("font-black uppercase tracking-[0.38em] text-apois-yellow", compact ? "text-[9px]" : "text-[11px]")}>
-          VAMO
+          VAMOS
         </p>
         {subtitle ? <p className="mt-2 max-w-xs text-sm leading-6 text-zinc-400">{subtitle}</p> : null}
       </div>
