@@ -38,6 +38,9 @@ const friendlyAuthError = (message: string) => {
   if (normalized.includes("already registered") || normalized.includes("already exists")) {
     return "Este e-mail já está cadastrado. Tente entrar na sua conta.";
   }
+  if (normalized.includes("rate") || normalized.includes("too many")) {
+    return "Muitas tentativas seguidas. Aguarde um pouco e tente novamente.";
+  }
   if (normalized.includes("password")) return "A senha não atende aos requisitos de segurança.";
   if (normalized.includes("email")) return "Confira o endereço de e-mail informado.";
   if (normalized.includes("database error saving new user")) {
@@ -45,9 +48,6 @@ const friendlyAuthError = (message: string) => {
   }
   if (normalized.includes("fetch") || normalized.includes("network")) {
     return "Falha de conexão com o servidor. Verifique a internet e tente novamente.";
-  }
-  if (normalized.includes("rate") || normalized.includes("too many")) {
-    return "Muitas tentativas seguidas. Aguarde um pouco e tente novamente.";
   }
   return "Não foi possível criar a conta agora. Tente novamente em instantes.";
 };
