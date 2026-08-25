@@ -154,7 +154,7 @@ function RedefinirSenhaPage() {
             <p className="mt-2 text-sm leading-6 text-zinc-400">Ela deve ter no mínimo 8 caracteres, letras e números.</p>
           </div>
 
-          <form onSubmit={handleReset} className="space-y-4" noValidate>
+          <form onSubmit={handleReset} method="post" className="space-y-4" noValidate>
             <div className="space-y-2">
               <label htmlFor="new-password" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
                 Nova senha

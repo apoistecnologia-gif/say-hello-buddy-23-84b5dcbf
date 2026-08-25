@@ -96,7 +96,7 @@ function LoginPage() {
             <p className="mt-2 text-sm leading-5 text-zinc-400">Use seu e-mail e senha para continuar.</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-3.5" noValidate>
+          <form onSubmit={handleLogin} method="post" className="space-y-3.5" noValidate>
             <div className="space-y-2">
               <label htmlFor="login-email" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
                 E-mail

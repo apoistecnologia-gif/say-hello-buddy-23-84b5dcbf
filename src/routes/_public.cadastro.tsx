@@ -251,7 +251,7 @@ function CadastroPage() {
             <p className="mt-2 text-sm leading-6 text-zinc-400">Preencha seus dados para começar a pedir corridas.</p>
           </div>
 
-          <form onSubmit={handleRegister} className="space-y-4" noValidate>
+          <form onSubmit={handleRegister} method="post" className="space-y-4" noValidate>
             <div className="space-y-2">
               <label htmlFor="name" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">Nome completo</label>
               <div className="relative">

@@ -86,7 +86,7 @@ function RecuperarSenhaPage() {
                 </p>
               </div>
 
-              <form onSubmit={handleRecover} className="space-y-5" noValidate>
+              <form onSubmit={handleRecover} method="post" className="space-y-5" noValidate>
                 <div className="space-y-2">
                   <label htmlFor="recovery-email" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
                     E-mail
