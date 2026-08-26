@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { disabledRideFeatureError } from "../_shared/ride-feature-flags.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -442,6 +443,10 @@ Deno.serve(async (req) => {
         return json({ error: "ride_lookup_failed", detail: currentError.message }, 500);
       }
       if (!current) return json({ error: "ride_not_found" }, 404);
+      const featureError = await disabledRideFeatureError(admin, current.category);
+      if (featureError) {
+        return json({ error: featureError, message: "Serviço temporariamente indisponível." }, 403);
+      }
       if (
         current.status !== "procurar_motorista" ||
         current.accepted_driver_id ||
@@ -526,6 +531,10 @@ Deno.serve(async (req) => {
     if (!body.origin_name?.trim() || !body.destination_name?.trim())
       return json({ error: "missing_address" }, 422);
     if (!CATEGORIES.has(body.category)) return json({ error: "invalid_category" }, 422);
+    const featureError = await disabledRideFeatureError(admin, body.category);
+    if (featureError) {
+      return json({ error: featureError, message: "Serviço temporariamente indisponível." }, 403);
+    }
     let serviceDetails: Record<string, unknown> | null = null;
     try {
       serviceDetails = sanitizeServiceDetails(body.service_details);

@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchRideFeatureFlags, isRideCategoryEnabled } from "@/lib/rideFeatureFlags";
 import type { RideCategory, RideCategoryCode } from "@/types/pricing";
 
 const normalizeCategoryCode = (value: string): RideCategoryCode | null => {
@@ -13,11 +14,14 @@ const normalizeCategoryCode = (value: string): RideCategoryCode | null => {
 
 class CategoryService {
   async getCategories(): Promise<RideCategory[]> {
-    const { data, error } = await supabase
-      .from("ride_categories")
-      .select("*")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    const [{ data, error }, featureFlags] = await Promise.all([
+      supabase
+        .from("ride_categories")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
+      fetchRideFeatureFlags(),
+    ]);
 
     if (error) {
       console.error("[CategoryService] Error fetching categories:", error);
@@ -33,6 +37,7 @@ class CategoryService {
         });
         return [];
       }
+      if (!isRideCategoryEnabled(code, featureFlags)) return [];
 
       return [
         {

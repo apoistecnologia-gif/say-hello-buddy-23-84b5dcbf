@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { calculateServerFare } from "../_shared/pricing.ts";
+import { disabledRideFeatureError } from "../_shared/ride-feature-flags.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -203,6 +204,8 @@ Deno.serve(async (req) => {
       if (!UUID_PATTERN.test(rideId)) return json({ error: "invalid_ride_id" }, 422, req);
       const { data: ride } = await admin.from("rides").select("*").eq("id", rideId).maybeSingle();
       if (!ride) return json({ error: "ride_not_found" }, 404, req);
+      const featureError = await disabledRideFeatureError(admin, ride.category);
+      if (featureError) return json({ error: featureError, message: "Serviço temporariamente indisponível." }, 403, req);
       if (ride.payment_method !== "pix" || ride.payment_status !== "paid") return json({ error: "pix_payment_not_confirmed" }, 409, req);
       if (ride.status !== "procurar_motorista" || ride.driver_id) return json({ ok: true, reused: true, status: ride.status, candidates: 0 }, 200, req);
       const { data: claimed, error: claimError } = await admin.rpc("claim_prepaid_pix_initial_dispatch", { _ride_id: ride.id });
@@ -230,6 +233,8 @@ Deno.serve(async (req) => {
       if (!UUID_PATTERN.test(rideId)) return json({ error: "invalid_ride_id" }, 422, req);
       const { data: ride } = await admin.from("rides").select("*").eq("id", rideId).eq("passenger_id", passenger.id).maybeSingle();
       if (!ride) return json({ error: "ride_not_found" }, 404, req);
+      const featureError = await disabledRideFeatureError(admin, ride.category);
+      if (featureError) return json({ error: featureError, message: "Serviço temporariamente indisponível." }, 403, req);
       if (ride.payment_method === "pix" && ride.payment_status !== "paid") return json({ error: "pix_payment_required_before_dispatch" }, 409, req);
       if (ride.status !== "procurar_motorista" || ride.driver_id) return json({ ok: true, status: ride.status, candidates: 0 }, 200, req);
       if (ride.search_expires_at && new Date(ride.search_expires_at).getTime() <= Date.now()) {
@@ -248,6 +253,8 @@ Deno.serve(async (req) => {
     if (intermediates.length > MAX_INTERMEDIATES || intermediates.some((point) => !validPoint(point))) return json({ error: "invalid_intermediates" }, 422, req);
     const categoryCode = normalizeCategory(body.category);
     if (!CATEGORY_CODES.has(categoryCode)) return json({ error: "invalid_category" }, 422, req);
+    const featureError = await disabledRideFeatureError(admin, categoryCode);
+    if (featureError) return json({ error: featureError, message: "Serviço temporariamente indisponível." }, 403, req);
     const paymentCode = normalizePayment(body.payment_method);
     if (!PAYMENT_CODES.has(paymentCode)) return json({ error: "payment_method_required" }, 422, req);
     const originName = cleanText(body.origin_name || body.origin.label, 200);

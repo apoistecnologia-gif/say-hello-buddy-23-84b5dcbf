@@ -56,6 +56,10 @@ function friendlyRideError(error: unknown): string {
   const raw = readErrorMessage(error, "Não foi possível solicitar a corrida agora.");
   const normalized = raw.toLowerCase();
 
+  if (normalized.includes("feature_guincho_unavailable") || normalized.includes("feature_fretes_unavailable")) {
+    return "Este serviço está temporariamente indisponível.";
+  }
+
   if (normalized.includes("passenger_debt_block")) {
     return "Existe uma pendência na sua carteira. Quite o débito antes de pedir outra corrida.";
   }
@@ -335,7 +339,11 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
           body: payload,
         });
 
-        if (error) throw error;
+        if (error) {
+          const backendCode =
+            isRecord(data) && typeof data["error"] === "string" ? data["error"] : null;
+          throw new Error(backendCode || error.message);
+        }
 
         const parsed = parseRideResponse(data);
         setRequest((previous) => ({
