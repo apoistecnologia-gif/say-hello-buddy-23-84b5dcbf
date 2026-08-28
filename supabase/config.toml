@@ -15,6 +15,9 @@ verify_jwt = true
 [functions.cancel-ride]
 verify_jwt = true
 
+[functions.cancellation-fee-webhook]
+verify_jwt = false
+
 [functions.create-cancellation-fee-charge]
 verify_jwt = true
 
@@ -48,7 +51,16 @@ verify_jwt = true
 [functions.passenger-pricing-estimate]
 verify_jwt = true
 
+[functions.passenger-profile]
+verify_jwt = true
+
+[functions.passenger-ride-request]
+verify_jwt = true
+
 [functions.passenger-routes-compute]
+verify_jwt = true
+
+[functions.passenger-support]
 verify_jwt = true
 
 [functions.process-ride-dispatch]

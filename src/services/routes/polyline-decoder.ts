@@ -8,7 +8,7 @@ export class PolylineDecoder {
     if (!encoded) return [];
 
     let index = 0;
-    let len = encoded.length;
+    const len = encoded.length;
     let lat = 0;
     let lng = 0;
     const points: RouteCoordinates[] = [];
@@ -30,7 +30,7 @@ export class PolylineDecoder {
         result |= (b & 0x1f) << shift;
         shift += 5;
       } while (b >= 0x20 && index < len);
-      let dlat = result & 1 ? ~(result >> 1) : result >> 1;
+      const dlat = result & 1 ? ~(result >> 1) : result >> 1;
       lat += dlat;
 
       shift = 0;
@@ -40,7 +40,7 @@ export class PolylineDecoder {
         result |= (b & 0x1f) << shift;
         shift += 5;
       } while (b >= 0x20 && index < len);
-      let dlng = result & 1 ? ~(result >> 1) : result >> 1;
+      const dlng = result & 1 ? ~(result >> 1) : result >> 1;
       lng += dlng;
 
       const point: RouteCoordinates = {
@@ -48,7 +48,6 @@ export class PolylineDecoder {
         lng: lng / 1e5,
       };
 
-      // Sanity check
       if (point.lat < -90 || point.lat > 90 || point.lng < -180 || point.lng > 180) {
         throw new Error("route_invalid_polyline");
       }
@@ -63,3 +62,6 @@ export class PolylineDecoder {
     return points;
   }
 }
+
+export const decodePolyline = (encoded: string): RouteCoordinates[] =>
+  PolylineDecoder.decode(encoded);

@@ -3,20 +3,113 @@ import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ASAAS_ENVIRONMENT = (Deno.env.get("ASAAS_ENVIRONMENT") ?? "production").trim().toLowerCase();
+const ASAAS_API_KEY = (Deno.env.get("ASAAS_API_KEY") ?? "").trim();
+const ASAAS_BASE_URL = ASAAS_ENVIRONMENT === "sandbox"
+  ? "https://api-sandbox.asaas.com/v3"
+  : "https://api.asaas.com/v3";
+const WOOVI_APP_ID = (Deno.env.get("WOOVI_APP_ID") ?? "").trim();
+const WOOVI_API_BASE_URL = (Deno.env.get("WOOVI_API_BASE_URL") ?? "https://api.woovi.com").replace(/\/+$/, "");
+
+type ActiveCharge = {
+  id: string;
+  provider: string;
+  provider_payment_id: string | null;
+  status: string;
+};
+
+type ProviderCancellation = {
+  cancelled: boolean;
+  reconciliationRequired: boolean;
+  detail: string;
+};
 
 function json(body: unknown, status = 200, req?: Request): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      ...(req ? getCorsHeaders(req) : {}),
-      "content-type": "application/json",
-    },
+    headers: { ...(req ? getCorsHeaders(req) : {}), "content-type": "application/json" },
   });
 }
 
-function readNumber(value: unknown, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+function statusForError(errorCode: string): number {
+  switch (errorCode) {
+    case "unauthorized":
+      return 401;
+    case "passenger_profile_missing":
+    case "ride_not_found":
+      return 404;
+    case "invalid_ride_id":
+      return 422;
+    case "cancellation_not_allowed":
+    case "invalid_ride_status":
+    case "paid_pix_cancellation_policy_required":
+      return 409;
+    default:
+      return 500;
+  }
+}
+
+async function cancelProviderCharge(charge: ActiveCharge): Promise<ProviderCancellation> {
+  const provider = charge.provider.toLowerCase();
+  const paymentId = charge.provider_payment_id?.trim() ?? "";
+  if (!paymentId) {
+    return {
+      cancelled: false,
+      reconciliationRequired: true,
+      detail: "provider_payment_id_missing",
+    };
+  }
+
+  let response: Response;
+  try {
+    if (provider === "asaas") {
+      if (!ASAAS_API_KEY) {
+        return { cancelled: false, reconciliationRequired: true, detail: "asaas_not_configured" };
+      }
+      response = await fetch(`${ASAAS_BASE_URL}/payments/${encodeURIComponent(paymentId)}`, {
+        method: "DELETE",
+        headers: {
+          accept: "application/json",
+          access_token: ASAAS_API_KEY,
+          "User-Agent": `APOIS-Corridas/1.0 (${ASAAS_ENVIRONMENT}; Supabase Edge)`,
+        },
+      });
+    } else if (provider === "woovi") {
+      if (!WOOVI_APP_ID) {
+        return { cancelled: false, reconciliationRequired: true, detail: "woovi_not_configured" };
+      }
+      response = await fetch(`${WOOVI_API_BASE_URL}/api/v1/charge/${encodeURIComponent(paymentId)}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: WOOVI_APP_ID,
+          accept: "application/json",
+        },
+      });
+    } else {
+      return { cancelled: false, reconciliationRequired: true, detail: `unsupported_provider:${provider}` };
+    }
+  } catch (error) {
+    return {
+      cancelled: false,
+      reconciliationRequired: true,
+      detail: `provider_transport_unknown:${String(error).slice(0, 300)}`,
+    };
+  }
+
+  const raw = (await response.text()).slice(0, 700);
+  if (response.ok) {
+    return { cancelled: true, reconciliationRequired: false, detail: raw || "provider_charge_deleted" };
+  }
+
+  if (response.status === 404) {
+    return { cancelled: true, reconciliationRequired: false, detail: "provider_charge_not_found" };
+  }
+
+  return {
+    cancelled: false,
+    reconciliationRequired: true,
+    detail: `provider_delete_failed:${response.status}:${raw}`,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -30,12 +123,9 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-
     const { data: authData, error: authError } = await admin.auth.getUser(token);
-    const userId = authData.user?.id;
-    if (authError || !userId) {
-      return json({ ok: false, error_code: "unauthorized" }, 401, req);
-    }
+    const authUserId = authData.user?.id;
+    if (authError || !authUserId) return json({ ok: false, error_code: "unauthorized" }, 401, req);
 
     const body = (await req.json()) as { ride_id?: unknown; reason?: unknown };
     const rideId = String(body.ride_id ?? "").trim();
@@ -43,119 +133,88 @@ Deno.serve(async (req) => {
       return json({ ok: false, error_code: "invalid_ride_id", message: "Corrida inválida." }, 422, req);
     }
 
-    const { data: ride, error: rideError } = await admin
-      .from("rides")
-      .select("id,passenger_id,status,accepted_at,created_at,cancellation_fee")
-      .eq("id", rideId)
-      .maybeSingle();
-
-    if (rideError) return json({ ok: false, error_code: "ride_lookup_failed" }, 500, req);
-    if (!ride) return json({ ok: false, error_code: "ride_not_found", message: "Corrida não encontrada." }, 404, req);
-    if (ride.passenger_id !== userId) return json({ ok: false, error_code: "unauthorized" }, 403, req);
-
-    if (["finalizada", "cancelada_passageiro", "cancelada_motorista"].includes(String(ride.status))) {
-      return json({
-        ok: true,
-        status: ride.status,
-        cancellation_fee: Number(ride.cancellation_fee ?? 0),
-        message: "A corrida já está encerrada.",
-      }, 200, req);
-    }
-
-    if (["motorista_chegou", "em_viagem"].includes(String(ride.status))) {
-      return json({
-        ok: false,
-        error_code: "cancellation_not_allowed",
-        status: ride.status,
-        message: "Não é possível cancelar depois que o motorista chegou ao local de embarque.",
-      }, 409, req);
-    }
-
-    if (!["procurar_motorista", "motorista_a_caminho", "agendada"].includes(String(ride.status))) {
-      return json({ ok: false, error_code: "invalid_ride_status", status: ride.status }, 409, req);
-    }
-
-    const { data: settingsRows, error: settingsError } = await admin
-      .from("app_settings")
-      .select("key,value")
-      .in("key", ["ride.cancellation_free_minutes", "ride.cancellation_fee_amount"]);
-
-    if (settingsError) {
-      console.error("[cancel-ride] settings lookup failed", settingsError);
-    }
-
-    const settings = new Map((settingsRows ?? []).map((row: { key: string; value: unknown }) => [row.key, row.value]));
-    const freeMinutes = readNumber(settings.get("ride.cancellation_free_minutes"), 2);
-    const configuredFee = readNumber(settings.get("ride.cancellation_fee_amount"), 0);
-
-    const referenceAt = ride.accepted_at ?? ride.created_at;
-    const elapsedMinutes = Math.max(0, (Date.now() - new Date(referenceAt).getTime()) / 60000);
-    const fee = ride.status === "motorista_a_caminho" && elapsedMinutes > freeMinutes
-      ? Math.round(configuredFee * 100) / 100
-      : 0;
-
     const reason = typeof body.reason === "string" && body.reason.trim()
       ? body.reason.trim().slice(0, 500)
       : "Cancelada pelo passageiro";
-    const now = new Date().toISOString();
 
-    const { data: updatedRide, error: updateError } = await admin
-      .from("rides")
-      .update({
-        status: "cancelada_passageiro",
-        cancelled_by: userId,
-        cancellation_reason: reason,
-        cancellation_fee: fee,
-        updated_at: now,
-      })
-      .eq("id", rideId)
-      .eq("passenger_id", userId)
-      .in("status", ["procurar_motorista", "motorista_a_caminho", "agendada"])
-      .select("id,status,cancellation_fee")
+    const { data: activeChargeRow, error: activeChargeError } = await admin
+      .from("ride_pix_payments")
+      .select("id,provider,provider_payment_id,status")
+      .eq("ride_id", rideId)
+      .in("status", ["creating", "pending", "confirmed"])
+      .order("attempt_number", { ascending: false })
+      .limit(1)
       .maybeSingle();
-
-    if (updateError) return json({ ok: false, error_code: "ride_cancel_failed" }, 500, req);
-    if (!updatedRide) {
-      return json({
-        ok: false,
-        error_code: "ride_status_changed",
-        message: "O status da corrida mudou. Atualize a tela e tente novamente.",
-      }, 409, req);
+    if (activeChargeError) {
+      console.error("[cancel-ride] active Pix lookup failed", activeChargeError);
+      return json({ ok: false, error_code: "cancellation_transaction_failed" }, 500, req);
     }
 
-    if (fee > 0) {
-      const { error: feeError } = await admin.from("cancellation_fees").insert({
-        ride_id: rideId,
-        passenger_id: userId,
-        amount: fee,
-        reason,
-        status: "pending",
-      });
-      if (feeError && feeError.code !== "23505") {
-        console.error("[cancel-ride] fee insert failed", feeError);
-        return json({ ok: false, error_code: "cancellation_fee_create_failed" }, 500, req);
+    const { data, error } = await admin.rpc("service_cancel_passenger_ride", {
+      _auth_user_id: authUserId,
+      _ride_id: rideId,
+      _reason: reason,
+    });
+
+    if (error) {
+      console.error("[cancel-ride] atomic RPC failed", { code: error.code, message: error.message });
+      return json({ ok: false, error_code: "cancellation_transaction_failed" }, 500, req);
+    }
+
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      console.error("[cancel-ride] invalid atomic RPC response");
+      return json({ ok: false, error_code: "cancellation_transaction_failed" }, 500, req);
+    }
+
+    const result = data as Record<string, unknown>;
+    const ok = result.ok === true;
+    if (!ok) {
+      const errorCode = typeof result.error_code === "string" ? result.error_code : "cancellation_transaction_failed";
+      return json(result, statusForError(errorCode), req);
+    }
+
+    let paymentCancellation: ProviderCancellation | null = null;
+    const activeCharge = activeChargeRow as ActiveCharge | null;
+    if (activeCharge) {
+      paymentCancellation = await cancelProviderCharge(activeCharge);
+
+      if (paymentCancellation.cancelled) {
+        const { error: localPaymentError } = await admin
+          .from("ride_pix_payments")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("id", activeCharge.id)
+          .in("status", ["creating", "pending", "confirmed"]);
+        if (localPaymentError) {
+          console.error("[cancel-ride] local payment cancellation persist failed", localPaymentError);
+          paymentCancellation = {
+            cancelled: false,
+            reconciliationRequired: true,
+            detail: `provider_deleted_local_persist_failed:${localPaymentError.message}`,
+          };
+        }
       }
 
-      const { error: walletError } = await admin.from("passenger_wallets").upsert({
-        passenger_id: userId,
-        is_blocked: true,
-        blocked_reason: `Taxa de cancelamento pendente de R$ ${fee.toFixed(2).replace(".", ",")}`,
-        updated_at: now,
-      }, { onConflict: "passenger_id" });
-
-      if (walletError) {
-        console.error("[cancel-ride] wallet block failed", walletError);
-        return json({ ok: false, error_code: "wallet_block_failed" }, 500, req);
+      if (paymentCancellation.reconciliationRequired) {
+        const { error: auditError } = await admin.from("audit_logs").insert({
+          actor_id: authUserId,
+          action: "ride_payment_cancel_reconciliation_required",
+          entity_type: "ride",
+          entity_id: rideId,
+          metadata: {
+            provider: activeCharge.provider,
+            payment_row_id: activeCharge.id,
+            provider_payment_id: activeCharge.provider_payment_id,
+            detail: paymentCancellation.detail,
+          },
+        });
+        if (auditError) console.error("[cancel-ride] reconciliation audit failed", auditError);
       }
     }
 
     return json({
-      ok: true,
-      status: "cancelada_passageiro",
-      cancellation_fee: fee,
-      message: fee > 0
-        ? `Corrida cancelada. Foi aplicada uma taxa de R$ ${fee.toFixed(2).replace(".", ")}.`
-        : "Corrida cancelada sem taxa.",
+      ...result,
+      payment_charge_cancelled: paymentCancellation?.cancelled ?? true,
+      payment_reconciliation_required: paymentCancellation?.reconciliationRequired ?? false,
     }, 200, req);
   } catch (error) {
     console.error("[cancel-ride] fatal", error);

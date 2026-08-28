@@ -1,12 +1,14 @@
 export type RideStatus =
   | "agendada"
+  | "aguardando_pagamento"
   | "procurar_motorista"
   | "motorista_a_caminho"
   | "motorista_chegou"
   | "em_viagem"
   | "finalizada"
   | "cancelada_passageiro"
-  | "cancelada_motorista";
+  | "cancelada_motorista"
+  | "expired";
 
 export interface RideDriverLocation {
   lat: number;
@@ -30,6 +32,16 @@ export interface RideVehicle {
   plate: string;
 }
 
+export interface ActiveRideIntermediate {
+  lat: number;
+  lng: number;
+  label?: string;
+  address?: string;
+  place_id?: string;
+  source?: string;
+  order?: number;
+}
+
 export interface ActiveRide {
   id: string;
   passenger_id: string;
@@ -40,38 +52,45 @@ export interface ActiveRide {
   destination_name: string;
   origin: { lat: number; lng: number };
   destination: { lat: number; lng: number };
-  intermediates?: any[];
+  intermediates?: ActiveRideIntermediate[];
   estimated_price: number;
   final_price?: number;
+  distance_km?: number;
+  duration_min?: number;
   payment_method: string;
-  service_details?: any;
+  payment_status?: string;
+  payment_provider?: string;
+  provider_payment_id?: string;
+  service_details?: Record<string, unknown>;
   encoded_polyline?: string;
 
-  // Driver Info (Snapshots from ride or joined)
   driver_name?: string;
   driver_photo?: string;
   driver_rating?: number;
   driver_phone?: string;
 
-  // Vehicle Info
   driver_vehicle_model?: string;
   driver_vehicle_color?: string;
   driver_vehicle_plate?: string;
 
-  // Driver Realtime Location
   driver_latitude?: number;
   driver_longitude?: number;
   driver_heading?: number;
 
-  // Security
   security_code?: string;
 
-  // Cancellation
+  /**
+   * Quando preenchido com status procurar_motorista + driver_id, a corrida já
+   * foi reservada por um motorista que está finalizando outra viagem próxima.
+   * Ela só muda para motorista_a_caminho ao terminar a corrida anterior.
+   */
+  queued_after_ride_id?: string;
+  queued_at?: string;
+
   cancellation_reason?: string;
   cancelled_by?: string;
   cancellation_fee?: number;
 
-  // Timeline
   created_at: string;
   accepted_at?: string;
   driver_arrived_at?: string;
@@ -79,8 +98,9 @@ export interface ActiveRide {
   completed_at?: string;
   updated_at: string;
 
-  // Extras
   share_token?: string;
+  share_expires_at?: string;
+  share_revoked_at?: string;
   passenger_rating?: number;
 }
 

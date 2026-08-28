@@ -2,9 +2,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { isValidLatLng } from "../_shared/google-maps.ts";
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const GOOGLE_GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json";
 
-interface GeocodeComponents {
+type GeocodeComponents = {
   rua?: string;
   numero?: string;
   povoado?: string;
@@ -13,7 +15,7 @@ interface GeocodeComponents {
   estado?: string;
   estadoSigla?: string;
   pais?: string;
-}
+};
 
 type GResult = {
   formatted_address?: string;
@@ -30,54 +32,84 @@ type GResult = {
   }>;
 };
 
+type RequestBody = {
+  lat?: number;
+  lng?: number;
+  latitude?: number;
+  longitude?: number;
+};
+
+function json(req: Request, body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...getCorsHeaders(req), "content-type": "application/json" },
+  });
+}
+
 function pick(results: GResult[], types: string[]): { long: string; short: string } | undefined {
-  for (const r of results) {
-    for (const c of r.address_components ?? []) {
-      if (types.every((t) => c.types.includes(t))) {
-        return { long: c.long_name, short: c.short_name };
+  for (const result of results) {
+    for (const component of result.address_components ?? []) {
+      if (types.every((type) => component.types.includes(type))) {
+        return { long: component.long_name, short: component.short_name };
       }
     }
   }
   return undefined;
 }
 
-function hasAnyComponent(r: GResult, types: string[]): boolean {
-  return types.some((t) => (r.address_components ?? []).some((c) => c.types.includes(t)));
+function hasAnyComponent(result: GResult, types: string[]): boolean {
+  return types.some((type) =>
+    (result.address_components ?? []).some((component) => component.types.includes(type)),
+  );
 }
 
 function selectBestGeocodeResult(results: GResult[]) {
   if (!results.length) return null;
-  // Priority A: ROOFTOP with route/neighborhood/locality
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
+
+  for (const result of results) {
     if (
-      r.geometry?.location_type === "ROOFTOP" &&
-      hasAnyComponent(r, ["route", "neighborhood", "locality"])
+      result.geometry?.location_type === "ROOFTOP" &&
+      hasAnyComponent(result, ["route", "neighborhood", "locality"])
     ) {
-      return { result: r, confidence: "exact", reason: "ROOFTOP" };
+      return { result, precision: "exact" as const, confidence: "high" as const };
     }
   }
-  // Priority B: RANGE_INTERPOLATED
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    if (r.geometry?.location_type === "RANGE_INTERPOLATED") {
-      return { result: r, confidence: "approximate", reason: "RANGE_INTERPOLATED" };
+
+  for (const result of results) {
+    if (result.geometry?.location_type === "RANGE_INTERPOLATED") {
+      return {
+        result,
+        precision: "interpolated" as const,
+        confidence: "medium" as const,
+      };
     }
   }
-  return { result: results[0], confidence: "fallback", reason: "First result" };
+
+  const result = results[0];
+  const approximate =
+    result.partial_match === true ||
+    result.geometry?.location_type === "APPROXIMATE" ||
+    result.geometry?.location_type === "GEOMETRIC_CENTER";
+
+  return {
+    result,
+    precision: approximate ? ("approximate" as const) : ("unknown" as const),
+    confidence: approximate ? ("low" as const) : ("medium" as const),
+  };
 }
 
 function buildPickupLabel(
   components: GeocodeComponents,
   region: string,
-  topTypes: string[],
   distrito?: string,
 ) {
   const { rua, numero, bairro, povoado, cidade, estadoSigla } = components;
   const sub = cidade && estadoSigla ? `${cidade} - ${estadoSigla}` : region;
 
-  const stripPrefix = (s: string) =>
-    s.replace(/^\s*(povoado|comunidade|distrito|vila)\s+(de\s+|do\s+|da\s+)?/i, "").trim();
+  const stripPrefix = (value: string) =>
+    value
+      .replace(/^\s*(povoado|comunidade|distrito|vila)\s+(de\s+|do\s+|da\s+)?/i, "")
+      .trim();
   const prependVillage = (name: string) =>
     /^(povoado|comunidade|vila|distrito)\b/i.test(name) ? name : `Povoado ${name}`;
 
@@ -89,71 +121,123 @@ function buildPickupLabel(
       pickupShortLabel: rua,
     };
   }
-  if (bairro) return { pickupLabel: bairro, pickupSubLabel: sub, pickupShortLabel: bairro };
-  if (distrito && distrito !== cidade)
+
+  if (bairro) {
+    return { pickupLabel: bairro, pickupSubLabel: sub, pickupShortLabel: bairro };
+  }
+
+  if (distrito && distrito !== cidade) {
     return {
       pickupLabel: `Distrito de ${stripPrefix(distrito)}`,
       pickupSubLabel: sub,
       pickupShortLabel: stripPrefix(distrito),
     };
-  if (povoado && povoado !== cidade)
+  }
+
+  if (povoado && povoado !== cidade) {
     return {
       pickupLabel: prependVillage(povoado),
       pickupSubLabel: sub,
       pickupShortLabel: stripPrefix(povoado),
     };
+  }
 
   return {
-    pickupLabel: "Zona Rural",
+    pickupLabel: cidade || "Localização selecionada",
     pickupSubLabel: sub,
-    pickupShortLabel: cidade || "Zona Rural",
+    pickupShortLabel: cidade || "Localização selecionada",
   };
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
+  if (req.method !== "POST") return json(req, { error: "method_not_allowed" }, 405);
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
-    );
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser();
-    if (authError || !user)
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: getCorsHeaders(req),
-      });
+    const token = (req.headers.get("Authorization") ?? "")
+      .replace(/^Bearer\s+/i, "")
+      .trim();
+    if (!token) return json(req, { error: "geocode_authentication_required" }, 401);
 
-    const { latitude, longitude } = await req.json();
-    if (!isValidLatLng({ lat: latitude, lng: longitude })) {
-      return new Response(JSON.stringify({ error: "Invalid coordinates" }), {
-        status: 400,
-        headers: getCorsHeaders(req),
-      });
+    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: authData, error: authError } = await authClient.auth.getUser(token);
+    if (authError || !authData.user) {
+      return json(req, { error: "geocode_authentication_required" }, 401);
     }
 
-    const apiKey =
-      Deno.env.get("GOOGLE_MAPS_PLATFORM_API_KEY") || Deno.env.get("GOOGLE_MAPS_API_KEY");
-    const url = `${GOOGLE_GEOCODING_URL}?latlng=${latitude},${longitude}&language=pt-BR&region=br&key=${apiKey}`;
+    let body: RequestBody;
+    try {
+      body = (await req.json()) as RequestBody;
+    } catch {
+      return json(req, { error: "geocode_invalid_coordinates" }, 400);
+    }
 
-    const res = await fetch(url);
-    const json = await res.json();
-    if (json.status !== "OK")
-      return new Response(JSON.stringify({ error: json.status }), {
-        status: 500,
-        headers: getCorsHeaders(req),
+    // The current passenger client sends { lat, lng }. Keep latitude/longitude
+    // support for compatibility with older callers during migration.
+    const lat = Number(body.lat ?? body.latitude);
+    const lng = Number(body.lng ?? body.longitude);
+    if (!isValidLatLng({ lat, lng })) {
+      return json(req, { error: "geocode_invalid_coordinates" }, 422);
+    }
+
+    const apiKey = (
+      Deno.env.get("GOOGLE_MAPS_PLATFORM_API_KEY") ||
+      Deno.env.get("GOOGLE_MAPS_API_KEY") ||
+      ""
+    ).trim();
+    if (!apiKey) {
+      return json(
+        req,
+        {
+          error: "geocode_configuration_missing",
+          message: "O serviço de endereços ainda não está configurado.",
+        },
+        503,
+      );
+    }
+
+    const url = new URL(GOOGLE_GEOCODING_URL);
+    url.searchParams.set("latlng", `${lat},${lng}`);
+    url.searchParams.set("language", "pt-BR");
+    url.searchParams.set("region", "br");
+    url.searchParams.set("key", apiKey);
+
+    const response = await fetch(url);
+    const payload = (await response.json()) as {
+      status?: string;
+      error_message?: string;
+      results?: GResult[];
+    };
+
+    if (!response.ok || payload.status !== "OK") {
+      const googleStatus = String(payload.status ?? `HTTP_${response.status}`);
+      console.error("[passenger-geocode-reverse] Google Geocoding failed", {
+        status: response.status,
+        googleStatus,
+        message: payload.error_message?.slice(0, 240),
       });
 
-    const results = json.results as GResult[];
-    const selection = selectBestGeocodeResult(results);
-    const top = selection?.result ?? results[0];
+      if (googleStatus === "ZERO_RESULTS") {
+        return json(req, { error: "geocode_empty_result" }, 404);
+      }
+      if (googleStatus === "OVER_QUERY_LIMIT") {
+        return json(req, { error: "geocode_rate_limited" }, 429);
+      }
+      if (googleStatus === "INVALID_REQUEST") {
+        return json(req, { error: "geocode_invalid_coordinates" }, 422);
+      }
+      return json(req, { error: "geocode_service_unavailable" }, 502);
+    }
 
-    const orderedResults = [top, ...results.filter((r) => r !== top)];
+    const results = Array.isArray(payload.results) ? payload.results : [];
+    const selection = selectBestGeocodeResult(results);
+    if (!selection) return json(req, { error: "geocode_empty_result" }, 404);
+
+    const top = selection.result;
+    const orderedResults = [top, ...results.filter((result) => result !== top)];
     const components: GeocodeComponents = {
       rua: pick(orderedResults, ["route"])?.long,
       numero: pick(orderedResults, ["street_number"])?.long,
@@ -176,23 +260,29 @@ Deno.serve(async (req) => {
     const distrito =
       pick(orderedResults, ["administrative_area_level_4"])?.long ||
       pick(orderedResults, ["administrative_area_level_3"])?.long;
+    const labels = buildPickupLabel(components, region, distrito);
 
-    const labels = buildPickupLabel(components, region, top.types || [], distrito);
-
-    return new Response(
-      JSON.stringify({
-        address: top.formatted_address,
-        components,
-        ...labels,
-        latitude: top.geometry?.location?.lat,
-        longitude: top.geometry?.location?.lng,
-      }),
-      { headers: { ...getCorsHeaders(req), "Content-Type": "application/json" } },
-    );
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: getCorsHeaders(req),
+    return json(req, {
+      ok: true,
+      address: top.formatted_address,
+      components,
+      ...labels,
+      region,
+      approximate: selection.precision !== "exact",
+      precision: selection.precision,
+      confidence: selection.confidence,
+      geocodedLat: top.geometry?.location?.lat,
+      geocodedLng: top.geometry?.location?.lng,
     });
+  } catch (error) {
+    console.error("[passenger-geocode-reverse] unexpected error", error);
+    return json(
+      req,
+      {
+        error: "geocode_unknown",
+        message: "Não foi possível identificar o endereço agora.",
+      },
+      500,
+    );
   }
 });

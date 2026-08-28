@@ -1,28 +1,33 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useAuth } from "@/hooks/use-auth";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { AppBrand } from "@/components/app/AppBrand";
+import { PublicAuthShell } from "@/components/app/PublicAuthShell";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_public/")({
-  component: IndexDecisionComponent,
+  component: EntryRedirect,
 });
 
-function IndexDecisionComponent() {
+function EntryRedirect() {
   const { authState } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (authState === "authenticated") {
-      navigate({ to: "/inicio", replace: true });
+      void navigate({ to: "/inicio", replace: true });
     } else if (authState === "unauthenticated") {
-      navigate({ to: "/login", replace: true });
+      void navigate({ to: "/login", replace: true });
     }
   }, [authState, navigate]);
 
-  // Renders nothing or a very minimal spinner while deciding
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <Loader2 className="animate-spin text-apois-yellow" size={32} />
-    </div>
+    <PublicAuthShell contentClassName="items-center justify-center text-center">
+      <AppBrand subtitle="Apois, vamos?" />
+      <div className="mt-7 flex items-center gap-3 text-xs font-bold text-zinc-500">
+        <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-apois-yellow" />
+        Preparando seu acesso
+      </div>
+    </PublicAuthShell>
   );
 }

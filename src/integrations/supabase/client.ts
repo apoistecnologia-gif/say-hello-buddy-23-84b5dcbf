@@ -2,8 +2,12 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
-function isNewSupabaseApiKey(value: string): boolean {
-  return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
+function isPublishableSupabaseApiKey(value: string): boolean {
+  return value.startsWith("sb_publishable_");
+}
+
+function isSecretSupabaseApiKey(value: string): boolean {
+  return value.startsWith("sb_secret_");
 }
 
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
@@ -16,9 +20,9 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
       new Headers(init.headers).forEach((value, key) => headers.set(key, value));
     }
 
-    // New Supabase API keys are opaque strings, not bearer JWTs.
+    // New publishable Supabase API keys are opaque strings, not bearer JWTs.
     if (
-      isNewSupabaseApiKey(supabaseKey) &&
+      isPublishableSupabaseApiKey(supabaseKey) &&
       headers.get("Authorization") === `Bearer ${supabaseKey}`
     ) {
       headers.delete("Authorization");
@@ -34,11 +38,18 @@ function createSupabaseClient() {
   const SUPABASE_PUBLISHABLE_KEY = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    const message = "Supabase não configurado corretamente neste ambiente. Verifique as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.";
+    const message =
+      "Supabase não configurado corretamente neste ambiente. Verifique as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.";
     console.error(`[Supabase Error] ${message}`, { url: SUPABASE_URL });
     if (import.meta.env.DEV) {
       throw new Error(message);
     }
+  }
+
+  if (isSecretSupabaseApiKey(SUPABASE_PUBLISHABLE_KEY)) {
+    throw new Error(
+      "Configuração insegura: uma chave Supabase secreta foi fornecida ao aplicativo Passageiro. Use somente a publishable/anon key no frontend.",
+    );
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {

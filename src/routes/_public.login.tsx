@@ -1,11 +1,13 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { AppBrand } from "@/components/app/AppBrand";
+import { PrimaryButton } from "@/components/app/PrimaryButton";
+import { PublicAuthShell } from "@/components/app/PublicAuthShell";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import logo from "@/assets/logo.jpg";
 
 export const Route = createFileRoute("/_public/login")({ component: LoginPage });
 
@@ -28,7 +30,7 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { authState } = useAuth();
+  const { authState, refreshSession } = useAuth();
   const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
   useEffect(() => {
@@ -67,6 +69,7 @@ function LoginPage() {
         return;
       }
 
+      await refreshSession();
       toast.success("Login realizado com sucesso!");
       await navigate({ to: "/inicio", replace: true });
     } catch (error) {
@@ -80,47 +83,94 @@ function LoginPage() {
   };
 
   return (
-    <div className="safe-bottom safe-top flex flex-1 flex-col items-center justify-center bg-black px-6 py-8 text-white sm:py-12">
-      <div className="flex w-full max-w-[400px] flex-col items-center">
-        <div className="mb-8 flex w-full justify-center">
-          <img src={logo} alt="APOIS" className="h-auto w-32 max-w-[180px] object-contain" loading="eager" />
-        </div>
+    <PublicAuthShell contentClassName="justify-start !py-5">
+      <div className="flex w-full flex-col pb-3">
+        <AppBrand compact subtitle="Sua corrida, do seu jeito." />
 
-        <div className="mb-8 text-center">
-          <h1 className="mb-2 text-2xl font-bold">Bem-vindo ao APOIS</h1>
-          <p className="text-zinc-400">Faça login para continuar sua jornada.</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="w-full space-y-4" noValidate>
-          <div className="space-y-1.5">
-            <label htmlFor="login-email" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">E-mail</label>
-            <Input id="login-email" type="email" inputMode="email" autoCapitalize="none" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} disabled={loading} className="h-14 w-full rounded-xl border-zinc-800 bg-[#121212] text-white focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow" autoComplete="email" />
+        <section className="app-surface mt-5 rounded-3xl p-5" aria-labelledby="login-title">
+          <div className="mb-5">
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-apois-yellow">Passageiro</p>
+            <h1 id="login-title" className="mt-2 text-2xl font-black tracking-tight text-white">
+              Entre na sua conta
+            </h1>
+            <p className="mt-2 text-sm leading-5 text-zinc-400">Use seu e-mail e senha para continuar.</p>
           </div>
 
-          <div className="space-y-1.5">
-            <label htmlFor="login-password" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-500">Senha</label>
-            <div className="relative">
-              <Input id="login-password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={loading} className="h-14 w-full rounded-xl border-zinc-800 bg-[#121212] pr-12 text-white focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow" autoComplete="current-password" />
-              <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-zinc-500 hover:text-white" aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}>
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+          <form onSubmit={handleLogin} method="post" className="space-y-3.5" noValidate>
+            <div className="space-y-2">
+              <label htmlFor="login-email" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
+                E-mail
+              </label>
+              <div className="relative">
+                <Mail aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  id="login-email"
+                  type="email"
+                  inputMode="email"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  disabled={loading}
+                  className="h-13 w-full rounded-2xl border-white/10 bg-black/45 pl-12 text-white placeholder:text-zinc-600 focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow"
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="flex justify-end pt-1">
-            <Link to="/recuperar-senha" className="text-sm font-semibold text-apois-yellow transition-colors hover:text-apois-yellow/80 active:opacity-70">Esqueci minha senha</Link>
-          </div>
+            <div className="space-y-2">
+              <label htmlFor="login-password" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
+                Senha
+              </label>
+              <div className="relative">
+                <LockKeyhole aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  placeholder="Digite sua senha"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={loading}
+                  className="h-13 w-full rounded-2xl border-white/10 bg-black/45 pl-12 pr-12 text-white placeholder:text-zinc-600 focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  disabled={loading}
+                  className="app-pressable absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl text-zinc-500 hover:bg-white/5 hover:text-white disabled:opacity-50"
+                  aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            </div>
 
-          <button type="submit" disabled={loading} className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-[#ffb800] text-base font-black uppercase tracking-widest text-black shadow-lg shadow-[#ffb800]/10 transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50">
-            {loading ? <Loader2 className="animate-spin" /> : "Entrar"}
-          </button>
-        </form>
+            <div className="flex justify-end">
+              <Link
+                to="/recuperar-senha"
+                className="app-pressable rounded-lg px-1 py-2 text-sm font-bold text-apois-yellow hover:text-yellow-300"
+              >
+                Esqueci minha senha
+              </Link>
+            </div>
 
-        <div className="mt-10 flex flex-col gap-1 text-center">
-          <span className="text-sm text-zinc-500">Ainda não tem uma conta?</span>
-          <Link to="/cadastro" className="text-sm font-black uppercase tracking-widest text-apois-yellow transition-colors hover:text-apois-yellow/80 active:opacity-70">Criar minha conta</Link>
+            <PrimaryButton type="submit" loading={loading} loadingLabel="Entrando...">
+              Entrar
+            </PrimaryButton>
+          </form>
+        </section>
+
+        <div className="mt-4 text-center">
+          <p className="text-sm text-zinc-500">Ainda não tem uma conta?</p>
+          <Link
+            to="/cadastro"
+            className="app-pressable mt-1 inline-flex min-h-10 items-center justify-center rounded-xl px-4 text-sm font-black uppercase tracking-[0.16em] text-apois-yellow"
+          >
+            Criar minha conta
+          </Link>
         </div>
       </div>
-    </div>
+    </PublicAuthShell>
   );
 }

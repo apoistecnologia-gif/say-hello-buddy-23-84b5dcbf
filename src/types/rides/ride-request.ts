@@ -10,31 +10,48 @@ export type RideRequestStatus =
   | "network_error"
   | "failed";
 
+export type RideLocationSource = "gps" | "manual" | "places" | "map" | "recent";
+
+export interface RideRequestLocation {
+  lat: number;
+  lng: number;
+  label: string;
+  address: string;
+  place_id?: string | null;
+  source: RideLocationSource;
+}
+
+export interface RideRequestIntermediate extends RideRequestLocation {
+  order: number;
+}
+
 export interface RideRequestPayload {
   action: "create";
   request_key: string;
-  origin: {
-    lat: number;
-    lng: number;
-  };
+  origin: RideRequestLocation;
   origin_name: string;
-  destination: {
-    lat: number;
-    lng: number;
-  };
+  destination: RideRequestLocation;
   destination_name: string;
+  intermediates: RideRequestIntermediate[];
   category: string;
-  distance_km?: number | null;
-  duration_min?: number | null;
-  estimated_price?: number | null;
-  pickup_label?: string | null;
-  pickup_short_label?: string | null;
-  pickup_address?: string | null;
-  pickup_place_id?: string | null;
-  pickup_source?: "gps" | "manual" | "places" | null;
-  payment_method?: string | null;
-  service_details?: Record<string, unknown> | null;
-  scheduled_for?: null;
+  distance_km: number;
+  duration_min: number;
+  encoded_polyline?: string | null;
+  client_estimated_price: number;
+  payment_method: string;
+  service_details: Record<string, unknown> | null;
+  scheduled_for: string | null;
+}
+
+export interface RideRedispatchPayload {
+  action: "redispatch";
+  ride_id: string;
+}
+
+export interface RideCancelPayload {
+  action: "cancel";
+  ride_id: string;
+  reason?: string | null;
 }
 
 export interface RideRequestResponse {
@@ -45,6 +62,9 @@ export interface RideRequestResponse {
   status?: string;
   estimated_price?: number;
   reused?: boolean;
+  fee_applied?: number;
+  free_seconds?: number;
   message?: string;
+  error?: string;
   error_code?: string;
 }

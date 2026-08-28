@@ -1,9 +1,10 @@
 /**
- * APOIS Edge Function CORS Helper
- * 
- * Provides strict origin validation for browser-callable functions.
- * Webhooks (like Mercado Pago) do not require browser CORS as they are server-to-server;
- * their protection is signature validation, not CORS.
+ * APOIS Edge Function CORS helper.
+ *
+ * Web origins must be explicitly configured through ALLOWED_ORIGINS. The
+ * Capacitor/Ionic application uses a local virtual origin even in production,
+ * so only the exact native origins below are trusted without depending on an
+ * environment secret.
  */
 
 const ENVIRONMENT =
@@ -11,66 +12,56 @@ const ENVIRONMENT =
   Deno.env.get("ENVIRONMENT") ??
   "production";
 
-const ALLOWED_METHODS = "POST, OPTIONS";
-const ALLOWED_HEADERS = "authorization, x-client-info, apikey, content-type, x-signature, x-request-id";
+const ALLOWED_METHODS = "GET, POST, OPTIONS";
+const ALLOWED_HEADERS =
+  "authorization, x-client-info, apikey, content-type, x-signature, x-request-id";
 
-/**
- * getCorsHeaders(request)
- * 
- * Implements least-privilege CORS logic.
- * - Exact origin matching via ALLOWED_ORIGINS secret.
- * - Localhost support restricted to development environment.
- * - Omission of Access-Control-Allow-Origin for unknown origins.
- * - Support for Capacitor/Server-to-Server (no Origin header).
- */
-export function getCorsHeaders(request: Request) {
-  const origin = request.headers.get("Origin");
-  const allowedOriginsStr = Deno.env.get("ALLOWED_ORIGINS") || "";
-  const allowedOrigins = allowedOriginsStr
-    .split(",")
-    .map((o) => o.trim())
-    .filter(Boolean);
+const NATIVE_ORIGINS = new Set([
+  "https://localhost",
+  "capacitor://localhost",
+  "ionic://localhost",
+]);
 
+function configuredOrigins(): Set<string> {
+  return new Set(
+    (Deno.env.get("ALLOWED_ORIGINS") ?? "")
+      .split(",")
+      .map((origin) => origin.trim().replace(/\/$/, ""))
+      .filter(Boolean),
+  );
+}
+
+export function getCorsHeaders(request: Request): Record<string, string> {
+  const originHeader = request.headers.get("Origin");
   const headers: Record<string, string> = {
     "Access-Control-Allow-Headers": ALLOWED_HEADERS,
     "Access-Control-Allow-Methods": ALLOWED_METHODS,
-    "Vary": "Origin",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
   };
 
-  // 1. Capacitor/Server-to-Server: Omit ACAO if no Origin header
-  if (!origin) {
-    return headers;
-  }
+  if (!originHeader) return headers;
 
-  let isAllowed = false;
+  const origin = originHeader.replace(/\/$/, "");
+  const allowedOrigins = configuredOrigins();
+  let allowed = NATIVE_ORIGINS.has(origin) || allowedOrigins.has(origin);
 
   try {
     const url = new URL(origin);
-    
-    // 2. Localhost Restriction: Only in development
-    const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
-    if (isLocalhost) {
-      if (ENVIRONMENT === "development") {
-        isAllowed = true;
-      }
-    } else {
-      // 3. Exact Origin Matching
-      isAllowed = allowedOrigins.includes(origin);
-      
-      // 4. HTTPS Requirement: Enforced outside development
-      if (isAllowed && ENVIRONMENT !== "development" && url.protocol !== "https:") {
-        isAllowed = false;
-      }
+    const localDevelopment =
+      ENVIRONMENT === "development" &&
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1");
+
+    if (localDevelopment) allowed = true;
+
+    if (allowed && ENVIRONMENT !== "development" && !NATIVE_ORIGINS.has(origin)) {
+      // Configured web origins must still be HTTPS in production.
+      allowed = url.protocol === "https:";
     }
   } catch {
-    // Invalid URL syntax in Origin header
-    isAllowed = false;
+    allowed = false;
   }
 
-  // 5. Return exact origin only if validated
-  if (isAllowed) {
-    headers["Access-Control-Allow-Origin"] = origin;
-  }
-
+  if (allowed) headers["Access-Control-Allow-Origin"] = originHeader;
   return headers;
 }

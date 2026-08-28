@@ -19,8 +19,9 @@ export default defineConfig(({ mode }) => ({
     },
     tsconfigPaths: true,
   },
-  // Use relative base for Capacitor builds, absolute for development/preview
-  base: mode === "capacitor" ? "./" : "/",
+  // Production assets must remain relative because the same dist is copied into
+  // the Capacitor WebView. Development keeps absolute paths for the Vite server.
+  base: mode === "development" ? "/" : "./",
   build: {
     outDir: "dist",
     emptyOutDir: true,

@@ -1,0 +1,137 @@
+/*
+ * APOIS mobile viewport contract.
+ * AppShell owns the single 100dvh viewport. Route screens fill only the
+ * remaining shell space and scroll internally, preventing content from being
+ * hidden behind Android system bars or duplicated viewport heights.
+ */
+
+.app-screen {
+  height: 100%;
+  min-height: 0 !important;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+/* Legacy route states still carrying h-[100dvh] must not create a second
+ * viewport inside AppShell. This also covers loading/error states. */
+.app-viewport [class~="h-[100dvh]"] {
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+.app-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-bottom: max(32px, var(--app-safe-bottom)) !important;
+  scroll-padding-top: max(16px, var(--app-safe-top));
+  scroll-padding-bottom: max(40px, var(--app-safe-bottom));
+  scrollbar-width: none;
+}
+
+.app-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.app-main-menu-trigger {
+  position: absolute;
+  z-index: 40;
+  top: calc(max(16px, var(--app-safe-top)) + 4px);
+  right: max(16px, var(--app-safe-right));
+}
+
+.app-main-menu-drawer {
+  padding-top: max(16px, var(--app-safe-top));
+  padding-bottom: max(16px, var(--app-safe-bottom));
+}
+
+.app-dialog-content {
+  max-height: calc(
+    100dvh - max(16px, var(--app-safe-top)) - max(16px, var(--app-safe-bottom))
+  ) !important;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.app-dialog-content::-webkit-scrollbar {
+  display: none;
+}
+
+/* Radix supplies a small default close control. Profile/Wallet dialogs already
+ * render a branded close button; hide the duplicate only in that case. */
+.app-dialog-content:has(button[aria-label^="Fechar"]) > button.absolute.right-4.top-4 {
+  display: none;
+}
+
+/* Sonner notifications are fixed to the viewport, so top notifications need
+ * the same physical safe-area contract as page headers. */
+[data-sonner-toaster][data-y-position="top"] {
+  top: calc(max(16px, var(--app-safe-top)) + 8px) !important;
+}
+
+/* Home has no permanent footer anymore. Keep its action stack above the
+ * Android gesture/navigation area when no destination has been selected. */
+.app-viewport .relative.z-30.mt-auto.bg-gradient-to-t {
+  padding-bottom: max(16px, var(--app-safe-bottom)) !important;
+}
+
+/* Active ride is a full-map journey and used fixed top offsets. Move its
+ * floating controls below the Android status bar and keep the lower sheet
+ * above gesture/navigation insets. */
+.app-viewport .absolute.left-6.right-6.top-6.z-20 {
+  top: calc(max(16px, var(--app-safe-top)) + 8px) !important;
+}
+
+.app-viewport .absolute.left-6.right-6.top-20.z-10 {
+  top: calc(max(16px, var(--app-safe-top)) + 64px) !important;
+}
+
+.app-viewport div[class*="max-h-[64vh]"][class*="rounded-t-[32px]"] {
+  padding-bottom: max(32px, var(--app-safe-bottom)) !important;
+}
+
+/* Home already had a hamburger placeholder. Keep its physical space so the
+ * new global trigger can occupy the exact same slot without covering text. */
+button[aria-label="Abrir menu da conta"] {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Keep page-specific refresh actions visible beside the global hamburger. */
+button[aria-label="Atualizar perfil"],
+button[aria-label="Atualizar histórico"],
+button[aria-label="Atualizar carteira"],
+button[aria-label="Atualizar notificações"] {
+  margin-right: 54px;
+}
+
+/* Long headers must yield space to refresh + hamburger buttons on 320–360px
+ * devices instead of overflowing horizontally. */
+header:has(button[aria-label="Atualizar histórico"]) > div:first-child,
+header:has(button[aria-label="Atualizar carteira"]) > div:first-child,
+header:has(button[aria-label="Atualizar notificações"]) > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+/* Corridas/Notificações wrap title + refresh in an extra flex row. */
+header:has(button[aria-label="Atualizar histórico"]) > div:first-child > div:first-child,
+header:has(button[aria-label="Atualizar notificações"]) > div:first-child > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+header:has(button[aria-label="Atualizar histórico"]) h1,
+header:has(button[aria-label="Atualizar carteira"]) h1,
+header:has(button[aria-label="Atualizar notificações"]) h1 {
+  overflow-wrap: anywhere;
+}
+
+/* No page may reserve the retired bottom navigation bar. */
+:root {
+  --app-nav-height: 0px;
+}

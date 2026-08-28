@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-label="Moto">
+  <defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#565d63"/><stop offset=".45" stop-color="#111417"/><stop offset="1" stop-color="#2b3035"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffd85e"/><stop offset="1" stop-color="#f3a900"/></linearGradient>
+    <filter id="shadow" x="-30%" y="-50%" width="160%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>
+  </defs>
+  <ellipse cx="162" cy="145" rx="104" ry="13" fill="#000" opacity=".6" filter="url(#shadow)"/>
+  <circle cx="86" cy="132" r="33" fill="#090a0b" stroke="#3a4045" stroke-width="6"/><circle cx="86" cy="132" r="19" fill="#15191c" stroke="#8c9499" stroke-width="3"/>
+  <circle cx="246" cy="132" r="33" fill="#090a0b" stroke="#3a4045" stroke-width="6"/><circle cx="246" cy="132" r="19" fill="#15191c" stroke="#8c9499" stroke-width="3"/>
+  <path d="M94 127l48-52h43l30 24 21 27" fill="none" stroke="url(#metal)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M122 87h55c12 0 23 7 27 18l-61 8c-12 1-25-8-21-26Z" fill="url(#gold)" stroke="#f8c83a" stroke-width="2"/>
+  <path d="M154 74c-4-12 4-22 16-23h34l11 10-15 16h-46Z" fill="#1c2024" stroke="#5b6369" stroke-width="2"/>
+  <path d="M205 59l21-13m-6 4 18 4" fill="none" stroke="#9aa2a8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M224 63l16 58" stroke="#c8ced2" stroke-width="5"/>
+  <path d="M133 110l-36 17m49-11-33 24" stroke="#747c82" stroke-width="4" stroke-linecap="round"/>
+  <path d="M158 109l27 18h37" fill="none" stroke="#343a3f" stroke-width="8" stroke-linecap="round"/>
+  <path d="M178 126h42" stroke="#f6be1c" stroke-width="3" opacity=".8"/>
+  <path d="M117 76l-18-12H77" fill="none" stroke="#929a9f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M174 51h24" stroke="#d8dde0" stroke-width="3" stroke-linecap="round"/>
+</svg>

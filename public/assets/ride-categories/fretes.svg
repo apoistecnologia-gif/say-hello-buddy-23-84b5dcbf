@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-label="Fretes e mudanças">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f5f6f7"/><stop offset=".55" stop-color="#bfc5ca"/><stop offset="1" stop-color="#8d949a"/></linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7e929f"/><stop offset="1" stop-color="#17232a"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#ffd85d"/><stop offset="1" stop-color="#f3a900"/></linearGradient>
+    <filter id="shadow" x="-30%" y="-50%" width="160%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>
+  </defs>
+  <ellipse cx="159" cy="148" rx="113" ry="13" fill="#000" opacity=".58" filter="url(#shadow)"/>
+  <path d="M49 58h151v74H49z" fill="url(#body)" stroke="#d8dde0" stroke-width="2"/>
+  <path d="M200 80h43c9 0 16 5 21 13l17 28v12h-81V80Z" fill="url(#body)" stroke="#d8dde0" stroke-width="2"/>
+  <path d="M213 88h27c7 0 11 3 15 9l9 16h-51V88Z" fill="url(#glass)"/>
+  <path d="M49 113h151v18H49z" fill="#aab0b5"/>
+  <path d="M61 67h126" stroke="#fff" stroke-width="3" opacity=".7"/>
+  <path d="M202 119h74" stroke="url(#gold)" stroke-width="4"/>
+  <path d="M61 120h126" stroke="#f6be1c" stroke-width="3" opacity=".75"/>
+  <path d="M228 84v34" stroke="#939ba0" stroke-width="2"/>
+  <path d="M275 116h16v10h-15" fill="#ffd85d"/>
+  <path d="M51 126h18" stroke="#555c62" stroke-width="4"/>
+  <g>
+    <circle cx="91" cy="136" r="22" fill="#090a0b" stroke="#33383d" stroke-width="5"/><circle cx="91" cy="136" r="10" fill="#8d969d"/><circle cx="91" cy="136" r="4" fill="#111"/>
+    <circle cx="244" cy="136" r="22" fill="#090a0b" stroke="#33383d" stroke-width="5"/><circle cx="244" cy="136" r="10" fill="#8d969d"/><circle cx="244" cy="136" r="4" fill="#111"/>
+  </g>
+  <rect x="72" y="76" width="54" height="34" rx="4" fill="#d7b07b" stroke="#9a7547" stroke-width="2" opacity=".95"/>
+  <path d="M99 76v34M72 91h54" stroke="#b78d57" stroke-width="2"/>
+  <rect x="133" y="70" width="43" height="40" rx="4" fill="#c6955f" stroke="#8b653e" stroke-width="2" opacity=".95"/>
+  <path d="M154 70v40" stroke="#a6784d" stroke-width="2"/>
+</svg>

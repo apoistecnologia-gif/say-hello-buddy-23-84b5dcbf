@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
+import { disabledRideFeatureError } from "../_shared/ride-feature-flags.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -149,13 +150,50 @@ function sanitizeServiceDetails(value: unknown): Record<string, unknown> | null 
 }
 
 async function loadTariff(admin: any, category: string): Promise<Record<string, number>> {
-  const { data, error } = await admin
+  const { data: rideCategory, error: categoryError } = await admin
+    .from("ride_categories")
+    .select("id")
+    .eq("code", category)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (categoryError) throw new Error(`Falha ao carregar categoria: ${categoryError.message}`);
+  if (!rideCategory?.id) throw new Error(`Categoria de corrida não encontrada: ${category}`);
+
+  const tariffColumns = [
+    "base_fare",
+    "min_fare",
+    "per_km",
+    "per_min",
+    "fixed_fee",
+    "stop_fee",
+    "dynamic_multiplier",
+    "helper1_fee",
+    "helper2_fee",
+    "heavy_furniture_fee",
+    "assembly_fee",
+    "packing_fee",
+    "difficult_access_fee",
+    "stair_fee",
+    "heavy_vehicle_fee",
+    "accident_fee",
+    "platform_fee",
+    "locked_wheels_fee",
+    "garage_fee",
+    "max_weight_kg",
+    "per_kg",
+  ].join(",");
+  const { data: tariff, error: tariffError } = await admin
     .from("tariff_rules")
-    .select("field_key, value")
-    .eq("category_key", category);
-  if (error) throw new Error(`Falha ao carregar tarifas: ${error.message}`);
+    .select(tariffColumns)
+    .eq("category_id", rideCategory.id)
+    .eq("is_active", true)
+    .eq("city", "default")
+    .maybeSingle();
+  if (tariffError) throw new Error(`Falha ao carregar tarifas: ${tariffError.message}`);
+  if (!tariff) throw new Error(`Tarifa ativa não encontrada: ${category}`);
+
   const out: Record<string, number> = {};
-  for (const row of data ?? []) out[String(row.field_key)] = Number(row.value ?? 0);
+  for (const [key, value] of Object.entries(tariff)) out[key] = Number(value ?? 0);
   return out;
 }
 
@@ -442,6 +480,10 @@ Deno.serve(async (req) => {
         return json({ error: "ride_lookup_failed", detail: currentError.message }, 500);
       }
       if (!current) return json({ error: "ride_not_found" }, 404);
+      const featureError = await disabledRideFeatureError(admin, current.category);
+      if (featureError) {
+        return json({ error: featureError, message: "Serviço temporariamente indisponível." }, 403);
+      }
       if (
         current.status !== "procurar_motorista" ||
         current.accepted_driver_id ||
@@ -526,6 +568,12 @@ Deno.serve(async (req) => {
     if (!body.origin_name?.trim() || !body.destination_name?.trim())
       return json({ error: "missing_address" }, 422);
     if (!CATEGORIES.has(body.category)) return json({ error: "invalid_category" }, 422);
+    const featureError = await disabledRideFeatureError(admin, body.category);
+    if (featureError) {
+      return json({ error: featureError, message: "Serviço temporariamente indisponível." }, 403);
+    }
+    const paymentMethod = body.payment_method?.trim() || "";
+    if (!paymentMethod) return json({ error: "missing_payment_method" }, 422);
     let serviceDetails: Record<string, unknown> | null = null;
     try {
       serviceDetails = sanitizeServiceDetails(body.service_details);
@@ -690,6 +738,14 @@ Deno.serve(async (req) => {
       .insert({
         passenger_id: userId,
         category: body.category,
+        origin: {
+          lat: body.origin.lat,
+          lng: body.origin.lng,
+        },
+        destination: {
+          lat: body.destination.lat,
+          lng: body.destination.lng,
+        },
         origin_lat: body.origin.lat,
         origin_lng: body.origin.lng,
         origin_name: body.origin_name.trim(),
@@ -706,7 +762,7 @@ Deno.serve(async (req) => {
         pickup_address: body.pickup_address ?? null,
         pickup_place_id: body.pickup_place_id ?? null,
         pickup_source: body.pickup_source ?? "gps",
-        payment_method: body.payment_method?.trim() || null,
+        payment_method: paymentMethod,
         service_details: persistedServiceDetails,
         request_key: requestKey,
         search_expires_at: scheduledFor

@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useMemo, useState } from "react";
+import { ArrowLeft, Check, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { AppBrand } from "@/components/app/AppBrand";
+import { PrimaryButton } from "@/components/app/PrimaryButton";
+import { PublicAuthShell } from "@/components/app/PublicAuthShell";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { getPasswordRecoveryRedirectTo } from "@/lib/auth/password-recovery";
 
 export const Route = createFileRoute("/_public/recuperar-senha")({
   component: RecuperarSenhaPage,
@@ -14,87 +17,123 @@ function RecuperarSenhaPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const normalizedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
-  const handleRecover = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) {
-      toast.error("Por favor, informe seu e-mail.");
+  const handleRecover = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loading) return;
+
+    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      toast.error("Informe um e-mail válido.");
       return;
     }
 
     setLoading(true);
     try {
-      // O Supabase Auth lida com a recuperação de senha
-      // O redirectUrl deve ser configurado para apontar para /redefinir-senha
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo: `${window.location.origin}/#/redefinir-senha`,
-      });
+      const redirectTo = getPasswordRecoveryRedirectTo();
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        normalizedEmail,
+        redirectTo ? { redirectTo } : undefined,
+      );
 
       if (error) {
-        toast.error(error.message);
-      } else {
-        setSent(true);
-        toast.success("Instruções enviadas para o seu e-mail.");
+        const normalizedMessage = error.message.toLowerCase();
+        if (normalizedMessage.includes("rate") || normalizedMessage.includes("too many")) {
+          toast.error("Muitas solicitações seguidas. Aguarde um pouco e tente novamente.");
+        } else if (normalizedMessage.includes("fetch") || normalizedMessage.includes("network")) {
+          toast.error("Falha de conexão. Verifique sua internet e tente novamente.");
+        } else {
+          toast.error("Não foi possível enviar as instruções agora.");
+        }
+        return;
       }
-    } catch (err) {
-      toast.error("Erro ao solicitar recuperação de senha.");
+
+      setSent(true);
+      toast.success("Instruções enviadas para o seu e-mail.");
+    } catch (error) {
+      console.error("[PasswordRecovery] request failed", {
+        message: error instanceof Error ? error.message : "unknown_error",
+      });
+      toast.error("Falha de conexão. Verifique sua internet e tente novamente.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-black text-white p-6 pt-12">
-      <Link to="/login" className="mb-8 inline-flex items-center text-gray-400">
-        <ArrowLeft size={20} className="mr-2" />
-        Voltar para o login
-      </Link>
-
-      {!sent ? (
-        <>
-          <h1 className="text-3xl font-bold mb-2">Recuperar senha</h1>
-          <p className="text-gray-400 mb-8">
-            Informe seu e-mail e enviaremos as instruções para você criar uma nova senha.
-          </p>
-
-          <form onSubmit={handleRecover} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-300">E-mail</label>
-              <Input
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                className="w-full bg-[#1e1e1e] border-gray-800 text-white h-14 rounded-xl"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 text-black h-14 rounded-xl font-bold text-lg"
-            >
-              {loading ? <Loader2 className="animate-spin" /> : "Enviar instruções"}
-            </Button>
-          </form>
-        </>
-      ) : (
-        <div className="text-center py-10">
-          <div className="w-20 h-20 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <div className="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
-              <span className="text-black font-bold">✓</span>
-            </div>
-          </div>
-          <h2 className="text-2xl font-bold mb-4">E-mail enviado!</h2>
-          <p className="text-gray-400 mb-8">
-            Verifique sua caixa de entrada e siga as instruções para redefinir sua senha.
-          </p>
-          <Link to="/login" className="text-yellow-500 font-bold hover:underline">
-            Voltar para o login
+    <PublicAuthShell contentClassName="justify-center">
+      <div className="flex w-full flex-col">
+        <div className="flex items-center justify-between">
+          <Link
+            to="/login"
+            aria-label="Voltar para o login"
+            className="app-pressable flex h-11 w-11 items-center justify-center rounded-2xl border border-white/8 bg-white/5 text-zinc-300"
+          >
+            <ArrowLeft size={20} />
           </Link>
+          <AppBrand compact />
+          <div className="h-11 w-11" aria-hidden="true" />
         </div>
-      )}
-    </div>
+
+        <section className="app-surface mt-7 rounded-3xl p-5 sm:p-6" aria-live="polite">
+          {!sent ? (
+            <>
+              <div className="mb-6">
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-apois-yellow">Segurança da conta</p>
+                <h1 className="mt-2 text-2xl font-black tracking-tight text-white">Recuperar senha</h1>
+                <p className="mt-2 text-sm leading-6 text-zinc-400">
+                  Digite seu e-mail. Enviaremos um link para você criar uma nova senha.
+                </p>
+              </div>
+
+              <form onSubmit={handleRecover} method="post" className="space-y-5" noValidate>
+                <div className="space-y-2">
+                  <label htmlFor="recovery-email" className="ml-1 text-xs font-bold uppercase tracking-wider text-zinc-400">
+                    E-mail
+                  </label>
+                  <div className="relative">
+                    <Mail aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-500" />
+                    <Input
+                      id="recovery-email"
+                      type="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      placeholder="seu@email.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      disabled={loading}
+                      className="h-14 w-full rounded-2xl border-white/10 bg-black/45 pl-12 text-white placeholder:text-zinc-600 focus:border-apois-yellow focus:ring-1 focus:ring-apois-yellow"
+                    />
+                  </div>
+                </div>
+
+                <PrimaryButton type="submit" loading={loading} loadingLabel="Enviando...">
+                  Enviar instruções
+                </PrimaryButton>
+              </form>
+            </>
+          ) : (
+            <div className="py-4 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-apois-success/30 bg-apois-success/10">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-apois-success text-black">
+                  <Check size={24} strokeWidth={3.5} />
+                </div>
+              </div>
+              <h1 className="mt-6 text-2xl font-black tracking-tight text-white">E-mail enviado</h1>
+              <p className="mt-3 text-sm leading-6 text-zinc-400">
+                Confira sua caixa de entrada e também a pasta de spam. O link será usado para definir uma nova senha.
+              </p>
+              <Link
+                to="/login"
+                className="app-pressable mt-7 inline-flex min-h-12 items-center justify-center rounded-2xl border border-apois-yellow/25 bg-apois-yellow/10 px-5 font-black text-apois-yellow"
+              >
+                Voltar para o login
+              </Link>
+            </div>
+          )}
+        </section>
+      </div>
+    </PublicAuthShell>
   );
 }

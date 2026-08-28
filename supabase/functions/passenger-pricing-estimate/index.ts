@@ -2,97 +2,206 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { getCorsHeaders } from "../_shared/cors.ts";
 import { calculateServerFare } from "../_shared/pricing.ts";
 
+type PricingInput = {
+  distanceMeters?: unknown;
+  durationSeconds?: unknown;
+  categoryIds?: unknown;
+  stops?: unknown;
+  serviceDetails?: unknown;
+  city?: unknown;
+};
+
+const TARIFF_COLUMNS = [
+  "category_id",
+  "city",
+  "base_fare",
+  "min_fare",
+  "per_km",
+  "per_min",
+  "stop_fee",
+  "fixed_fee",
+  "dynamic_multiplier",
+  "helper1_fee",
+  "helper2_fee",
+  "heavy_furniture_fee",
+  "assembly_fee",
+  "packing_fee",
+  "difficult_access_fee",
+  "stair_fee",
+  "heavy_vehicle_fee",
+  "accident_fee",
+  "platform_fee",
+  "locked_wheels_fee",
+  "garage_fee",
+  "max_weight_kg",
+  "per_kg",
+  "is_active",
+  "valid_from",
+  "valid_to",
+].join(",");
+
+function json(body: unknown, status: number, req: Request): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...getCorsHeaders(req), "content-type": "application/json" },
+  });
+}
+
+function finitePositive(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+function sanitizeRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const encoded = JSON.stringify(value);
+  if (encoded.length > 12_000) throw new Error("service_details_too_large");
+  return JSON.parse(encoded) as Record<string, unknown>;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
+  if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, req);
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
-    );
-    const {
-      data: { user },
-      error: authError,
-    } = await supabaseClient.auth.getUser();
-    if (authError || !user)
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: getCorsHeaders(req),
-      });
+    const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    if (!token) return json({ error: "unauthorized" }, 401, req);
 
-    // Use service role for database queries as it needs to read all rules
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
+    const url = Deno.env.get("SUPABASE_URL") ?? "";
+    const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (!url || !serviceRole) return json({ error: "server_configuration_missing" }, 500, req);
 
-    const input = await req.json();
-    const { distanceMeters, durationSeconds, categoryIds, serviceDetails } = input;
+    const admin = createClient(url, serviceRole, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: authData, error: authError } = await admin.auth.getUser(token);
+    if (authError || !authData.user) return json({ error: "unauthorized" }, 401, req);
 
-    const { data: categories, error: catError } = await supabaseAdmin
+    const input = (await req.json()) as PricingInput;
+    const distanceMeters = finitePositive(input.distanceMeters);
+    const durationSeconds = finitePositive(input.durationSeconds);
+    if (!distanceMeters || !durationSeconds) return json({ error: "invalid_route_metrics" }, 422, req);
+
+    const requestedIds = Array.isArray(input.categoryIds)
+      ? input.categoryIds.filter((value): value is string => typeof value === "string")
+      : [];
+    const stopCount = Array.isArray(input.stops) ? Math.min(3, input.stops.length) : 0;
+    const serviceDetails = sanitizeRecord(input.serviceDetails);
+    const city = typeof input.city === "string" && input.city.trim() ? input.city.trim() : "default";
+
+    let categoriesQuery = admin
       .from("ride_categories")
-      .select("id, code, name")
-      .eq("is_active", true);
+      .select("id,code,name")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    if (requestedIds.length) categoriesQuery = categoriesQuery.in("id", requestedIds);
 
-    if (catError) throw catError;
+    const { data: categories, error: categoryError } = await categoriesQuery;
+    if (categoryError) return json({ error: "category_lookup_failed" }, 500, req);
 
-    const { data: rules, error: ruleError } = await supabaseAdmin.from("tariff_rules").select("*");
+    const categoryIds = (categories ?? []).map((category) => category.id);
+    const { data: rules, error: ruleError } = categoryIds.length
+      ? await admin
+          .from("tariff_rules")
+          .select(TARIFF_COLUMNS)
+          .in("category_id", categoryIds)
+          .eq("is_active", true)
+          .in("city", [city, "default"])
+      : { data: [], error: null };
 
-    if (ruleError) throw ruleError;
+    if (ruleError) return json({ error: "tariff_lookup_failed" }, 500, req);
 
-    const km = distanceMeters / 1000;
-    const min = durationSeconds / 60;
+    const now = Date.now();
+    const estimates = (categories ?? []).map((category) => {
+      const rule = (rules ?? [])
+        .filter((item) => item.category_id === category.id)
+        .filter((item) => !item.valid_from || new Date(item.valid_from).getTime() <= now)
+        .filter((item) => !item.valid_to || new Date(item.valid_to).getTime() >= now)
+        .sort((a, b) => {
+          if (a.city === city && b.city !== city) return -1;
+          if (b.city === city && a.city !== city) return 1;
+          return 0;
+        })[0];
 
-    const estimates = (categories || [])
-      .filter((cat) => !categoryIds || categoryIds.includes(cat.id))
-      .map((cat) => {
-        const catRules = rules?.filter(
-          (r) => r.category_id === cat.id || r.category_key === cat.code,
-        );
-        if (!catRules?.length) {
-          return {
-            categoryId: cat.id,
-            available: false,
-            unavailableReason: "Sem regras de tarifa",
-          };
-        }
+      if (!rule) {
+        return {
+          categoryId: category.id,
+          category_key: category.code,
+          available: false,
+          estimatedPrice: 0,
+          originalPrice: 0,
+          minimumPriceApplied: false,
+          pricingVersion: "canonical-v2",
+          unavailableReason: "Categoria sem tarifa ativa para esta região.",
+        };
+      }
 
-        const tariff: Record<string, number> = {};
-        catRules.forEach((r) => {
-          tariff[r.field_key] = Number(r.value);
+      const tariff: Record<string, number> = {
+        base_fare: Number(rule.base_fare ?? 0),
+        min_fare: Number(rule.min_fare ?? 0),
+        per_km: Number(rule.per_km ?? 0),
+        per_min: Number(rule.per_min ?? 0),
+        stop_fee: Number(rule.stop_fee ?? 0),
+        fixed_fee: Number(rule.fixed_fee ?? 0),
+        dynamic_multiplier: Number(rule.dynamic_multiplier ?? 1),
+        helper1_fee: Number(rule.helper1_fee ?? 0),
+        helper2_fee: Number(rule.helper2_fee ?? 0),
+        heavy_furniture_fee: Number(rule.heavy_furniture_fee ?? 0),
+        assembly_fee: Number(rule.assembly_fee ?? 0),
+        packing_fee: Number(rule.packing_fee ?? 0),
+        difficult_access_fee: Number(rule.difficult_access_fee ?? 0),
+        stair_fee: Number(rule.stair_fee ?? 0),
+        heavy_vehicle_fee: Number(rule.heavy_vehicle_fee ?? 0),
+        accident_fee: Number(rule.accident_fee ?? 0),
+        platform_fee: Number(rule.platform_fee ?? 0),
+        locked_wheels_fee: Number(rule.locked_wheels_fee ?? 0),
+        garage_fee: Number(rule.garage_fee ?? 0),
+        max_weight_kg: Number(rule.max_weight_kg ?? 0),
+        per_kg: Number(rule.per_kg ?? 0),
+      };
+
+      try {
+        const breakdown = calculateServerFare({
+          category: category.code,
+          distanceKm: distanceMeters / 1000,
+          durationMin: durationSeconds / 60,
+          tariff,
+          stopCount,
+          serviceDetails,
         });
 
-        try {
-          const breakdown = calculateServerFare({
-            category: cat.code,
-            distanceKm: km,
-            durationMin: min,
-            tariff,
-            serviceDetails,
-          });
-
-          return {
-            categoryId: cat.id,
-            categoryCode: cat.code,
-            available: true,
-            estimatedPrice: breakdown.total,
-            basePrice: breakdown.base,
-            extras: breakdown.extras,
-            currency: "BRL",
-          };
-        } catch (err) {
-          return { categoryId: cat.id, available: false, unavailableReason: err.message };
-        }
-      });
-
-    return new Response(JSON.stringify({ ok: true, estimates, pricingVersion: "v2-edge" }), {
-      headers: { ...getCorsHeaders(req), "Content-Type": "application/json" },
+        return {
+          categoryId: category.id,
+          category_key: category.code,
+          available: true,
+          estimatedPrice: breakdown.total,
+          total: breakdown.total,
+          originalPrice: breakdown.total,
+          minimumPriceApplied: breakdown.base === tariff.min_fare,
+          pricingVersion: "canonical-v2",
+          extrasTotal: Object.values(breakdown.extras).reduce((sum, value) => sum + value, 0),
+          base_fare: breakdown.base,
+        };
+      } catch (error) {
+        return {
+          categoryId: category.id,
+          category_key: category.code,
+          available: false,
+          estimatedPrice: 0,
+          originalPrice: 0,
+          minimumPriceApplied: false,
+          pricingVersion: "canonical-v2",
+          unavailableReason: error instanceof Error ? error.message : "Tarifa indisponível.",
+        };
+      }
     });
+
+    return json({ ok: true, currency: "BRL", estimates }, 200, req);
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: getCorsHeaders(req),
-    });
+    console.error("[passenger-pricing-estimate] fatal", error);
+    return json(
+      { error: "internal_error", detail: error instanceof Error ? error.message : String(error) },
+      500,
+      req,
+    );
   }
 });

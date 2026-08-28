@@ -1,6 +1,5 @@
 /**
- * Tipagem estrita para integração com Google Places
- * Seguindo as diretrizes da STO-007A
+ * Tipagem estrita para integração com Google Places e seleção manual no mapa.
  */
 
 export type PlacesErrorCode =
@@ -73,6 +72,8 @@ export interface AddressComponent {
   pais?: string;
 }
 
+export type DestinationSource = "google_places" | "map" | "recent";
+
 export interface DestinationAddress {
   placeId: string;
   latitude: number;
@@ -84,7 +85,7 @@ export interface DestinationAddress {
   components: AddressComponent;
   types: string[];
   selectedAt: string;
-  source: "google_places";
+  source: DestinationSource;
 }
 
 export type PlacesSearchStatus =

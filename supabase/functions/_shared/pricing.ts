@@ -29,7 +29,7 @@ function nonNegativeNumber(value: unknown): number {
 }
 
 function rounded(value: number): number {
-  return Math.round(value * 100) / 100;
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 export function calculateServerFare(args: {
@@ -37,19 +37,20 @@ export function calculateServerFare(args: {
   distanceKm: number;
   durationMin: number;
   tariff: Record<string, number>;
+  stopCount?: number;
   serviceDetails?: ServiceDetails;
 }): FareBreakdown {
   const { category, tariff } = args;
-
-  // Basic calculation
-  const baseRaw =
-    (category === "guincho"
-      ? (tariff.call_out_fee ?? tariff.base_fare ?? 0)
-      : (tariff.base_fare ?? 0)) +
-    (tariff.per_km ?? 0) * Math.max(0, args.distanceKm) +
-    (tariff.per_min ?? 0) * Math.max(0, args.durationMin);
-
-  const base = Math.max(tariff.min_fare ?? 0, baseRaw);
+  const distanceKm = Math.max(0, nonNegativeNumber(args.distanceKm));
+  const durationMin = Math.max(0, nonNegativeNumber(args.durationMin));
+  const stopCount = Math.max(0, Math.floor(nonNegativeNumber(args.stopCount)));
+  const fixedFee = Math.max(0, tariff.fixed_fee ?? 0);
+  const baseFare = Math.max(0, tariff.base_fare ?? tariff.call_out_fee ?? 0);
+  const distanceFare = Math.max(0, tariff.per_km ?? 0) * distanceKm;
+  const durationFare = Math.max(0, tariff.per_min ?? 0) * durationMin;
+  const minimumFare = Math.max(0, tariff.min_fare ?? 0);
+  const rawBase = fixedFee + baseFare + distanceFare + durationFare;
+  const base = Math.max(minimumFare, rawBase);
   const details = record(args.serviceDetails);
   const extras: Record<string, number> = {};
 
@@ -57,12 +58,12 @@ export function calculateServerFare(args: {
     if (Number.isFinite(amount) && amount > 0) extras[key] = rounded(amount);
   };
 
+  add("Paradas adicionais", Math.max(0, tariff.stop_fee ?? 0) * stopCount);
+
   if (category === "fretes") {
     if (details.ajudantes === "um") add("1 ajudante", tariff.helper1_fee ?? 0);
     if (details.ajudantes === "dois") add("2 ajudantes", tariff.helper2_fee ?? 0);
-    if (yes(details.itemPesado)) {
-      add("Item pesado", tariff.heavy_furniture_fee ?? 0);
-    }
+    if (yes(details.itemPesado)) add("Item pesado", tariff.heavy_furniture_fee ?? 0);
     if (yes(details.desmontar)) add("Montagem/desmontagem", tariff.assembly_fee ?? 0);
     if (yes(details.embalar)) add("Embalagem", tariff.packing_fee ?? 0);
 
@@ -84,9 +85,7 @@ export function calculateServerFare(args: {
     if (["utilitario", "caminhonete"].includes(String(details.tipoVeiculo))) {
       add("Veículo pesado", tariff.heavy_vehicle_fee ?? 0);
     }
-    if (yes(details.dificilAcesso)) {
-      add("Acesso difícil", tariff.difficult_access_fee ?? 0);
-    }
+    if (yes(details.dificilAcesso)) add("Acesso difícil", tariff.difficult_access_fee ?? 0);
     if (yes(details.acidente)) add("Veículo acidentado", tariff.accident_fee ?? 0);
     if (yes(details.precisaPlataforma)) add("Plataforma", tariff.platform_fee ?? 0);
     if (yes(details.rodasTravadas)) add("Rodas travadas", tariff.locked_wheels_fee ?? 0);
@@ -102,9 +101,14 @@ export function calculateServerFare(args: {
     add("Peso", weightKg * (tariff.per_kg ?? 0));
   }
 
+  const subtotal = base + Object.values(extras).reduce((sum, amount) => sum + amount, 0);
+  const multiplier = Math.max(1, tariff.dynamic_multiplier ?? 1);
+  const total = subtotal * multiplier;
+  if (multiplier > 1) add("Ajuste de demanda", total - subtotal);
+
   return {
     base: rounded(base),
     extras,
-    total: rounded(base + Object.values(extras).reduce((sum, amount) => sum + amount, 0)),
+    total: rounded(total),
   };
 }

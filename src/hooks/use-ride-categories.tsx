@@ -24,33 +24,46 @@ export const RideCategoriesProvider: React.FC<{ children: React.ReactNode }> = (
     try {
       const data = await categoryService.getCategories();
       setCategories(data);
-      if (data.length > 0 && !selectedCategory) {
-        setSelectedCategory(data[0] || null);
-      }
+      setSelectedCategory((current) =>
+        data.find((category) => category.id === current?.id) ?? data[0] ?? null,
+      );
     } catch (error) {
       console.error("[RideCategoriesProvider] Error:", error);
       toast.error("Não foi possível carregar as opções de viagem.");
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCategory]);
-
-  useEffect(() => {
-    fetchCategories();
   }, []);
 
-  const selectCategory = (category: RideCategory) => {
-    if (category.isActive) {
-      setSelectedCategory(category);
-    }
-  };
+  useEffect(() => {
+    void fetchCategories();
+  }, [fetchCategories]);
+
+  const setAvailableCategory = useCallback(
+    (category: RideCategory | null) => {
+      if (!category) {
+        setSelectedCategory(null);
+        return;
+      }
+      const available = categories.find((candidate) => candidate.id === category.id);
+      if (!available?.isActive) {
+        toast.error("Este serviço está temporariamente indisponível.");
+        setSelectedCategory(null);
+        return;
+      }
+      setSelectedCategory(available);
+    },
+    [categories],
+  );
+
+  const selectCategory = (category: RideCategory) => setAvailableCategory(category);
 
   return (
     <RideCategoriesContext.Provider
       value={{
         categories,
         selectedCategory,
-        setSelectedCategory,
+        setSelectedCategory: setAvailableCategory,
         selectCategory,
         isLoading,
         refreshCategories: fetchCategories,

@@ -1,131 +1,121 @@
-// Edge Function: passageiro autenticado gera (ou reaproveita) uma cobrança
-// Pix no Mercado Pago para uma multa de cancelamento em aberto.
-//
-// - Requer JWT do passageiro (verify_jwt = true).
-// - external_reference = "fee:<cancellation_fee_id>" para o webhook identificar
-//   corretamente e chamar public.settle_cancellation_fee.
-// - Idempotente: se já existe um mp_payment_id ainda válido (pendente + não
-//   expirado) para a multa, devolve o QR salvo em vez de criar outro.
-//
-// Retorno: { ok, feeId, amount, qrCode, qrCodeBase64, ticketUrl, expiresAt }.
-//
-// Secrets: MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_BASE_URL (opcional),
-// SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY.
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MP_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN")?.trim() ?? "";
-const MP_BASE_URL = (
-  Deno.env.get("MERCADOPAGO_BASE_URL")?.trim() || "https://api.mercadopago.com"
-).replace(/\/+$/, "");
+const MP_BASE = (Deno.env.get("MERCADOPAGO_BASE_URL")?.trim() || "https://api.mercadopago.com").replace(/\/+$/, "");
 
-import { getCorsHeaders } from "../_shared/cors.ts";
+function cors(req: Request): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    Vary: "Origin",
+  };
+  const origin = req.headers.get("Origin");
+  const allowed = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (origin && allowed.includes(origin)) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
+}
 
-function json(body: unknown, status = 200, req?: Request): Response {
+function json(req: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 
-      ...(req ? getCorsHeaders(req) : {}),
-      "content-type": "application/json" 
-    },
+    headers: { ...cors(req), "content-type": "application/json" },
   });
 }
 
-async function mpFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  if (!MP_TOKEN) throw new Error("MERCADOPAGO_ACCESS_TOKEN_MISSING");
-  const res = await fetch(`${MP_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${MP_TOKEN}`,
-      "X-Idempotency-Key":
-        (init.headers as Record<string, string> | undefined)?.["X-Idempotency-Key"] ??
-        crypto.randomUUID(),
-      ...(init.headers ?? {}),
-    },
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`MP_HTTP_${res.status}:${text.slice(0, 400)}`);
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    throw new Error(`MP_BAD_JSON:${text.slice(0, 200)}`);
-  }
+function cleanEmail(value: unknown): string | null {
+  const email = String(value ?? "").trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email.slice(0, 180) : null;
 }
-
-type FeeRow = {
-  id: string;
-  passenger_id: string;
-  fee_amount: number;
-  is_paid: boolean;
-  mp_payment_id: string | null;
-  mp_qr_code: string | null;
-  mp_qr_code_base64: string | null;
-  mp_ticket_url: string | null;
-  mp_expires_at: string | null;
-};
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors(req) });
+  if (req.method !== "POST") return json(req, { error: "method_not_allowed" }, 405);
+
   try {
-    if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
-    if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+    const token = (req.headers.get("Authorization") ?? "")
+      .replace(/^Bearer\s+/i, "")
+      .trim();
+    if (!token) return json(req, { error: "unauthorized" }, 401);
 
-    const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) return json({ error: "unauthorized" }, 401);
-
-    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: authHeader } },
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: userRes, error: userErr } = await userClient.auth.getUser();
-    const userId = userRes?.user?.id;
-    if (userErr || !userId) return json({ error: "unauthorized" }, 401);
+    const { data: auth, error: authError } = await admin.auth.getUser(token);
+    if (authError || !auth.user) return json(req, { error: "unauthorized" }, 401);
+
+    const { data: profile } = await admin
+      .from("users")
+      .select("id,email,name,deleted_at")
+      .eq("auth_user_id", auth.user.id)
+      .maybeSingle();
+    if (!profile || profile.deleted_at) {
+      return json(req, { error: "passenger_profile_missing" }, 404);
+    }
 
     let payload: { feeId?: string } = {};
     try {
       payload = await req.json();
     } catch {
-      // ignore — feeId opcional
+      payload = {};
     }
 
-    const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    // Busca a multa: a solicitada, ou a mais antiga em aberto do passageiro.
-    let feeQuery = admin
+    let query = admin
       .from("cancellation_fees")
       .select(
-        "id,passenger_id,fee_amount,is_paid,mp_payment_id,mp_qr_code,mp_qr_code_base64,mp_ticket_url,mp_expires_at",
+        "id,passenger_id,amount,status,is_paid,mp_order_id,mp_order_status,mp_payment_id,mp_payment_status,mp_qr_code,mp_qr_code_base64,mp_ticket_url,mp_expires_at",
       )
-      .eq("passenger_id", userId)
+      .eq("passenger_id", profile.id)
       .eq("is_paid", false)
+      .in("status", ["pending", "open", "unpaid", "processing"])
       .order("created_at", { ascending: true })
       .limit(1);
-    if (payload.feeId) feeQuery = feeQuery.eq("id", payload.feeId).limit(1);
 
-    const { data: feeRow, error: feeErr } = await feeQuery.maybeSingle();
-    if (feeErr) return json({ error: "fee_lookup_failed", detail: feeErr.message }, 500);
-    if (!feeRow) return json({ error: "fee_not_found_or_paid" }, 404);
-    const fee = feeRow as FeeRow;
+    if (payload.feeId?.trim()) query = query.eq("id", payload.feeId.trim());
 
-    if (Number(fee.fee_amount) <= 0) return json({ error: "fee_amount_invalid" }, 422);
+    const { data: fee, error: feeError } = await query.maybeSingle();
+    if (feeError) return json(req, { error: "fee_lookup_failed" }, 500);
+    if (!fee) {
+      return json(
+        req,
+        {
+          error: "fee_not_found_or_paid",
+          message: "Esta multa não está mais pendente.",
+        },
+        404,
+      );
+    }
 
-    // Idempotência: se já existe QR válido, devolve o existente.
-    const now = Date.now();
-    const stillValid =
-      fee.mp_payment_id &&
-      fee.mp_qr_code &&
-      (!fee.mp_expires_at || new Date(fee.mp_expires_at).getTime() > now + 60_000);
-    if (stillValid) {
-      return json({
+    const amount = Number(fee.amount ?? 0);
+    if (!(amount > 0)) return json(req, { error: "fee_amount_invalid" }, 422);
+
+    const reusableStatus = [
+      "",
+      "created",
+      "processing",
+      "action_required",
+      "pending",
+      "in_process",
+      "authorized",
+    ].includes(String(fee.mp_order_status || fee.mp_payment_status || "").toLowerCase());
+    const reusable =
+      Boolean((fee.mp_order_id || fee.mp_payment_id) && fee.mp_qr_code) &&
+      (!fee.mp_expires_at ||
+        new Date(fee.mp_expires_at).getTime() > Date.now() + 60_000) &&
+      reusableStatus;
+
+    if (reusable) {
+      return json(req, {
         ok: true,
         reused: true,
         feeId: fee.id,
-        amount: Number(fee.fee_amount),
+        amount,
+        orderId: fee.mp_order_id ?? null,
+        paymentId: fee.mp_payment_id ?? null,
         qrCode: fee.mp_qr_code,
         qrCodeBase64: fee.mp_qr_code_base64,
         ticketUrl: fee.mp_ticket_url,
@@ -133,84 +123,157 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Busca email do passageiro (obrigatório no Pix do MP).
-    const { data: usr } = await admin
-      .from("users")
-      .select("email,name")
-      .eq("auth_user_id", userId)
-      .maybeSingle();
-    const email =
-      usr?.email ?? userRes?.user?.email ?? `passageiro-${userId.slice(0, 8)}@apois.app`;
-    const [firstName, ...rest] = String(usr?.name ?? "Passageiro APOIS")
+    if (!MP_TOKEN) {
+      return json(
+        req,
+        {
+          error: "mercadopago_configuration_missing",
+          message: "O pagamento Pix ainda não está configurado.",
+        },
+        503,
+      );
+    }
+
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const names = String(profile.name || "Passageiro APOIS")
       .trim()
       .split(/\s+/);
-    const lastName = rest.join(" ") || "APOIS";
+    const payerEmail =
+      cleanEmail(profile.email) ||
+      cleanEmail(auth.user.email) ||
+      `passageiro-${auth.user.id.slice(0, 8)}@apois.app`;
 
-    const expiresAtIso = new Date(now + 60 * 60 * 1000).toISOString();
+    const body = {
+      type: "online",
+      total_amount: amount.toFixed(2),
+      external_reference: `fee:${fee.id}`,
+      processing_mode: "automatic",
+      transactions: {
+        payments: [
+          {
+            amount: amount.toFixed(2),
+            payment_method: {
+              id: "pix",
+              type: "bank_transfer",
+            },
+            expiration_time: "PT1H",
+          },
+        ],
+      },
+      payer: {
+        email: payerEmail,
+        first_name: names[0] || "Passageiro",
+        last_name: names.slice(1).join(" ") || "APOIS",
+      },
+    };
 
-    type MpPix = {
-      id: number;
-      status: string;
-      date_of_expiration?: string;
-      point_of_interaction?: {
-        transaction_data?: {
-          qr_code?: string;
-          qr_code_base64?: string;
-          ticket_url?: string;
-        };
+    const mpResponse = await fetch(`${MP_BASE}/v1/orders`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${MP_TOKEN}`,
+        "content-type": "application/json",
+        "X-Idempotency-Key": `fee-order-${fee.id}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const raw = await mpResponse.text();
+    if (!mpResponse.ok) {
+      console.error(
+        "mercadopago_pix_order_failed",
+        mpResponse.status,
+        raw.slice(0, 500),
+      );
+      return json(
+        req,
+        {
+          error: "mercadopago_pix_failed",
+          message: "Não foi possível gerar o Pix agora.",
+        },
+        502,
+      );
+    }
+
+    const order = JSON.parse(raw) as {
+      id?: string;
+      status?: string;
+      status_detail?: string;
+      external_reference?: string;
+      transactions?: {
+        payments?: Array<{
+          id?: string;
+          status?: string;
+          status_detail?: string;
+          payment_method?: {
+            ticket_url?: string;
+            qr_code?: string;
+            qr_code_base64?: string;
+          };
+        }>;
       };
     };
 
-    let pix: MpPix;
-    try {
-      pix = await mpFetch<MpPix>("/v1/payments", {
-        method: "POST",
-        headers: {
-          "X-Idempotency-Key": `fee-${fee.id}-${Math.floor(now / 60000)}`,
-        },
-        body: JSON.stringify({
-          transaction_amount: Number(fee.fee_amount),
-          description: "Multa de cancelamento — APOIS",
-          payment_method_id: "pix",
-          date_of_expiration: expiresAtIso,
-          external_reference: `fee:${fee.id}`,
-          notification_url: `${SUPABASE_URL}/functions/v1/mercadopago-webhook`,
-          metadata: {
-            kind: "cancellation_fee",
-            fee_id: fee.id,
-            passenger_id: userId,
-          },
-          payer: { email, first_name: firstName, last_name: lastName },
-        }),
-      });
-    } catch (e) {
-      const detail = String(e);
-      console.error("[create-fee-charge] pix failed", detail);
-      return json({ error: "mercadopago_pix_failed", detail }, 502);
+    const payment = order.transactions?.payments?.[0];
+    const method = payment?.payment_method ?? {};
+    const orderId = String(order.id ?? "").trim();
+    const paymentId = String(payment?.id ?? "").trim();
+    const qrCode = String(method.qr_code ?? "").trim();
+
+    if (!orderId || !qrCode) {
+      console.error("mercadopago_pix_order_incomplete", raw.slice(0, 500));
+      return json(req, { error: "pix_qr_missing" }, 502);
     }
 
-    const qr = pix.point_of_interaction?.transaction_data ?? {};
     const patch = {
-      mp_payment_id: String(pix.id),
-      mp_qr_code: qr.qr_code ?? null,
-      mp_qr_code_base64: qr.qr_code_base64 ?? null,
-      mp_ticket_url: qr.ticket_url ?? null,
-      mp_expires_at: pix.date_of_expiration ?? expiresAtIso,
+      fee_amount: amount,
+      value: amount,
+      status: "processing",
+      provider: "mercadopago",
+      provider_payment_id: paymentId || orderId,
+      mp_order_id: orderId,
+      mp_order_status: String(order.status ?? "action_required"),
+      mp_order_status_detail: String(order.status_detail ?? "waiting_payment"),
+      mp_payment_id: paymentId || null,
+      mp_payment_status: String(payment?.status ?? order.status ?? "action_required"),
+      qr_code: qrCode,
+      qr_code_base64: method.qr_code_base64 ?? null,
+      ticket_url: method.ticket_url ?? null,
+      expires_at: expiresAt,
+      mp_qr_code: qrCode,
+      mp_qr_code_base64: method.qr_code_base64 ?? null,
+      mp_ticket_url: method.ticket_url ?? null,
+      mp_expires_at: expiresAt,
+      updated_at: new Date().toISOString(),
     };
-    await admin.from("cancellation_fees").update(patch).eq("id", fee.id);
 
-    return json({
+    const { error: updateError } = await admin
+      .from("cancellation_fees")
+      .update(patch)
+      .eq("id", fee.id)
+      .eq("passenger_id", profile.id);
+    if (updateError) return json(req, { error: "pix_persistence_failed" }, 500);
+
+    return json(req, {
       ok: true,
       reused: false,
       feeId: fee.id,
-      amount: Number(fee.fee_amount),
-      qrCode: patch.mp_qr_code,
+      amount,
+      orderId,
+      paymentId: paymentId || null,
+      qrCode,
       qrCodeBase64: patch.mp_qr_code_base64,
       ticketUrl: patch.mp_ticket_url,
-      expiresAt: patch.mp_expires_at,
+      expiresAt,
     });
-  } catch (e) {
-    console.error("[create-fee-charge] unexpected", e);
-    return json({ error: "unexpected_error", detail: String(e).slice(0, 300) }, 500);
+  } catch (error) {
+    console.error("create_fee_charge_fatal", error);
+    return json(
+      req,
+      {
+        error: "unexpected_error",
+        message: "Não foi possível gerar o Pix agora.",
+      },
+      500,
+    );
   }
 });

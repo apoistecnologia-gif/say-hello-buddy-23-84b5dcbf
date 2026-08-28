@@ -1,0 +1,22 @@
+:root {
+  --app-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --app-safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --app-safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --app-safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+}
+
+/*
+ * Android 15/16 is edge-to-edge. Capacitor SystemBars injects the real
+ * --safe-area-inset-* values, while some WebViews report env() as zero.
+ * Keep interactive headers below the status bar even when a local pt-* class
+ * is present on the same element.
+ */
+.app-safe-top,
+.safe-top {
+  padding-top: max(16px, var(--app-safe-top)) !important;
+}
+
+.app-safe-bottom,
+.safe-bottom {
+  padding-bottom: max(16px, var(--app-safe-bottom)) !important;
+}
