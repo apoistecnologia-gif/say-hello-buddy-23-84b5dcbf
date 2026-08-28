@@ -535,6 +535,8 @@ Deno.serve(async (req) => {
     if (featureError) {
       return json({ error: featureError, message: "Serviço temporariamente indisponível." }, 403);
     }
+    const paymentMethod = body.payment_method?.trim() || "";
+    if (!paymentMethod) return json({ error: "missing_payment_method" }, 422);
     let serviceDetails: Record<string, unknown> | null = null;
     try {
       serviceDetails = sanitizeServiceDetails(body.service_details);
@@ -699,6 +701,14 @@ Deno.serve(async (req) => {
       .insert({
         passenger_id: userId,
         category: body.category,
+        origin: {
+          lat: body.origin.lat,
+          lng: body.origin.lng,
+        },
+        destination: {
+          lat: body.destination.lat,
+          lng: body.destination.lng,
+        },
         origin_lat: body.origin.lat,
         origin_lng: body.origin.lng,
         origin_name: body.origin_name.trim(),
@@ -715,7 +725,7 @@ Deno.serve(async (req) => {
         pickup_address: body.pickup_address ?? null,
         pickup_place_id: body.pickup_place_id ?? null,
         pickup_source: body.pickup_source ?? "gps",
-        payment_method: body.payment_method?.trim() || null,
+        payment_method: paymentMethod,
         service_details: persistedServiceDetails,
         request_key: requestKey,
         search_expires_at: scheduledFor
