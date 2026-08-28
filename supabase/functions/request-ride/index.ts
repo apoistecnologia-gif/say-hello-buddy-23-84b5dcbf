@@ -150,13 +150,50 @@ function sanitizeServiceDetails(value: unknown): Record<string, unknown> | null 
 }
 
 async function loadTariff(admin: any, category: string): Promise<Record<string, number>> {
-  const { data, error } = await admin
+  const { data: rideCategory, error: categoryError } = await admin
+    .from("ride_categories")
+    .select("id")
+    .eq("code", category)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (categoryError) throw new Error(`Falha ao carregar categoria: ${categoryError.message}`);
+  if (!rideCategory?.id) throw new Error(`Categoria de corrida não encontrada: ${category}`);
+
+  const tariffColumns = [
+    "base_fare",
+    "min_fare",
+    "per_km",
+    "per_min",
+    "fixed_fee",
+    "stop_fee",
+    "dynamic_multiplier",
+    "helper1_fee",
+    "helper2_fee",
+    "heavy_furniture_fee",
+    "assembly_fee",
+    "packing_fee",
+    "difficult_access_fee",
+    "stair_fee",
+    "heavy_vehicle_fee",
+    "accident_fee",
+    "platform_fee",
+    "locked_wheels_fee",
+    "garage_fee",
+    "max_weight_kg",
+    "per_kg",
+  ].join(",");
+  const { data: tariff, error: tariffError } = await admin
     .from("tariff_rules")
-    .select("field_key, value")
-    .eq("category_key", category);
-  if (error) throw new Error(`Falha ao carregar tarifas: ${error.message}`);
+    .select(tariffColumns)
+    .eq("category_id", rideCategory.id)
+    .eq("is_active", true)
+    .eq("city", "default")
+    .maybeSingle();
+  if (tariffError) throw new Error(`Falha ao carregar tarifas: ${tariffError.message}`);
+  if (!tariff) throw new Error(`Tarifa ativa não encontrada: ${category}`);
+
   const out: Record<string, number> = {};
-  for (const row of data ?? []) out[String(row.field_key)] = Number(row.value ?? 0);
+  for (const [key, value] of Object.entries(tariff)) out[key] = Number(value ?? 0);
   return out;
 }
 
