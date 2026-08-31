@@ -407,7 +407,7 @@ async function notifyCandidates(ride: any, userIds: string[]): Promise<void> {
     console.error("[request-ride] push failed", response.status, await response.text());
 }
 
-Deno.serve(async (req) => {
+async function handleRequest(req: Request): Promise<Response> {
   try {
     if (req.method === "OPTIONS") return new Response(null, { headers: getCorsHeaders(req) });
     if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405, req);
@@ -420,9 +420,33 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data: authData, error: authError } = await admin.auth.getUser(token);
-    const userId = authData.user?.id;
-    if (authError || !userId)
+    const authUserId = authData.user?.id;
+    if (authError || !authUserId)
       return json({ error: "unauthorized", detail: authError?.message }, 401);
+
+    // O contrato do banco (rides.passenger_id / passenger_wallets.passenger_id)
+    // referencia public.users(id), NÃO auth.users(id). Resolve o passageiro
+    // pelo vínculo único users.auth_user_id antes de qualquer operação.
+    const { data: passengerRow, error: passengerLookupError } = await admin
+      .from("users")
+      .select("id,blocked_at,suspended_until,deleted_at")
+      .eq("auth_user_id", authUserId)
+      .maybeSingle();
+    if (passengerLookupError)
+      return json(
+        { error: "passenger_lookup_failed", detail: passengerLookupError.message },
+        500,
+      );
+    if (!passengerRow || passengerRow.deleted_at) {
+      return json(
+        {
+          error: "passenger_not_found",
+          message: "Cadastro de passageiro não encontrado. Refaça o login ou complete o cadastro.",
+        },
+        404,
+      );
+    }
+    const userId = String(passengerRow.id);
 
     const body = (await req.json()) as RequestBody;
     if (body.action === "redispatch") {
@@ -533,22 +557,15 @@ Deno.serve(async (req) => {
       return json({ error: "invalid_service_details" }, 422);
     }
 
-    const { data: passengerUser, error: passengerError } = await admin
-      .from("users")
-      .select("blocked_at,suspended_until")
-      .eq("auth_user_id", userId)
-      .maybeSingle();
-    if (passengerError)
-      return json({ error: "passenger_status_failed", detail: passengerError.message }, 500);
-    if (passengerUser?.blocked_at) return json({ error: "passenger_blocked" }, 403);
+    if (passengerRow.blocked_at) return json({ error: "passenger_blocked" }, 403);
     if (
-      passengerUser?.suspended_until &&
-      new Date(passengerUser.suspended_until).getTime() > Date.now()
+      passengerRow.suspended_until &&
+      new Date(passengerRow.suspended_until).getTime() > Date.now()
     ) {
       return json(
         {
           error: "passenger_suspended",
-          suspended_until: passengerUser.suspended_until,
+          suspended_until: passengerRow.suspended_until,
         },
         403,
       );
@@ -795,4 +812,16 @@ Deno.serve(async (req) => {
       500,
     );
   }
+}
+
+// O WebView nativo (origin https://localhost) bloqueia respostas sem CORS.
+// O wrapper garante Access-Control-Allow-Origin em TODAS as respostas
+// (sucesso, erro controlado e falha fatal) sem tocar a lógica da corrida.
+Deno.serve(async (req) => {
+  const response = await handleRequest(req);
+  const cors = getCorsHeaders(req);
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(cors)) headers.set(key, value);
+  if (!headers.has("content-type")) headers.set("content-type", "application/json");
+  return new Response(response.body, { status: response.status, headers });
 });
