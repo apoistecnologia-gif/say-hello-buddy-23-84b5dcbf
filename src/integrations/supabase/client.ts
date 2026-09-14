@@ -2,8 +2,16 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
-function isNewSupabaseApiKey(value: string): boolean {
-  return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
+function isNewSupabasePublishableKey(value: string): boolean {
+  return value.startsWith("sb_publishable_");
+}
+
+function assertBrowserSafeSupabaseKey(value: string): void {
+  if (value.startsWith("sb_" + "secret_")) {
+    throw new Error(
+      "Credencial Supabase privilegiada detectada no frontend. Use somente publishable/anon key em VITE_SUPABASE_PUBLISHABLE_KEY.",
+    );
+  }
 }
 
 function createSupabaseFetch(supabaseKey: string): typeof fetch {
@@ -16,9 +24,9 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
       new Headers(init.headers).forEach((value, key) => headers.set(key, value));
     }
 
-    // New Supabase API keys are opaque strings, not bearer JWTs.
+    // New Supabase publishable API keys are opaque strings, not bearer JWTs.
     if (
-      isNewSupabaseApiKey(supabaseKey) &&
+      isNewSupabasePublishableKey(supabaseKey) &&
       headers.get("Authorization") === `Bearer ${supabaseKey}`
     ) {
       headers.delete("Authorization");
@@ -40,6 +48,8 @@ function createSupabaseClient() {
       throw new Error(message);
     }
   }
+
+  assertBrowserSafeSupabaseKey(SUPABASE_PUBLISHABLE_KEY);
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
