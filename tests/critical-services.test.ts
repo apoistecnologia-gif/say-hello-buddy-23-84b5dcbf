@@ -320,7 +320,7 @@ describe("auth/session e deep links", () => {
     expect(await consumeNativePasswordRecoveryUrl("not a url")).toEqual({ handled: false });
   });
 
-  test("ação duplicada do mesmo deep link é processada uma única vez", async () => {
+  test("ação duplicada do mesmo deep link é ignorada após o primeiro consumo", async () => {
     let readyCount = 0;
     const dispose = await registerNativePasswordRecoveryHandler({
       onReady: () => { readyCount += 1; },
@@ -328,6 +328,7 @@ describe("auth/session e deep links", () => {
     });
     const url = "apoispassageiro://auth/redefinir-senha?code=one-shot";
     appUrlHandler?.({ url });
+    await new Promise((resolve) => setTimeout(resolve, 0));
     appUrlHandler?.({ url });
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(exchangeCodeCalls).toBe(1);
