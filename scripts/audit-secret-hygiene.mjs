@@ -47,7 +47,7 @@ function walk(dir, out = []) {
 
 function looksPlaceholder(value) {
   const normalized = value.trim().replace(/^['"]|['"]$/g, '').toLowerCase();
-  return !normalized || /placeholder|example|your[_-]|changeme|replace[_-]|dummy|xxxxx|^<.*>$/.test(normalized);
+  return !normalized || /placeholder|example|your[_-]|changeme|replace[_-]|dummy|xxxxx|^<.*>$|^defina[_-]|^sua[_-]|^seu[_-]|^chave[_-]|^segredo[_-]|^conta[_-]de[_-]servico/.test(normalized);
 }
 
 const files = trackedFiles() ?? walk(root);
