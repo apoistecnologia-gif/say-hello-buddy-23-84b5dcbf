@@ -32,11 +32,12 @@ describe("solicitação/cancelamento backend contract", () => {
     expect(requestRide).toMatch(/reused/i);
   });
 
-  test("cancelamento autentica e vincula corrida ao passageiro", () => {
+  test("cancelamento autentica e delega ownership ao RPC atômico", () => {
     expect(cancelRide).toContain("SUPABASE_SERVICE_ROLE_KEY");
-    expect(cancelRide).toMatch(/auth\.getUser|authData\.user/);
-    expect(cancelRide).toMatch(/passenger_id/);
-    expect(cancelRide).toMatch(/ride_id/);
+    expect(cancelRide).toContain("admin.auth.getUser(token)");
+    expect(cancelRide).toContain('admin.rpc("service_cancel_passenger_ride"');
+    expect(cancelRide).toContain("_auth_user_id: authUserId");
+    expect(cancelRide).toContain("_ride_id: rideId");
   });
 });
 
