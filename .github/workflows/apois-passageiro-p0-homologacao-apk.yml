@@ -1,0 +1,65 @@
+name: APOIS Passageiro - APK de Homologacao (P0)
+
+on:
+  push:
+    branches:
+      - fix/p0-passageiro-geocode-recovery-20261112
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apois-passageiro-apk-p0-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk-passageiro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GOOGLE_MAPS_WEB_API_KEY: ${{ secrets.GOOGLE_MAPS_WEB_API_KEY }}
+      GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - name: Instalar dependencias
+        run: bun install --frozen-lockfile
+      - name: TypeScript
+        run: bun run typecheck
+      - name: Validar chave Google Maps para testes reais
+        shell: bash
+        run: |
+          test -n "$GOOGLE_MAPS_WEB_API_KEY" || { echo "::error::Configure GOOGLE_MAPS_WEB_API_KEY nos Secrets do GitHub"; exit 1; }
+          test -n "$GOOGLE_MAPS_ANDROID_API_KEY" || { echo "::error::Configure GOOGLE_MAPS_ANDROID_API_KEY nos Secrets do GitHub"; exit 1; }
+      - name: Compilar aplicativo
+        shell: bash
+        run: |
+          export VITE_GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_WEB_API_KEY"
+          bun run build
+      - name: Sincronizar Android Capacitor
+        shell: bash
+        run: |
+          printf 'GOOGLE_MAPS_API_KEY=%s\n' "$GOOGLE_MAPS_ANDROID_API_KEY" > android/local.properties
+          bunx cap sync android
+      - name: Compilar somente APK debug
+        working-directory: android
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+      - name: Disponibilizar APK para testes
+        uses: actions/upload-artifact@v4
+        with:
+          name: APOIS-Passageiro-P0-Homologacao-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
