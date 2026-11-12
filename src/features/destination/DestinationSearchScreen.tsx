@@ -21,7 +21,6 @@ import { BottomSheet } from "@/components/ui/bottom-sheet/BottomSheet";
 import { useDestinationSearch } from "@/hooks/use-destination-search";
 import { useDestination } from "@/hooks/use-destination";
 import { useDestinationHistory } from "@/hooks/use-destination-history";
-import { useLocation } from "@/hooks/use-location";
 import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { geocodingService } from "@/services/geocoding/geocoding-service";
@@ -66,7 +65,6 @@ export function DestinationSearchScreen({
   onFinish,
 }: DestinationSearchScreenProps) {
   const { pickupLabel, pickupPosition, setManualPickup, error: pickupError } = usePickupAddress();
-  const { location } = useLocation();
   const { setDestination } = useDestination();
   const { addStop, canAddStop } = useRideStops();
   const {
@@ -227,9 +225,7 @@ export function DestinationSearchScreen({
   };
 
   const openMapPicker = () => {
-    setMapCenter(
-      location ? { lat: location.latitude, lng: location.longitude } : null,
-    );
+    setMapCenter(pickupPosition);
     setMapSelectionError(null);
     setIsBottomSheetOpen(false);
     setIsPickingOnMap(true);
