@@ -33,6 +33,7 @@ type Coordinate = { lat: number; lng: number };
 
 type DestinationSearchScreenProps = {
   isStopSelection: boolean;
+  isOriginSelection?: boolean;
   onFinish: () => void;
 };
 
@@ -61,9 +62,10 @@ const historyItemToDestination = (item: DestinationHistoryItem): DestinationAddr
 
 export function DestinationSearchScreen({
   isStopSelection,
+  isOriginSelection = false,
   onFinish,
 }: DestinationSearchScreenProps) {
-  const { pickupLabel } = usePickupAddress();
+  const { pickupLabel, pickupPosition, setManualPickup, error: pickupError } = usePickupAddress();
   const { location } = useLocation();
   const { setDestination } = useDestination();
   const { addStop, canAddStop } = useRideStops();
@@ -140,7 +142,15 @@ export function DestinationSearchScreen({
         toast.success(`${nickname} salvo nos seus favoritos.`);
       }
 
-      if (isStopSelection) {
+      if (isOriginSelection) {
+        setManualPickup({
+          latitude: details.latitude,
+          longitude: details.longitude,
+          label: details.label,
+          formattedAddress: details.formattedAddress,
+          placeId: details.placeId,
+        });
+      } else if (isStopSelection) {
         addStop({
           placeId: details.placeId,
           latitude: details.latitude,
@@ -168,9 +178,11 @@ export function DestinationSearchScreen({
       addStop,
       canAddStop,
       finishScreen,
+      isOriginSelection,
       isStopSelection,
       pendingFavoriteIcon,
       setDestination,
+      setManualPickup,
     ],
   );
 
@@ -180,7 +192,7 @@ export function DestinationSearchScreen({
 
     try {
       const details = await placesService.selectPrediction(suggestion);
-      addToHistory(details);
+      if (!isOriginSelection) addToHistory(details);
       applyDestination(details);
     } catch (selectionError: unknown) {
       toast.error(
@@ -196,7 +208,7 @@ export function DestinationSearchScreen({
 
   const selectHistoryItem = (item: DestinationHistoryItem) => {
     const details = historyItemToDestination(item);
-    addToHistory({ ...details, source: "recent" });
+    if (!isOriginSelection) addToHistory({ ...details, source: "recent" });
     applyDestination(details);
   };
 
@@ -240,37 +252,45 @@ export function DestinationSearchScreen({
     setMapSelectionError(null);
 
     try {
-      const resolved = await geocodingService.resolvePickupAddress(mapCenter);
+      // Keep manual origin selectable when reverse geocoding cannot resolve the address.
+      let resolved: Awaited<ReturnType<typeof geocodingService.resolvePickupAddress>> | null = null;
+      if (!isOriginSelection || !pickupError) {
+        try {
+          resolved = await geocodingService.resolvePickupAddress(mapCenter);
+        } catch (lookupError) {
+          if (!isOriginSelection) throw lookupError;
+        }
+      }
       const formattedAddress =
-        resolved.address ||
-        [resolved.label, resolved.subLabel].filter(Boolean).join(", ") ||
+        resolved?.address ||
+        [resolved?.label, resolved?.subLabel].filter(Boolean).join(", ") ||
         `${mapCenter.lat.toFixed(6)}, ${mapCenter.lng.toFixed(6)}`;
 
       const details: DestinationAddress = {
         placeId: `map:${mapCenter.lat.toFixed(6)},${mapCenter.lng.toFixed(6)}`,
         latitude: mapCenter.lat,
         longitude: mapCenter.lng,
-        label: resolved.label || "Local selecionado no mapa",
-        ...(resolved.subLabel ? { subLabel: resolved.subLabel } : {}),
+        label: resolved?.label || "Ponto selecionado no mapa",
+        ...(resolved?.subLabel ? { subLabel: resolved.subLabel } : {}),
         formattedAddress,
-        name: resolved.label || "Local selecionado no mapa",
+        name: resolved?.label || "Ponto selecionado no mapa",
         components: {
-          ...(resolved.components?.rua ? { rua: resolved.components.rua } : {}),
-          ...(resolved.components?.numero ? { numero: resolved.components.numero } : {}),
-          ...(resolved.components?.bairro ? { bairro: resolved.components.bairro } : {}),
-          ...(resolved.components?.cidade ? { cidade: resolved.components.cidade } : {}),
-          ...(resolved.components?.estado ? { estado: resolved.components.estado } : {}),
-          ...(resolved.components?.estadoSigla
+          ...(resolved?.components?.rua ? { rua: resolved.components.rua } : {}),
+          ...(resolved?.components?.numero ? { numero: resolved.components.numero } : {}),
+          ...(resolved?.components?.bairro ? { bairro: resolved.components.bairro } : {}),
+          ...(resolved?.components?.cidade ? { cidade: resolved.components.cidade } : {}),
+          ...(resolved?.components?.estado ? { estado: resolved.components.estado } : {}),
+          ...(resolved?.components?.estadoSigla
             ? { estadoSigla: resolved.components.estadoSigla }
             : {}),
-          ...(resolved.components?.pais ? { pais: resolved.components.pais } : {}),
+          ...(resolved?.components?.pais ? { pais: resolved.components.pais } : {}),
         },
         types: ["map_selection"],
         selectedAt: new Date().toISOString(),
         source: "map",
       };
 
-      addToHistory(details);
+      if (!isOriginSelection) addToHistory(details);
       applyDestination(details);
     } catch (geocodeError: unknown) {
       const message = readErrorMessage(
@@ -305,7 +325,7 @@ export function DestinationSearchScreen({
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#171a21]">
       <div className="absolute inset-0">
         <PassengerMap
-          origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
+          origin={pickupPosition ?? undefined}
           destination={undefined}
           encodedPolyline={undefined}
           driverLocation={undefined}
@@ -336,7 +356,7 @@ export function DestinationSearchScreen({
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-black text-white">
-                    {isStopSelection ? "Escolha a parada no mapa" : "Escolha o destino no mapa"}
+                    {isOriginSelection ? "Escolha a partida no mapa" : isStopSelection ? "Escolha a parada no mapa" : "Escolha o destino no mapa"}
                   </p>
                   <p className="mt-0.5 text-[11px] text-zinc-400">
                     Arraste o mapa e posicione o marcador no local exato.
@@ -380,9 +400,11 @@ export function DestinationSearchScreen({
                   )}
                   {isResolvingMap
                     ? "Identificando endereço..."
-                    : isStopSelection
-                      ? "Confirmar parada"
-                      : "Confirmar destino"}
+                    : isOriginSelection
+                      ? "Confirmar partida"
+                      : isStopSelection
+                        ? "Confirmar parada"
+                        : "Confirmar destino"}
                 </button>
               </div>
             </div>
@@ -408,7 +430,7 @@ export function DestinationSearchScreen({
               </button>
               <div className="min-w-0 flex-1">
                 <h1 className="text-xl font-black tracking-tight text-white">
-                  {isStopSelection ? "Adicionar parada" : "Para onde vamos?"}
+                  {isOriginSelection ? "Escolher ponto de partida" : isStopSelection ? "Adicionar parada" : "Para onde vamos?"}
                 </h1>
                 {pendingFavoriteIcon ? (
                   <p className="mt-0.5 text-[11px] font-bold text-apois-yellow">
@@ -442,7 +464,7 @@ export function DestinationSearchScreen({
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder={isStopSelection ? "Onde deseja parar?" : "Digite seu destino"}
+                  placeholder={isOriginSelection ? "Digite o endereço de partida" : isStopSelection ? "Onde deseja parar?" : "Digite seu destino"}
                   autoComplete="off"
                   enterKeyHint="search"
                   className="h-14 w-full rounded-xl border-2 border-apois-yellow/25 bg-[#282a30] pl-12 pr-12 text-base font-semibold text-white outline-none placeholder:text-zinc-500 focus:border-apois-yellow"
@@ -464,7 +486,7 @@ export function DestinationSearchScreen({
           <div className="app-scroll mt-2 min-h-0 flex-1 pb-4">
             {query.trim().length < 2 ? (
               <div className="space-y-6">
-                {!isStopSelection ? (
+                {!isStopSelection && !isOriginSelection ? (
                   <div className="grid grid-cols-2 gap-3">
                     <QuickAddressButton
                       icon={<Home size={19} />}
