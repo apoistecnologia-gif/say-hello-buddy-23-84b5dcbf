@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import { useLocation } from "@/hooks/use-location";
+import { usePickupAddress } from "@/hooks/use-pickup-address";
 import { useDestination } from "@/hooks/use-destination";
 import { useRideStops } from "@/hooks/rides/use-ride-stops";
 import { routeService } from "@/services/routes/route-service";
@@ -34,7 +34,9 @@ function haversineMeters(a: RouteCoordinates, b: RouteCoordinates) {
 }
 
 export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { location } = useLocation();
+  const { pickupPosition } = usePickupAddress();
+  const pickupLat = pickupPosition?.lat;
+  const pickupLng = pickupPosition?.lng;
   const { destination } = useDestination();
   const { orderedStops } = useRideStops();
   const [route, setRoute] = useState<RouteResult | null>(null);
@@ -48,14 +50,14 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   } | null>(null);
 
   const calculateRoute = useCallback(async (force = false) => {
-    if (!location || !destination) {
+    if (pickupLat === undefined || pickupLng === undefined || !destination) {
       setRoute(null);
       setStatus("idle");
       lastInputRef.current = null;
       return;
     }
 
-    const originCoord: RouteCoordinates = { lat: location.latitude, lng: location.longitude };
+    const originCoord: RouteCoordinates = { lat: pickupLat, lng: pickupLng };
     const destCoord: RouteCoordinates = { lat: destination.latitude, lng: destination.longitude };
     const intermediates: RouteCoordinates[] = orderedStops.map((s) => ({
       lat: s.latitude,
@@ -137,7 +139,7 @@ export const RouteProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setError(message);
       setStatus("failed");
     }
-  }, [location, destination, orderedStops]);
+  }, [pickupLat, pickupLng, destination, orderedStops]);
 
   useEffect(() => {
     if (isFrozen) return;
