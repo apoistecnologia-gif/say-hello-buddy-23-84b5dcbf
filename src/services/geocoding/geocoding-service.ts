@@ -79,6 +79,9 @@ function parseGeocodePayload(value: unknown): GeocodePayload {
   if (!isRecord(value)) {
     throw new Error("geocode_invalid_response");
   }
+  if (value["ok"] === false) {
+    throw new Error(readString(value, "error") ?? "geocode_unknown");
+  }
 
   const nestedGeo = value["geo"];
   const source = isRecord(nestedGeo) ? nestedGeo : value;
@@ -130,6 +133,10 @@ function parseGeocodePayload(value: unknown): GeocodePayload {
   if (geocodedLat !== undefined) payload.geocodedLat = geocodedLat;
   if (geocodedLng !== undefined) payload.geocodedLng = geocodedLng;
 
+  // Never show a fabricated "success" when the backend returns an empty payload.
+  if (!payload.pickupLabel && !payload.pickupShortLabel && !payload.address && !payload.region) {
+    throw new Error("geocode_invalid_response");
+  }
   return payload;
 }
 
@@ -137,6 +144,45 @@ function readErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (isRecord(error) && typeof error["message"] === "string") return error["message"];
   return "geocode_unknown";
+}
+
+function knownErrorCode(value: string): GeocodeErrorCode | null {
+  if (Object.prototype.hasOwnProperty.call(GEOCODE_MESSAGES_PT, value)) {
+    return value as GeocodeErrorCode;
+  }
+  const normalized = value.toLowerCase();
+  if (normalized.includes("over_query_limit") || normalized.includes("rate_limit") || normalized.includes("429")) {
+    return "geocode_rate_limited";
+  }
+  if (normalized.includes("request_denied") || normalized.includes("api key") || normalized.includes("billing")) {
+    return "geocode_service_unavailable";
+  }
+  if (normalized.includes("abort") || normalized.includes("timeout")) return "geocode_timeout";
+  if (normalized.includes("fetch") || normalized.includes("network")) return "geocode_network_error";
+  return null;
+}
+
+async function geocodeErrorCode(error: unknown): Promise<GeocodeErrorCode> {
+  const record = isRecord(error) ? error : null;
+  const context = record?.["context"];
+  // Supabase FunctionsHttpError keeps the server's JSON body in context.
+  // Read only its public error code: never expose Google credentials or raw diagnostics.
+  if (typeof Response !== "undefined" && context instanceof Response) {
+    try {
+      const data: unknown = await context.clone().json();
+      if (isRecord(data) && typeof data["error"] === "string") {
+        const known = knownErrorCode(data["error"]);
+        if (known) return known;
+      }
+    } catch {
+      // A network/proxy error may have no JSON body.
+    }
+    if (context.status === 401 || context.status === 403) return "geocode_authentication_required";
+    if (context.status === 429) return "geocode_rate_limited";
+    if (context.status === 400 || context.status === 422) return "geocode_invalid_coordinates";
+    if (context.status >= 500) return "geocode_service_unavailable";
+  }
+  return knownErrorCode(readErrorMessage(error)) ?? "geocode_unknown";
 }
 
 class GeocodingService {
@@ -172,6 +218,7 @@ class GeocodingService {
 
     const controller = new AbortController();
     this.pendingRequests.set(cacheKey, controller);
+    const timeoutId = window.setTimeout(() => controller.abort(), 12_000);
 
     try {
       // The official APOIS CORRIDAS production backend exposes a single
@@ -181,12 +228,10 @@ class GeocodingService {
       // by the canonical reverse contract is already parsed below.
       const { data: response, error } = await supabase.functions.invoke(
         "passenger-geocode-reverse",
-        { body: coords },
+        { body: coords, signal: controller.signal },
       );
 
-      if (error) {
-        throw new Error(error.message || "geocode_empty_result");
-      }
+      if (error) throw error;
 
       const pickupAddress = this.transformToPickupAddress(
         coords,
@@ -196,11 +241,15 @@ class GeocodingService {
       this.addToCache(cacheKey, pickupAddress);
       return pickupAddress;
     } catch (error: unknown) {
-      const message = readErrorMessage(error);
-      if (message === "geocode_cancelled") throw error;
-      throw this.normalizeError(message);
+      const code = controller.signal.aborted
+        ? "geocode_timeout"
+        : await geocodeErrorCode(error);
+      throw this.normalizeError(code);
     } finally {
-      this.pendingRequests.delete(cacheKey);
+      window.clearTimeout(timeoutId);
+      if (this.pendingRequests.get(cacheKey) === controller) {
+        this.pendingRequests.delete(cacheKey);
+      }
     }
   }
 
