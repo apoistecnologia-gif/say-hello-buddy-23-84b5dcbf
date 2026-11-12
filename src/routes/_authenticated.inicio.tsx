@@ -127,7 +127,11 @@ function HomeWorkShortcuts() {
 function InicioPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { address, status: addressStatus, isLoading: isGeocoding } = usePickupAddress();
+  const {
+    address, status: addressStatus, isLoading: isGeocoding,
+    error: addressError, refreshAddress, pickupPosition,
+    isManualPickup, restoreGpsPickup,
+  } = usePickupAddress();
   const { destination, hasDestination, clearDestination } = useDestination();
   const {
     route,
@@ -159,15 +163,26 @@ function InicioPage() {
   const currentAddressText =
     addressStatus === "identifying" || isGeocoding
       ? "Identificando seu ponto de partida..."
-      : address || (location ? "Sua localização atual" : "Ative a localização para continuar");
+      : address || (addressError ? "Endereço indisponível" : location ? "Sua localização atual" : "Ative a localização para continuar");
 
-  const locationStatusText = location
-    ? "Localização pronta"
+  const locationStatusText = isManualPickup
+    ? "Partida selecionada manualmente"
+    : location
+    ? (addressError ? "GPS pronto • endereço pendente" : "Localização pronta")
     : permissionState === "granted"
       ? "Buscando sua localização"
       : "Localização necessária";
 
   const handleLocationAction = async () => {
+    if (isManualPickup) {
+      restoreGpsPickup();
+      await refreshLocation();
+      return;
+    }
+    if (location && addressError) {
+      await refreshAddress();
+      return;
+    }
     if (permissionState === "prompt" || permissionState === "unknown") {
       await requestPermission();
       return;
@@ -200,7 +215,7 @@ function InicioPage() {
     <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0a0d14]">
       <div className="absolute inset-0 z-0">
         <PassengerMap
-          origin={location ? { lat: location.latitude, lng: location.longitude } : undefined}
+          origin={pickupPosition ?? undefined}
           destination={destination ? { lat: destination.latitude, lng: destination.longitude } : undefined}
           encodedPolyline={route?.encodedPolyline}
           driverLocation={undefined}
@@ -280,7 +295,7 @@ function InicioPage() {
           <div className="mx-auto max-h-[58dvh] max-w-[430px] space-y-4 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
               type="button"
-              onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false } })}
+              onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false, origin: true } })}
               className="app-pressable flex w-full items-center gap-3 rounded-2xl px-1 text-left"
             >
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-apois-yellow/20 bg-apois-yellow/10 text-apois-yellow">
@@ -293,6 +308,30 @@ function InicioPage() {
                 <Navigation aria-hidden="true" size={12} />
               </span>
             </button>
+
+            {addressError && !isManualPickup ? (
+              <div role="alert" className="rounded-xl border border-amber-500/20 bg-black/85 p-3 text-xs text-zinc-300">
+                <p>{addressError}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" disabled={isGeocoding}
+                    onClick={() => void refreshAddress()}
+                    className="app-pressable rounded-lg border border-white/20 px-3 py-2 font-bold text-white disabled:opacity-50">
+                    Tentar novamente
+                  </button>
+                  <button type="button"
+                    onClick={() => void navigate({ to: "/buscar-destino", search: { stop: false, origin: true } })}
+                    className="app-pressable rounded-lg bg-apois-yellow px-3 py-2 font-bold text-black">
+                    Escolher partida
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {isManualPickup ? (
+              <button type="button" onClick={() => void handleLocationAction()}
+                className="app-pressable w-full rounded-xl border border-white/15 bg-zinc-900/90 px-3 py-2 text-left text-xs font-bold text-apois-yellow">
+                Voltar a usar minha localização GPS
+              </button>
+            ) : null}
 
             <div>
               <p className="text-sm font-bold text-apois-yellow">Olá, {firstName} 👋</p>
