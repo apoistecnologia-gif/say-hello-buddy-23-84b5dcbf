@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { withPilotCreation } from "@/components/navigation/pilot-runtime";
 import { RideRequestPayload, RideRequestResponse } from "@/types/rides/ride-request";
 
 export interface RideCancellationResponse {
@@ -94,9 +95,10 @@ function normalizeCancellationResponse(data: unknown): RideCancellationResponse 
 class RideRequestService {
   async createRide(payload: RideRequestPayload): Promise<RideRequestResponse> {
     try {
-      const { data, error } = await supabase.functions.invoke("request-ride", {
+      const { data, error } = await withPilotCreation((headers) => supabase.functions.invoke("request-ride", {
         body: payload,
-      });
+        ...(headers ? { headers } : {}),
+      }));
 
       if (error) {
         console.error("[RideRequestService] Edge Function error:", error);

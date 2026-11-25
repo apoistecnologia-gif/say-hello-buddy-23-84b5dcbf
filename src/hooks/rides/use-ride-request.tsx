@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { withPilotCreation } from "@/components/navigation/pilot-runtime";
 import { useAuth } from "@/hooks/use-auth";
 import { useRideCategories } from "@/hooks/use-ride-categories";
 import { useRoute } from "@/hooks/use-route";
@@ -147,9 +148,10 @@ export const RideRequestProvider: React.FC<{ children: React.ReactNode }> = ({ c
       };
 
       try {
-        const { data, error } = await supabase.functions.invoke("request-ride", {
+        const { data, error } = await withPilotCreation((headers) => supabase.functions.invoke("request-ride", {
           body: payload,
-        });
+          ...(headers ? { headers } : {}),
+        }), user.id);
 
         if (error) throw error;
 

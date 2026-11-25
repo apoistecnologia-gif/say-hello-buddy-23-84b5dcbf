@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/
 import { useEffect, useRef } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
+import { PassengerNavigationPilot } from "@/components/navigation/PassengerNavigationPilot";
 
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { Toaster } from "@/components/ui/sonner";
@@ -87,6 +88,7 @@ function AuthenticatedLayout() {
                                       <div className="flex-1 relative overflow-hidden flex flex-col">
                                         <Outlet />
                                       </div>
+                                      <PassengerNavigationPilot />
                                       <BottomNavigation />
                                       <Toaster />
                                     </div>
