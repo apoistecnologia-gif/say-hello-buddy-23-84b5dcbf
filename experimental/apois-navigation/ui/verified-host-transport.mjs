@@ -40,7 +40,8 @@ export function createVerifiedHostTransport({auth,invoke,account,controlFunction
   }finally{clearTimeout(timer)}
  }
  async function confirm(payload,signal){
-  const result=await transport({action:'apois_navigation_confirm',...payload},signal)
+  if(payload?.confirmed!==true)return null
+  const result=await transport({action:'apois_navigation_confirm',requestKey:payload.requestKey,pickup:payload.pickup,destination:payload.destination},signal)
   if(result.status!==200||result.body?.ok!==true)return null
   const {ok,...confirmed}=result.body
   return confirmed

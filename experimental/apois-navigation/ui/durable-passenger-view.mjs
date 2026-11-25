@@ -24,8 +24,11 @@ export async function mountDurablePassengerHost(root,{enabled=false,account,auth
  const dispose=()=>{if(disposed)return;disposed=true;panel?.dispose();host.invalidate();journal.close?.();shell.remove()}
  async function act(fn){busy=true;render();try{await fn()}catch{status.textContent='Não foi possível confirmar a operação.'}finally{busy=false;render()}}
  async function returnLegacy(){
-  if(!host.canReturnToLegacy()||!await interlock.canReturn())return
-  dispose();onReturn()
+  if(!host.canReturnToLegacy()||!await interlock.canReturn())return false
+  dispose();onReturn();return true
+ }
+ function mountSelection(){
+  panel=mountPassengerPanel(selectionRoot,{enabled:true,map,catalog,confirm:transport.confirm,onReturn:()=>{panel=null;void act(async()=>{if(!await returnLegacy()&&!disposed)mountSelection()})}})
  }
  function render(){
   if(disposed)return
@@ -51,7 +54,7 @@ export async function mountDurablePassengerHost(root,{enabled=false,account,auth
  }
  try{
   await host.open()
-  if(host.snapshot().state==='ready')panel=mountPassengerPanel(selectionRoot,{enabled:true,map,catalog,confirm:transport.confirm,onReturn:()=>{void act(returnLegacy)}})
+  if(host.snapshot().state==='ready')mountSelection()
   render()
   return {dispose,host,interlock}
  }catch(e){dispose();throw e}
