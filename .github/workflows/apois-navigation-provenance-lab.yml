@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --test experimental/apois-navigation/client.test.mjs experimental/apois-navigation/ui/passenger-panel.test.mjs experimental/apois-navigation/ui/request-review.test.mjs
+      - run: node --test experimental/apois-navigation/client.test.mjs experimental/apois-navigation/ui/passenger-panel.test.mjs experimental/apois-navigation/ui/request-review.test.mjs experimental/apois-navigation/ui/durable-ride-host.test.mjs
       - run: python3 -m unittest discover -s experimental/apois-navigation -p 'test_import_catalog.py' -v
   database:
     runs-on: ubuntu-latest
