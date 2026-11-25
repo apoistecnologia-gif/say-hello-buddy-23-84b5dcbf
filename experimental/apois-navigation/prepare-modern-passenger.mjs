@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import {execFileSync} from 'node:child_process'
 import {readFileSync,writeFileSync,mkdirSync,mkdtempSync,realpathSync,rmSync,existsSync} from 'node:fs'
 import {join,dirname} from 'node:path'
-const modern="b6b87f02066ef62a8d201ef63a3152bb2364f5cd",pilot="12c31ac303b438758817bb769a8f6d86722ffe0a"
+const modern="b6b87f02066ef62a8d201ef63a3152bb2364f5cd",pilot="e322fc53c201ba8941dfdeb5025b788c47e9baad"
 const inputs=[
   {
     "path": "experimental/apois-navigation/ui/DURABLE-RECOVERY.md",
@@ -22,6 +22,22 @@ const inputs=[
   {
     "path": "experimental/apois-navigation/ui/REQUEST-REVIEW.md",
     "sha": "20b60174500de6e29295637761590379f8f8aa9e"
+  },
+  {
+    "path": "experimental/apois-navigation/ui/approved-map-provider.d.mts",
+    "sha": "bc8606680bace7c0c09463948f5e91a0512d0f69"
+  },
+  {
+    "path": "experimental/apois-navigation/ui/approved-map-provider.mjs",
+    "sha": "ad0fdf2c274bc3121b22471d18206c082fc707ef"
+  },
+  {
+    "path": "experimental/apois-navigation/ui/approved-map-provider.test.mjs",
+    "sha": "a037430e0e0e49c3e6fdc9d3f6247a6064489fa8"
+  },
+  {
+    "path": "experimental/apois-navigation/ui/catalog-validation.mjs",
+    "sha": "563a36c56ff692145ec72884e97addce4cca7349"
   },
   {
     "path": "experimental/apois-navigation/ui/creation-interlock.mjs",
@@ -42,6 +58,10 @@ const inputs=[
   {
     "path": "experimental/apois-navigation/ui/durable-ride-host.test.mjs",
     "sha": "8ab0e3fafd7c9f6cd2654d13cf2a8d3e2fe4660e"
+  },
+  {
+    "path": "experimental/apois-navigation/ui/local-map.mjs",
+    "sha": "48dc4a7468a278f46302a3f0bb695dcb9d0cf539"
   },
   {
     "path": "experimental/apois-navigation/ui/map-selection.mjs",
@@ -101,19 +121,19 @@ const inputs=[
   },
   {
     "path": "experimental/apois-navigation/ui/verified-host-transport.mjs",
-    "sha": "b45f4bb039778ed0996de9fff5aeb196e703ea4c"
+    "sha": "a9a85805af9ceecb3b6a117047168795bad8f067"
   },
   {
     "path": "experimental/apois-navigation/ui/verified-host-transport.test.mjs",
-    "sha": "eeac609620f798ba60a7be1595889dc8d24e89b1"
+    "sha": "f77f019168355b5ead5abe89458e0c1d2416a39c"
   },
   {
     "path": "src/components/navigation/PassengerNavigationPilot.tsx",
-    "sha": "daf4ec6e2836c9534bdb07d88026017cb1749016"
+    "sha": "3f6378882571d75632059c05e38b0630dc1c3a08"
   },
   {
     "path": "src/components/navigation/pilot-config.ts",
-    "sha": "e412743afa8a9299386aa6ac1e1a6b397a221dc2"
+    "sha": "95176420007841cb885c5e1ad09fe7be796233ff"
   },
   {
     "path": "src/components/navigation/pilot-runtime.ts",

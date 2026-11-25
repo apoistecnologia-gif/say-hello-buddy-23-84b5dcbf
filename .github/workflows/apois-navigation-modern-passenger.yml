@@ -1,0 +1,25 @@
+name: APOIS Navigation - modern passenger private build (no APK)
+on:
+  push:
+    branches: [lab/apois-navigation-provenance-20261125]
+    paths: ['experimental/apois-navigation/build-modern-passenger.sh','experimental/apois-navigation/prepare-modern-passenger.mjs','experimental/apois-navigation/prepare-pilot-map-build.mjs','.github/workflows/apois-navigation-modern-passenger.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  private-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.14'
+      - name: Compilar somente fonte privada com endpoints ficticios e piloto desativado
+        run: bash experimental/apois-navigation/build-modern-passenger.sh "$GITHUB_WORKSPACE"
