@@ -6,7 +6,7 @@ export async function prepareApprovedPilotMap(root,{enabled=false,account,auth,i
  if(enabled!==true||signal?.aborted)return null
  // Configuration comes exclusively from the reviewed build. A missing or
  // mismatched digest never gets replaced by a value supplied by the server.
- if(!hash(policy?.packId)||!hash(policy?.manifestSha256)||!hash(policy?.mapExtractHash)||!validCatalogPolicy(policy.catalog))return null
+ if(!hash(policy?.packId)||!hash(policy?.manifestSha256)||!hash(policy?.mapExtractHash)||!validCatalogPolicy(policy.catalog)||policy.catalog.extractHash!==policy.mapExtractHash)return null
  let result=null
  try{
   const adapter=createVerifiedHostTransport({enabled:true,account,auth,invoke,controlFunction:'apois-navigation-control'})

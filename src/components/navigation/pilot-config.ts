@@ -6,6 +6,6 @@ export const NEW_SELECTION_ENABLED:boolean=false;
 export type PilotMap={map:unknown;catalog:unknown;dispose:()=>void};
 // No network URL, catalog, external tile server or dependency is guessed.
 // Supply a verified local PMTiles/MapLibre provider in a future isolated build.
-export async function preparePilotMap(_root:HTMLElement,_signal:AbortSignal):Promise<PilotMap|null>{
+export async function preparePilotMap(_root:HTMLElement,_account:string,_signal:AbortSignal):Promise<PilotMap|null>{
   return null;
 }

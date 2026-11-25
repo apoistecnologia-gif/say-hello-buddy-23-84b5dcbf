@@ -44,7 +44,7 @@ function AccountPilot({account}:{account:string}){
         if(controller.signal.aborted)return;
         // Recovery is independent of map data and remains available when
         // creation is disabled or the regional pack is unavailable.
-        const prepared=!recovering&&NEW_SELECTION_ENABLED?await preparePilotMap(mapRoot,controller.signal):null;
+        const prepared=!recovering&&NEW_SELECTION_ENABLED?await preparePilotMap(mapRoot,account,controller.signal):null;
         if(controller.signal.aborted){prepared?.dispose();return;}
         releaseMap=prepared?.dispose;
         const mounted=await mountDurablePassengerHost(root,{
@@ -76,7 +76,7 @@ function AccountPilot({account}:{account:string}){
       onClick={()=>{setFailure(false);setOpen(true)}}>{pending===false?"GPS próprio • piloto":"Verificar solicitação experimental"}</button>
   </div>;
   return <section className="absolute inset-0 z-[100] flex flex-col bg-zinc-950 text-white overflow-y-auto" aria-label="Navegação experimental">
-    <div ref={mapRef} className={NEW_SELECTION_ENABLED?"min-h-[240px]":"hidden"}/>
+    <div ref={mapRef} className={NEW_SELECTION_ENABLED?"h-[240px] shrink-0":"hidden"}/>
     <div ref={mountRef} className="p-4 space-y-3"/>
     {failure&&<p role="alert" className="p-4 text-amber-300">Não foi possível verificar a solicitação. Volte e tente novamente; nenhuma nova corrida será enviada.</p>}
     <button type="button" className="m-4 border border-white/20 rounded-xl p-3" onClick={()=>setOpen(false)}>Fechar painel</button>
