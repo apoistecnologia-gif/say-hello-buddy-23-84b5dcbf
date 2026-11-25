@@ -28,6 +28,7 @@ create table apois_nav_lab.selection (
   confirmed_at timestamptz not null,
   expires_at timestamptz not null,
   ride_id uuid unique references public.rides(id) on delete cascade,
+  prepared_xid xid8,
   unique(passenger_id,request_key),
   foreign key(pickup_id,pickup_version) references apois_nav_lab.catalog(id,version),
   foreign key(destination_id,destination_version) references apois_nav_lab.catalog(id,version),
@@ -85,6 +86,31 @@ begin
 exception when no_data_found or too_many_rows then return null;
 end $$;
 
+-- Trusted creator must acquire the confirmed selection before INSERT, inside
+-- the same transaction that creates the ride. Never expose as a client RPC.
+create function apois_nav_lab.prepare_selection(p_auth_user uuid,p_selection uuid,p_request_key uuid)
+returns jsonb language plpgsql security invoker set search_path = '' as $
+declare
+  v_user uuid; v_s apois_nav_lab.selection%rowtype;
+  v_pick apois_nav_lab.catalog%rowtype; v_dest apois_nav_lab.catalog%rowtype;
+  v_now timestamptz := clock_timestamp();
+begin
+  select id into strict v_user from public.users where auth_user_id=p_auth_user
+    and blocked_at is null and deleted_at is null and (suspended_until is null or suspended_until<=v_now) for share;
+  select * into strict v_s from apois_nav_lab.selection where id=p_selection and passenger_id=v_user for update;
+  if v_s.request_key is distinct from p_request_key or v_s.ride_id is not null
+     or v_s.expires_at<=clock_timestamp() then return null; end if;
+  if exists(select 1 from public.rides where passenger_id=v_user and request_key::text=p_request_key::text)
+    then return null; end if;
+  select * into strict v_pick from apois_nav_lab.catalog where id=v_s.pickup_id and version=v_s.pickup_version and active for share;
+  select * into strict v_dest from apois_nav_lab.catalog where id=v_s.destination_id and version=v_s.destination_version and active for share;
+  update apois_nav_lab.selection set prepared_xid=pg_current_xact_id() where id=v_s.id;
+  return jsonb_build_object('selectionId',v_s.id,'requestKey',v_s.request_key,
+    'origin',jsonb_build_object('lat',v_pick.lat,'lng',v_pick.lng,'label',v_pick.label),
+    'destination',jsonb_build_object('lat',v_dest.lat,'lng',v_dest.lng,'label',v_dest.label));
+exception when no_data_found or too_many_rows then return null;
+end $;
+
 -- Only the trusted creation adapter may call this after inserting the ride.
 -- No retroactive conversion of historic rides. No coordinate rewriting.
 create function apois_nav_lab.bind_selection(p_auth_user uuid,p_selection uuid,p_ride uuid)
@@ -97,9 +123,11 @@ begin
   select id into strict v_user from public.users where auth_user_id=p_auth_user
     and blocked_at is null and deleted_at is null and (suspended_until is null or suspended_until<=v_now);
   select * into strict v_s from apois_nav_lab.selection where id=p_selection and passenger_id=v_user for update;
-  if v_s.ride_id is not null and v_s.ride_id<>p_ride then return false; end if;
+  if v_s.ride_id is not null or v_s.prepared_xid is distinct from pg_current_xact_id() then return false; end if;
   if v_s.expires_at<=v_now then return false; end if;
-  select * into strict v_r from public.rides where id=p_ride and passenger_id=v_user for update;
+  -- xmin is an additional conservative transaction guard, not proof of provenance.
+  select * into strict v_r from public.rides where id=p_ride and passenger_id=v_user
+    and xmin=pg_current_xact_id()::xid for update;
   if v_r.request_key::text is distinct from v_s.request_key::text or v_r.created_at<v_s.confirmed_at or
      v_r.created_at>v_s.expires_at or v_r.category::text<>'carros' or v_r.status::text<>'procurar_motorista'
      or v_r.driver_id is not null then return false; end if;
@@ -113,11 +141,12 @@ begin
   select * into strict v_dest from apois_nav_lab.catalog where id=v_s.destination_id and version=v_s.destination_version and active for share;
   if (v_r.origin_lat,v_r.origin_lng,v_r.destination_lat,v_r.destination_lng)
     is distinct from (v_pick.lat,v_pick.lng,v_dest.lat,v_dest.lng) then return false; end if;
-  update apois_nav_lab.selection set ride_id=p_ride where id=v_s.id;
+  update apois_nav_lab.selection set ride_id=p_ride,prepared_xid=null where id=v_s.id;
   return true;
 exception when no_data_found or too_many_rows or unique_violation then return false;
 end $$;
 revoke all on all functions in schema apois_nav_lab from public, anon, authenticated;
 grant execute on function apois_nav_lab.confirm_selection(uuid,uuid,uuid,integer,uuid,integer) to service_role;
+grant execute on function apois_nav_lab.prepare_selection(uuid,uuid,uuid) to service_role;
 grant execute on function apois_nav_lab.bind_selection(uuid,uuid,uuid) to service_role;
 commit;
