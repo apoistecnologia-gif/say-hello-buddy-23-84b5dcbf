@@ -48,4 +48,13 @@ patch('src/hooks/use-location.tsx',s=>{
  effect=exact(effect,'    void start();\n\n    return () => {\n      mountedRef.current = false;\n      const watchId = watchIdRef.current;\n      watchIdRef.current = null;\n      if (watchId) void Geolocation.clearWatch({ id: watchId });\n    };','    queue(start);\n\n    return () => {\n      active = false;\n      mountedRef.current = false;\n      queue(clear);\n    };')
  return exact(s,old,effect)
 })
+// The pinned canonical hardeners generate two type errors against the
+// modern dependency/tsconfig versions. Preserve OAuth behavior and layout.
+patch('src/components/auth/PassengerGoogleLoginButton.tsx',s=>exact(s,
+ 'import { App, type PluginListenerHandle } from "@capacitor/app";\nimport { Capacitor } from "@capacitor/core";',
+ 'import { App } from "@capacitor/app";\nimport { Capacitor, type PluginListenerHandle } from "@capacitor/core";'))
+patch('src/components/rides/active/SearchingDriverScreen.tsx',s=>{
+ assert.ok(s.includes('APOIS_SEARCHING_DRIVER_PREMIUM_V1'))
+ return exact(s,')[0].trim();',')[0]?.trim() || "Endereço não informado";')
+})
 console.log('APOIS_CANONICAL_PRIVATE_OVERLAY_READY flags=false')
