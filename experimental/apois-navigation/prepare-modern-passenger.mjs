@@ -144,10 +144,12 @@ const inputs=[
     "sha": "b963b97a43d8610a3f9e6b62b47edad3ca37a8dd"
   }
 ]
+// Independently pinned security correction, not an unreviewed branch overlay.
+const transportFix="876a3f4c3b330466c144eb0c8b6f3ec4fc75aa68",transportInputs=[{"path":"experimental/apois-navigation/ui/verified-host-transport.mjs","sha":"7a4cd616a88639c87519b947210b5e5b27f422c1"},{"path":"experimental/apois-navigation/ui/verified-host-transport.test.mjs","sha":"8af6a586ccf36d10851db50ac80cd54cf6fa8122"}]
 const repo=realpathSync(process.argv[2]),temp=realpathSync(process.env.RUNNER_TEMP)
 assert.ok(temp!=='/'&&temp!==repo,'expected disposable RUNNER_TEMP')
 const git=(...args)=>execFileSync('git',['-C',repo,...args],{encoding:'utf8',maxBuffer:32*1024*1024}).trimEnd()
-for(const ref of [modern,pilot])assert.equal(git('rev-parse',ref+'^{commit}'),ref)
+for(const ref of [modern,pilot,transportFix])assert.equal(git('rev-parse',ref+'^{commit}'),ref)
 const before=git('rev-parse','HEAD'),status=git('status','--porcelain')
 assert.ok(!git('ls-tree','-r',modern).split('\n').some(l=>/^(120000|160000) /.test(l)),'unsafe archive entry')
 const root=mkdtempSync(join(temp,'apois-modern-passenger-')),workspace=join(root,'workspace'),archive=join(root,'source.tar')
@@ -170,6 +172,13 @@ try{
   assert.ok(!existsSync(target),'would overwrite protected source '+path)
   mkdirSync(dirname(target),{recursive:true})
   writeFileSync(target,execFileSync('git',['-C',repo,'show',pilot+':'+path],{maxBuffer:8*1024*1024}),{flag:'wx'})
+  assert.equal(execFileSync('git',['hash-object',target],{encoding:'utf8'}).trim(),sha)
+ }
+ for(const {path,sha} of transportInputs){
+  const target=join(workspace,path),original=inputs.find(input=>input.path===path)
+  assert.ok(original,'unapproved override');assert.equal(execFileSync('git',['hash-object',target],{encoding:'utf8'}).trim(),original.sha)
+  assert.equal(git('rev-parse',transportFix+':'+path),sha)
+  writeFileSync(target,execFileSync('git',['-C',repo,'show',transportFix+':'+path],{maxBuffer:8*1024*1024}))
   assert.equal(execFileSync('git',['hash-object',target],{encoding:'utf8'}).trim(),sha)
  }
  const guardImport='import { withPilotCreation } from "@/components/navigation/pilot-runtime";'

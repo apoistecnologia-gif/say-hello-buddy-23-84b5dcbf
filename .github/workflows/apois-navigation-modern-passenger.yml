@@ -2,7 +2,7 @@ name: APOIS Navigation - modern passenger private build (no APK)
 on:
   push:
     branches: [lab/apois-navigation-provenance-20261125]
-    paths: ['experimental/apois-navigation/build-modern-passenger.sh','experimental/apois-navigation/prepare-modern-passenger.mjs','experimental/apois-navigation/prepare-pilot-map-build.mjs','.github/workflows/apois-navigation-modern-passenger.yml']
+    paths: ['experimental/apois-navigation/build-modern-passenger.sh','experimental/apois-navigation/prepare-modern-passenger.mjs','experimental/apois-navigation/prepare-pilot-map-build.mjs','experimental/apois-navigation/ui/verified-host-transport.mjs','experimental/apois-navigation/ui/verified-host-transport.test.mjs','.github/workflows/apois-navigation-modern-passenger.yml']
   workflow_dispatch:
 permissions:
   contents: read
