@@ -33,9 +33,11 @@ const path='scripts/adapt-module-for-superapp.mjs'
 let s=readFileSync(path,'utf8')
 for(const [old,next] of [
  ['[checkPermissions, refreshLocation, updateLocationState]', '[checkPermissions, refreshLocation, requestPermission, updateLocationState]'],
- ['[checkPermissions, permissionState, refreshLocation, updateLocationState]', '[checkPermissions, permissionState, refreshLocation, requestPermission, updateLocationState]']
+ ['[checkPermissions, permissionState, refreshLocation, updateLocationState]', '[checkPermissions, permissionState, refreshLocation, requestPermission, updateLocationState]'],
+ ['[destination, orderedStops, origin, route?.decodedPoints, status]', '[compact, destination, emitMapCenter, orderedStops, origin, route?.decodedPoints, selectionMode, status, validDriverLocation]'],
+ ['[destination, displayedRoutePoints, orderedStops, origin, route?.decodedPoints, status]', '[compact, destination, displayedRoutePoints, emitMapCenter, orderedStops, origin, route?.decodedPoints, selectionMode, status, validDriverLocation]']
 ]){
- assert.equal(s.split(old).length,2,'pinned location adapter anchor')
+ assert.equal(s.split(old).length,2,'pinned modern adapter anchor')
  s=s.replace(old,()=>next)
 }
 writeFileSync(path,s)
