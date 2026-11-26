@@ -1,0 +1,33 @@
+name: APOIS Navigation - canonical Corridas private rehearsal
+on:
+  push:
+    branches: [lab/apois-navigation-provenance-20261125]
+    paths: ['experimental/apois-navigation/build-canonical-passenger.sh','experimental/apois-navigation/apply-canonical-passenger-pilot.mjs','experimental/apois-navigation/prepare-modern-passenger.mjs','experimental/apois-navigation/prepare-pilot-map-build.mjs','.github/workflows/apois-navigation-canonical-passenger.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  canonical-corridas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: passenger
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: apoistecnologia-gif/apois-superapp
+          ref: 5c0a780b0a4c04573cbe60755877139311af8288
+          path: canonical
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.14'
+      - name: Build privado do modulo Corridas, sem APK ou upload
+        run: bash passenger/experimental/apois-navigation/build-canonical-passenger.sh "$GITHUB_WORKSPACE/passenger" "$GITHUB_WORKSPACE/canonical"
