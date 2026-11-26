@@ -14,7 +14,7 @@ export function createVerifiedHostTransport({auth,invoke,account,controlFunction
   const verified=await auth.getUser(s.access_token)
   if(verified.error||verified.data?.user?.id!==account)throw Error('Session not verified')
   const again=await auth.getSession()
-  if(again.error||again.data?.session?.user?.id!==account)throw Error('Session changed')
+  if(again.error||again.data?.session?.user?.id!==account||again.data?.session?.access_token!==s.access_token)throw Error('Session changed')
   return s.access_token
  }
  async function verifyIdentity(){try{await session();return account}catch{return null}}

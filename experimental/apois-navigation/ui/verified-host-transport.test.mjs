@@ -59,3 +59,15 @@ test('catalog is read-only and bound to the build-approved version and extract',
  response={...response,rows:[row(3),{...row(4),extract_sha256:'b'.repeat(64)}]};assert.equal(await adapter.readCatalog(policy),null)
  const abort=new AbortController();abort.abort();assert.equal(await adapter.readCatalog(policy,abort.signal),null);assert.equal(calls,2)
 })
+
+
+test('same-account token replacement during verification cannot send a stale token',async()=>{
+ let token='synthetic-first',calls=0,replace=true
+ const auth={getSession:async()=>({data:{session:{user:{id:a},access_token:token}}}),getUser:async()=>{if(replace)token='synthetic-second';return {data:{user:{id:a}}}}}
+ const adapter=createVerifiedHostTransport({enabled:true,account:a,auth,controlFunction:'apois-navigation-control',invoke:async(_,options)=>{calls++;assert.equal(options.headers.Authorization,'Bearer synthetic-second');return {data:{ok:true}}}})
+ await assert.rejects(()=>adapter.transport({action:'apois_navigation_create'}),/Session changed/)
+ assert.equal(calls,0)
+ replace=false
+ assert.equal((await adapter.transport({action:'apois_navigation_create'})).status,200)
+ assert.equal(calls,1)
+})
