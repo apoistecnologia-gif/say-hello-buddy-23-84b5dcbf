@@ -30,4 +30,22 @@ patch('src/services/rides/ride-request-service.ts',s=>{
  s=exact(s,auth,auth+'\n'+guard)
  return exact(s,'      const { data, error } = await supabase.functions.invoke("request-ride", {\n        body: payload,\n      });','      const { data, error } = await withPilotCreation((headers) => supabase.functions.invoke("request-ride", {\n        body: payload,\n        ...(headers ? { headers } : {}),\n      }));')
 })
+// The modern hook has asynchronous native watcher registration. Permission
+// changes may rerun the effect before the registration promise resolves.
+// Serialize cleanup and registration, and scope callbacks to the effect.
+patch('src/hooks/use-location.tsx',s=>{
+ s=exact(s,'  const watchIdRef = useRef<string | null>(null);','  const watchIdRef = useRef<string | null>(null);\n  const watchOperationRef = useRef<Promise<void>>(Promise.resolve());')
+ const begin='  useEffect(() => {\n    mountedRef.current = true;\n\n    const start = async () => {'
+ const end='  }, [checkPermissions, permissionState, refreshLocation, requestPermission, updateLocationState]);'
+ assert.equal(s.split(begin).length,2);assert.equal(s.split(end).length,2)
+ let effect=s.slice(s.indexOf(begin),s.indexOf(end)+end.length)
+ const old=effect
+ effect=exact(effect,'    mountedRef.current = true;\n\n    const start = async () => {','    mountedRef.current = true;\n    let active = true;\n    const current = () => active && mountedRef.current;\n    const clear = async () => {\n      const id = watchIdRef.current;\n      if (!id) return;\n      await Geolocation.clearWatch({ id });\n      if (watchIdRef.current === id) watchIdRef.current = null;\n    };\n    const queue = (work: () => Promise<void>) => {\n      watchOperationRef.current = watchOperationRef.current.then(work).catch((error) => {\n        console.warn("[LocationProvider] Watch lifecycle unavailable", error);\n      });\n    };\n\n    const start = async () => {\n      if (!current()) return;\n      await clear();\n      if (!current()) return;')
+ effect=effect.replaceAll('if (!mountedRef.current)', 'if (!current())')
+ effect=exact(effect,'if (!mountedRef.current || permission !== "granted")','if (!current() || permission !== "granted")')
+ effect=exact(effect,'        watchIdRef.current = await Geolocation.watchPosition(','        const id = await Geolocation.watchPosition(')
+ effect=exact(effect,'        );\n      } catch (watchError) {','        );\n        watchIdRef.current = id;\n        if (!current()) await clear();\n      } catch (watchError) {')
+ effect=exact(effect,'    void start();\n\n    return () => {\n      mountedRef.current = false;\n      const watchId = watchIdRef.current;\n      watchIdRef.current = null;\n      if (watchId) void Geolocation.clearWatch({ id: watchId });\n    };','    queue(start);\n\n    return () => {\n      active = false;\n      mountedRef.current = false;\n      queue(clear);\n    };')
+ return exact(s,old,effect)
+})
 console.log('APOIS_CANONICAL_PRIVATE_OVERLAY_READY flags=false')

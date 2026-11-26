@@ -25,7 +25,22 @@ cd "$ROOT/canonical"
 mkdir -p sources/apois-corridas-passageiro
 git -C "$REPO" archive "$MODERN" | tar -xf - -C sources/apois-corridas-passageiro
 find sources/apois-corridas-passageiro -maxdepth 1 -type f -name '.env*' -delete
-# Only the disposable manifest is changed; all canonical hardeners and gates run.
+# Reconcile the exact modern location hook in the disposable adapter only.
+node --input-type=module - <<'JS'
+import assert from 'node:assert/strict'
+import {readFileSync,writeFileSync} from 'node:fs'
+const path='scripts/adapt-module-for-superapp.mjs'
+let s=readFileSync(path,'utf8')
+for(const [old,next] of [
+ ['[checkPermissions, refreshLocation, updateLocationState]', '[checkPermissions, refreshLocation, requestPermission, updateLocationState]'],
+ ['[checkPermissions, permissionState, refreshLocation, updateLocationState]', '[checkPermissions, permissionState, refreshLocation, requestPermission, updateLocationState]']
+]){
+ assert.equal(s.split(old).length,2,'pinned location adapter anchor')
+ s=s.replace(old,()=>next)
+}
+writeFileSync(path,s)
+JS
+# Only the disposable manifest and exact adapter anchors are changed; all canonical hardeners and gates run.
 node --input-type=module - <<'JS'
 import assert from 'node:assert/strict'
 import {readFileSync,writeFileSync} from 'node:fs'
