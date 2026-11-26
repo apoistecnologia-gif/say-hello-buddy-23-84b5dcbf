@@ -180,9 +180,10 @@ try{
  })
  patch('src/hooks/rides/use-ride-request.tsx','9a6e6c67fd6d416c44b72204f90bb0989e073d65',s=>{
   s=exact(s,supabaseImport,supabaseImport+'\n'+guardImport)
-  // Standalone endpoint remains untouched. Superapp's own routing adaptation
-  // must be run before any separately reviewed operational build.
-  return exact(s,'        const { data, error } = await supabase.functions.invoke("passenger-ride-request", {\n          body: payload,\n        });','        const { data, error } = await withPilotCreation((headers) => supabase.functions.invoke("passenger-ride-request", {\n          body: payload,\n          ...(headers ? { headers } : {}),\n        }), user.id);')
+  // Match the protected Superapp prepare-workspace routing adaptation.
+  // Original payload, identity and cancellation remain unchanged; only the
+  // disposable creation call is routed through request-ride.
+  return exact(s,'        const { data, error } = await supabase.functions.invoke("passenger-ride-request", {\n          body: payload,\n        });','        const { data, error } = await withPilotCreation((headers) => supabase.functions.invoke("request-ride", {\n          body: payload,\n          ...(headers ? { headers } : {}),\n        }), user.id);')
  })
  patch('src/services/rides/ride-request-service.ts','19c596d1a4221b1b0016c99001bb7128dc83cd90',s=>{
   s=exact(s,supabaseImport,supabaseImport+'\n'+guardImport)
