@@ -6,7 +6,10 @@ function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
 }
 
-function createSupabaseFetch(supabaseKey: string): typeof fetch {
+const HML_GATEWAY_ORIGIN = "https://apois-mobile-hml-apoistecnologia-dev.apps.rm3.7wse.p1.openshiftapps.com";
+
+function createSupabaseFetch(supabaseKey: string, supabaseUrl: string): typeof fetch {
+  const hml = new URL(supabaseUrl).origin === HML_GATEWAY_ORIGIN;
   return (input, init) => {
     const headers = new Headers(
       typeof Request !== "undefined" && input instanceof Request ? input.headers : undefined,
@@ -25,6 +28,15 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     headers.set("apikey", supabaseKey);
+    if (hml) {
+      // Scope authenticated requests to the reviewed HML origin, including redirects.
+      const raw = input instanceof Request ? input.url : String(input);
+      const target = new URL(raw, HML_GATEWAY_ORIGIN);
+      if (target.origin !== HML_GATEWAY_ORIGIN || target.username || target.password) {
+        return Promise.reject(new Error("Destino de rede fora da homologação APOIS."));
+      }
+      return fetch(input, { ...init, headers, redirect: "error" });
+    }
     return fetch(input, { ...init, headers });
   };
 }
@@ -43,7 +55,7 @@ function createSupabaseClient() {
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
-      fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
+      fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL),
     },
     auth: {
       storage: typeof window !== "undefined" ? localStorage : undefined,
