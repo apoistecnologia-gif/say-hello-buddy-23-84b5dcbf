@@ -1,0 +1,54 @@
+name: APOIS Passageiro - HML compile preflight
+on:
+  push:
+    branches: [hml/openshift-mobile-20261127]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: apois-hml-compile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  compile:
+    if: github.ref == 'refs/heads/hml/openshift-mobile-20261127'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      APOIS_HML_GATEWAY_ORIGIN: https://apois-mobile-hml-apoistecnologia-dev.apps.rm3.7wse.p1.openshiftapps.com
+      # Deliberately invalid outside this compile-only preflight. No network login or APK distribution.
+      APOIS_HML_PUBLIC_KEY: sb_publishable_HML_COMPILE_ONLY_DO_NOT_DISTRIBUTE
+      VITE_ENABLE_NATIVE_PUSH: 'false'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install locked dependencies
+        id: dependencies
+        run: bun install --frozen-lockfile
+      - name: TypeScript
+        run: bun run typecheck
+      - name: Compile HML web bundle without actual credentials
+        id: bundle
+        if: always() && steps.dependencies.outcome == 'success'
+        run: bun run build:capacitor
+      - name: Verify compiled origin and reject known production origin
+        if: always() && steps.bundle.outcome == 'success'
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          grep -R -l -F "$APOIS_HML_GATEWAY_ORIGIN" dist/assets >/dev/null
+          if grep -R -l -F 'vqtucstyduxrqjgyigfk.supabase.co' dist/assets; then
+            echo 'Production origin found in HML bundle; distribution blocked.'
+            exit 1
+          fi
+          echo APOIS_HML_WEB_ORIGIN_CHECK_OK
+      - name: Capacitor sync and native configuration checks
+        if: always() && steps.bundle.outcome == 'success'
+        run: bun run cap:sync
+      # No APK upload, backend invocation, deployment, or pilot activation in this workflow.
