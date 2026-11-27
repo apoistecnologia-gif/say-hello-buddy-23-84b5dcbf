@@ -1,3 +1,4 @@
+import { isHmlDispatch, readHmlPassengerRide } from "@/lib/hml-dispatch-client";
 import { supabase } from "@/integrations/supabase/client";
 import type { RealtimeChannel, RealtimeChannelSendResponse } from "@supabase/supabase-js";
 import type {
@@ -186,6 +187,11 @@ class ActiveRideService {
   }
 
   public async getRideById(rideId: string, passengerId: string): Promise<ActiveRide> {
+    if (isHmlDispatch) {
+      const result = await readHmlPassengerRide(passengerId, rideId);
+      if (!result) throw new Error("not_found");
+      return { ...this.normalizeRide(result.ride), ...(result.generation ? { assignment_generation: result.generation } : {}) };
+    }
     const { data, error } = await supabase
       .from("rides")
       .select("*")
@@ -199,6 +205,10 @@ class ActiveRideService {
   }
 
   public async getActiveRide(passengerId: string): Promise<ActiveRide | null> {
+    if (isHmlDispatch) {
+      const result = await readHmlPassengerRide(passengerId);
+      return result ? { ...this.normalizeRide(result.ride), ...(result.generation ? { assignment_generation: result.generation } : {}) } : null;
+    }
     const { data, error } = await supabase
       .from("rides")
       .select("*")

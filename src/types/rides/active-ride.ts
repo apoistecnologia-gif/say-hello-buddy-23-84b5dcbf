@@ -78,6 +78,8 @@ export interface ActiveRide {
   driver_heading?: number;
 
   security_code?: string;
+  /** HML opaque generation: a new assignment invalidates the previous PIN. */
+  assignment_generation?: string;
 
   /**
    * Quando preenchido com status procurar_motorista + driver_id, a corrida já

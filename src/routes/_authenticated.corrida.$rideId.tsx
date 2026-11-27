@@ -1,3 +1,5 @@
+import { useHmlPassengerPin } from "@/hooks/rides/use-hml-passenger-pin";
+import { isHmlDispatch } from "@/lib/hml-dispatch-client";
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
@@ -54,12 +56,14 @@ function ActiveRidePage() {
     screenState,
     isRefreshing,
     isRealtimeConnected,
+    lastUpdateAt,
     loadRide,
     refreshRide,
     actionAvailability,
     clearRide,
   } = useActiveRide();
 
+  const secureHmlPin = useHmlPassengerPin(ride, screenState === "active" ? lastUpdateAt : null);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isSafetyDialogOpen, setIsSafetyDialogOpen] = useState(false);
   const [showReconnectWarning, setShowReconnectWarning] = useState(false);
@@ -69,14 +73,14 @@ function ActiveRidePage() {
   }, [rideId, loadRide]);
 
   useEffect(() => {
-    if (screenState !== "active" || isRealtimeConnected) {
+    if (screenState !== "active" || isRealtimeConnected || (isHmlDispatch && lastUpdateAt && Date.now() - lastUpdateAt.getTime() < 8000)) {
       setShowReconnectWarning(false);
       return;
     }
 
     const timer = window.setTimeout(() => setShowReconnectWarning(true), 1800);
     return () => window.clearTimeout(timer);
-  }, [isRealtimeConnected, screenState]);
+  }, [isRealtimeConnected, screenState, lastUpdateAt]);
 
   const handleBack = () => {
     if (screenState === "completed") {
@@ -270,7 +274,7 @@ function ActiveRidePage() {
                 <DriverCard ride={ride} />
                 <VehicleCard ride={ride} />
                 {["motorista_a_caminho", "motorista_chegou"].includes(status) ? (
-                  <SecurityCodeCard code={ride.security_code} />
+                  <SecurityCodeCard code={isHmlDispatch ? secureHmlPin : ride.security_code} />
                 ) : null}
               </>
             ) : null}

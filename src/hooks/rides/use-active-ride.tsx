@@ -6,6 +6,7 @@ import {
   RideActionAvailability,
 } from "@/types/rides/active-ride";
 import { activeRideService } from "@/services/rides/active-ride-service";
+import { isHmlDispatch } from "@/lib/hml-dispatch-client";
 import { useAuth } from "@/hooks/use-auth";
 
 interface ActiveRideContextType {
@@ -26,7 +27,7 @@ interface ActiveRideContextType {
   recoverActiveRide: () => Promise<string | null>;
 }
 
-const POLLING_INTERVAL_MS = 12_000;
+const POLLING_INTERVAL_MS = isHmlDispatch ? 4_000 : 12_000;
 
 function readErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "unknown";
@@ -110,7 +111,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         handleUpdate(data);
 
         if (
-          data.status !== "finalizada" &&
+          !isHmlDispatch && data.status !== "finalizada" &&
           data.status !== "expired" &&
           !data.status.startsWith("cancelada")
         ) {
@@ -164,6 +165,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           return;
         }
 
+        if (isHmlDispatch) setLastUpdateAt(null);
         console.warn("[useActiveRide] Polling refresh failed", {
           rideId,
           message,
@@ -198,7 +200,7 @@ export const ActiveRideProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           await loadRide(activeRide.id);
         } else {
           handleUpdate(activeRide);
-          if (!realtimeConnectedRef.current) {
+          if (!isHmlDispatch && !realtimeConnectedRef.current) {
             activeRideService.subscribeToRide(
               activeRide.id,
               handleUpdate,

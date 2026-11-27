@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { isHmlDispatch, readHmlPassengerProfile } from "@/lib/hml-dispatch-client";
 import { teardownPush } from "@/services/push/push-service";
 
 export type AuthState =
@@ -118,6 +119,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = useCallback(async (userId: string) => {
     const requestId = ++activeProfileRequest.current;
+
+    if (isHmlDispatch) {
+      try {
+        const data = await readHmlPassengerProfile(userId);
+        if (requestId !== activeProfileRequest.current) return null;
+        const p = normalizeProfile(data);
+        setProfile(p);
+        return p;
+      } catch {
+        if (requestId === activeProfileRequest.current) setProfile(null);
+        return null;
+      }
+    }
 
     for (const delay of PROFILE_RETRY_DELAYS_MS) {
       if (delay > 0) await sleep(delay);
