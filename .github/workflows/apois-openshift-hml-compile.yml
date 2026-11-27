@@ -31,6 +31,8 @@ jobs:
       - name: Install locked dependencies
         id: dependencies
         run: bun install --frozen-lockfile
+      - name: Test isolated HML transport
+        run: bun test tests/hml-mobile-transport.test.mjs
       - name: TypeScript
         run: bun run typecheck
       - name: Compile HML web bundle without actual credentials
