@@ -84,12 +84,20 @@ export class ApiClient {
     options?.signal?.addEventListener("abort", abortFromCaller, { once: true });
 
     try {
-      const targetUrl = path.startsWith("http")
+      const targetUrl = new URL(path.startsWith("http")
         ? path
-        : `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+        : `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`);
+      const base = new URL(this.baseUrl);
+      // HML bearer tokens must never leave the declared functions origin or prefix.
+      if (targetUrl.protocol !== "https:" || targetUrl.origin !== base.origin ||
+          targetUrl.username || targetUrl.password ||
+          !targetUrl.pathname.startsWith(`${base.pathname.replace(/\/+$/, "")}/`)) {
+        throw new Error("api_target_not_allowed");
+      }
 
       const response = await fetch(targetUrl, {
         method: "POST",
+        redirect: "error",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
