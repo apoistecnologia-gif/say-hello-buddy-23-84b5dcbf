@@ -29,6 +29,8 @@ function requireOpenShiftMobileEnvironment() {
   }
   process.env["VITE_SUPABASE_URL"] = origin.origin;
   process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] = key;
+  // No device registration or real push during the restricted HML pilot.
+  process.env["VITE_ENABLE_NATIVE_PUSH"] = "false";
   // The tracked .env also declares a production Edge Functions base. Override it explicitly.
   process.env["VITE_APOIS_API_URL"] = `${origin.origin}/functions/v1`;
   process.env["VITE_SUPABASE_PROJECT_ID"] = "apois-openshift-hml";

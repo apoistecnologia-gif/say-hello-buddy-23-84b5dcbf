@@ -51,4 +51,25 @@ jobs:
       - name: Capacitor sync and native configuration checks
         if: always() && steps.bundle.outcome == 'success'
         run: bun run cap:sync
-      # No APK upload, backend invocation, deployment, or pilot activation in this workflow.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile isolated Android debug package (do not distribute)
+        working-directory: android
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Verify isolated debug identity and signature
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          aapt=$(find "${ANDROID_HOME:?}/build-tools" -name aapt -type f | sort -V | tail -1)
+          test -x "$aapt"
+          "$aapt" dump badging "$apk" | grep -F "package: name='com.apois.passageiro.hml'"
+          "${aapt%/*}/apksigner" verify "$apk"
+          echo APOIS_HML_ANDROID_COMPILE_ONLY_OK
+      # Deliberately no artifact upload: this build uses a synthetic, unusable key.
+      # No backend invocation, deployment or pilot activation.

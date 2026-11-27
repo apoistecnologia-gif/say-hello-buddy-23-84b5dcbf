@@ -211,6 +211,10 @@ const attachListeners = async (version: number) => {
  * troca de conta no mesmo aparelho.
  */
 export const initializePush = async (authUserId: string): Promise<PushState> => {
+  if (import.meta.env["VITE_ENABLE_NATIVE_PUSH"] !== "true") {
+    setState({ status: "unsupported", token: null, lastError: null });
+    return state;
+  }
   const normalizedAuthUserId = authUserId.trim();
   if (!normalizedAuthUserId) return state;
 
