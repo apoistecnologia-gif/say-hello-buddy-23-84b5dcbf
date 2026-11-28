@@ -1,0 +1,21 @@
+name: APOIS Northeast asset read contract
+on:
+  push:
+    branches: [hml/openshift-mobile-20261127]
+    paths:
+      - 'scripts/hml/nordeste-assets/asset_server.py'
+      - 'scripts/hml/nordeste-assets/test_asset_server.py'
+      - '.github/workflows/apois-ne-assets-read-contract.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify loopback candidate range and search behavior
+        run: PYTHONPATH=scripts/hml/nordeste-address python3 scripts/hml/nordeste-assets/test_asset_server.py
