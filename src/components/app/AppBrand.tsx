@@ -22,7 +22,7 @@ export function AppBrand({ className, compact = false, subtitle }: AppBrandProps
       </div>
 
       <div className={cn("mt-5", compact && "mt-3")}>
-        <p className={cn("font-black tracking-[-0.05em] text-foreground", compact ? "text-2xl" : "text-4xl")}>
+        <p className={cn("font-black tracking-[-0.05em] text-current", compact ? "text-2xl" : "text-4xl")}>
           APOIS
         </p>
         <p className={cn("font-black uppercase tracking-[0.38em] text-[#E51B23]", compact ? "text-[9px]" : "text-[11px]")}>
