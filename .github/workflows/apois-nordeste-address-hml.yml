@@ -1,0 +1,40 @@
+name: APOIS Nordeste address search candidate
+on:
+  push:
+    branches: [hml/openshift-mobile-20261127]
+    paths:
+      - '.github/workflows/apois-nordeste-address-hml.yml'
+      - 'scripts/hml/nordeste-address/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: apois-ne-address-candidate
+  cancel-in-progress: false
+jobs:
+  benchmark:
+    if: github.ref == 'refs/heads/hml/openshift-mobile-20261127'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Test parser, literal search and SQLite integrity
+        run: |
+          python3 scripts/hml/nordeste-address/test_index.py
+          bash -n scripts/hml/nordeste-address/build.sh
+      - name: Install osmium tooling on disposable runner
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends osmium-tool
+      - name: Build and test index with pinned OSM extract
+        run: bash scripts/hml/nordeste-address/build.sh "$RUNNER_TEMP/ne-address-evidence"
+      - name: Keep aggregate evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ne-address-evidence
+          path: ${{ runner.temp }}/ne-address-evidence/
+          retention-days: 7
+          if-no-files-found: warn
