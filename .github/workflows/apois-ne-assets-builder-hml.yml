@@ -1,0 +1,54 @@
+name: APOIS Northeast asset builder compatibility
+on:
+  push:
+    branches: [hml/openshift-mobile-20261127]
+    paths:
+      - '.github/workflows/apois-ne-assets-builder-hml.yml'
+      - 'scripts/hml/nordeste-assets/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: apois-ne-assets-builder
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/hml/openshift-mobile-20261127'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build isolated toolbox and test restricted UID with real source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          OUT="$RUNNER_TEMP/ne-assets-builder-evidence"
+          mkdir -p "$OUT"
+          WORK=$(mktemp -d)
+          trap 'if [[ "$WORK" == /tmp/tmp.* && -d "$WORK" && ! -L "$WORK" ]]; then sudo rm -rf -- "$WORK"; fi' EXIT
+          mkdir -p "$WORK/source/candidate" "$WORK/assets"
+          chmod 775 "$WORK/assets"
+          sudo chgrp 0 "$WORK/assets"
+          docker pull ubuntu:24.04
+          BASE=$(docker image inspect ubuntu:24.04 --format '{{index .RepoDigests 0}}')
+          [[ "$BASE" =~ ^ubuntu@sha256:[a-f0-9]{64}$ ]]
+          printf '%s\n' "$BASE" | tee "$OUT/base-image.txt"
+          docker build --build-arg "BASE_IMAGE=$BASE" -f scripts/hml/nordeste-assets/Dockerfile -t apois-ne-assets-candidate:ci scripts/hml
+          curl -fsSL --max-time 900 --max-filesize 1073741824 https://download.geofabrik.de/south-america/brazil/nordeste-latest.osm.pbf -o "$WORK/source/candidate/source.osm.pbf"
+          chmod a+r "$WORK/source/candidate/source.osm.pbf"
+          chmod a+rx "$WORK" "$WORK/source" "$WORK/source/candidate"
+          docker run --rm --network none --read-only --user 1012630000:0 --cap-drop ALL --security-opt no-new-privileges --memory 6g --memory-swap 6g --cpus 2 --tmpfs /tmp:size=1g,mode=1777 -v "$WORK/source:/source:ro" -v "$WORK/assets:/assets:rw" apois-ne-assets-candidate:ci
+          for f in COMPLETE SHA256SUMS toolchain.txt archive-report.json address-report.json cartography-resources.txt address-resources.txt; do
+            sudo cat "$WORK/assets/nordeste-v1/$f" > "$OUT/$f"
+          done
+          echo NE_RESTRICTED_ASSET_BUILDER_OK
+      - name: Retain only toolchain and benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ne-assets-builder-evidence
+          path: ${{ runner.temp }}/ne-assets-builder-evidence/
+          retention-days: 7
+          if-no-files-found: warn
