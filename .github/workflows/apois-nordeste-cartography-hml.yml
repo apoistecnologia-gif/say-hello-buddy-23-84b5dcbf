@@ -1,0 +1,38 @@
+name: APOIS Nordeste cartography candidate
+on:
+  push:
+    branches: [hml/openshift-mobile-20261127]
+    paths:
+      - '.github/workflows/apois-nordeste-cartography-hml.yml'
+      - 'scripts/hml/nordeste-cartography/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: apois-nordeste-cartography-hml
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/hml/openshift-mobile-20261127'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Build and structurally verify candidate vector archive
+        run: |
+          bash -n scripts/hml/nordeste-cartography/build.sh
+          bash scripts/hml/nordeste-cartography/build.sh "$RUNNER_TEMP/ne-cartography-evidence"
+      - name: Retain only evidence (not the map archive)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ne-cartography-evidence
+          path: ${{ runner.temp }}/ne-cartography-evidence/
+          retention-days: 7
+          if-no-files-found: warn
