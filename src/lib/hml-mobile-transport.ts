@@ -4,6 +4,8 @@ const paths = {
   driver: "/functions/v1/apois-hml-driver-dispatch",
   pin: "/functions/v1/apois-hml-passenger-pin",
   navigation: "/functions/v1/apois-hml-navigation-generation",
+  passengerNavigation: "/functions/v1/apois-hml-passenger-navigation",
+  passengerRequest: "/functions/v1/apois-hml-passenger-request",
 } as const;
 type Endpoint = keyof typeof paths;
 type Json = Record<string, unknown>;
@@ -23,7 +25,7 @@ export function createHmlMobileTransport({
     if (!path || !record(body)) throw new Error("invalid_hml_request");
     const serialized = JSON.stringify(body);
     const size = new TextEncoder().encode(serialized).length;
-    if (size > ({driver:2048,pin:256,navigation:512}[endpoint])) throw new Error("invalid_hml_request");
+    if (size > ({driver:2048,pin:256,navigation:512,passengerNavigation:4096,passengerRequest:4096}[endpoint])) throw new Error("invalid_hml_request");
     const controller = new AbortController();
     const cancel = () => controller.abort();
     signal?.addEventListener("abort", cancel, { once: true });
@@ -55,7 +57,7 @@ export function createHmlMobileTransport({
           const {done,value} = await reader.read(); ensure();
           if(done) break;
           total += value.byteLength;
-          if(total > 16384) { void reader.cancel().catch(()=>{}); throw new Error("hml_outcome_unknown"); }
+          if(total > (endpoint === 'passengerNavigation' ? 524288 + 1024 : 16384)) { void reader.cancel().catch(()=>{}); throw new Error("hml_outcome_unknown"); }
           chunks.push(value);
         }
       } finally { reader.releaseLock(); }
