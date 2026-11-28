@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { isHmlDispatch } from "@/lib/hml-dispatch-client";
+import { HmlPassengerRecoveryScreen } from "@/features/destination/HmlPassengerRecoveryScreen";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { AppShell } from "@/components/layout/AppShell";
 import { Toaster } from "@/components/ui/sonner";
@@ -63,6 +65,8 @@ function PushBootstrap() {
 }
 
 function AuthenticatedLayout() {
+  // HML cannot mount the legacy Google/REST providers or deep-linked creation screens.
+  if (isHmlDispatch) return <AuthGuard><HmlPassengerRecoveryScreen /></AuthGuard>;
   return (
     <AuthGuard>
       <LocationProvider>

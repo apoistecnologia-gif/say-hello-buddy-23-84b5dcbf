@@ -7,7 +7,7 @@ import {createVerifiedHostTransport} from './verified-host-transport.mjs'
 // Dedicated opt-in container. Existing Google route/price/dispatch components
 // are not imported or rewritten. The trusted host provides a MapLibre map,
 // verified account, active catalog, Supabase client adapter and tracker callback.
-export async function mountDurablePassengerHost(root,{enabled=false,account,auth,invoke,map,catalog,onReturn,onTrack,locks,journalFactory=openRideJournal,allowSelection=true,signal}={}){
+export async function mountDurablePassengerHost(root,{enabled=false,account,auth,invoke,map,catalog,onReturn,onTrack,locks,journalFactory=openRideJournal,allowSelection=true,allowReturn=true,allowCreate=true,signal}={}){
  if(enabled!==true||signal?.aborted)return null
  if(!root?.ownerDocument||(allowSelection&&(!map||typeof map.on!=='function'||typeof map.off!=='function'))||typeof onReturn!=='function'||typeof onTrack!=='function')throw Error('Missing host dependency')
  const transport=createVerifiedHostTransport({enabled:true,account,auth,invoke,controlFunction:'apois-navigation-control'})
@@ -25,7 +25,7 @@ export async function mountDurablePassengerHost(root,{enabled=false,account,auth
  const dispose=()=>{if(disposed)return;disposed=true;signal?.removeEventListener('abort',dispose);panel?.dispose();host.invalidate();journal.close?.();shell.remove()}
  async function act(fn){if(disposed||busy)return;busy=true;errorText='';render();try{await fn()}catch{errorText='Não foi possível confirmar a operação.'}finally{busy=false;render()}}
  async function returnLegacy(){
-  if(!host.canReturnToLegacy()||!await interlock.canReturn())return false
+  if(!allowReturn||!host.canReturnToLegacy()||!await interlock.canReturn())return false
   dispose();onReturn();return true
  }
  function mountSelection(){
@@ -45,7 +45,7 @@ export async function mountDurablePassengerHost(root,{enabled=false,account,auth
   if(s.state==='ready'){
    if(s.pending)controls.append(button('Encerrar tentativa que não criou corrida',()=>host.recover({seal:true})))
    if(panel)controls.append(button('Revisar valor',async()=>{const selected=panel.confirmedInput();if(!selected||!host.begin(selected))return;panel.dispose();panel=null;await host.quote()}))
-   else if(r?.state==='review')controls.append(button('Confirmar corrida',async()=>{const ride=await interlock.experimental(()=>host.submit(true));if(ride&&!disposed)onTrack(ride.rideId)}))
+   else if(allowCreate&&r?.state==='review')controls.append(button('Confirmar corrida',async()=>{const ride=await interlock.experimental(()=>host.submit(true));if(ride&&!disposed)onTrack(ride.rideId)}))
    else if(r?.state==='selected')controls.append(button('Consultar valor novamente',()=>host.quote()))
   }
   if(['recovery','blocked','active'].includes(s.state)){
@@ -53,7 +53,7 @@ export async function mountDurablePassengerHost(root,{enabled=false,account,auth
    if(s.state!=='active')controls.append(button('Encerrar tentativa que não criou corrida',()=>host.recover({seal:true})))
   }
   if(s.state==='active'&&s.ride)controls.append(button('Acompanhar corrida',async()=>{if(await transport.verifyIdentity()===account&&!disposed)onTrack(s.ride.rideId)}))
-  if(host.canReturnToLegacy())controls.append(button('Voltar ao fluxo atual',returnLegacy))
+  if(allowReturn&&host.canReturnToLegacy())controls.append(button('Voltar ao fluxo atual',returnLegacy))
   for(const b of controls.children)b.disabled=busy
  }
  try{
