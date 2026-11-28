@@ -33,6 +33,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Test isolated HML transport
         run: bun test tests/hml-mobile-transport.test.mjs tests/hml-ride-request.test.mjs
+      - name: Test original navigation recovery and approved map contracts
+        run: node --test src/lib/hml-navigation/*.test.mjs
       - name: TypeScript
         run: bun run typecheck
       - name: Compile HML web bundle without actual credentials
