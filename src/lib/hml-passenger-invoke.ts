@@ -13,8 +13,8 @@ export function createHmlPassengerInvoke({origin,account,session,send=fetch}:{or
   const request=target==="request-ride"&&requests.has(b["action"]);
   if(!control&&!request)throw Error("Unsupported HML request");
   const headers=options.headers;
-  if(!exact(headers,["Authorization"])||typeof headers.Authorization!=="string")throw Error("Verified session required");
-  const token=headers.Authorization;
+  if(!exact(headers,["Authorization"])||typeof headers["Authorization"]!=="string")throw Error("Verified session required");
+  const token=headers["Authorization"];
   const verified=async()=>{
    const current=await session();
    return current?.user.id===account&&"Bearer "+current.access_token===token?current:null;
