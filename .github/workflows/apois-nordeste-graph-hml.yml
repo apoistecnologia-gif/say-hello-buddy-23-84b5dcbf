@@ -1,0 +1,39 @@
+name: APOIS Nordeste isolated graph benchmark
+on:
+  push:
+    branches: [hml/openshift-mobile-20261127]
+    paths:
+      - '.github/workflows/apois-nordeste-graph-hml.yml'
+      - 'scripts/hml/benchmark-nordeste-graph.sh'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: apois-nordeste-hml-graph
+  cancel-in-progress: false
+jobs:
+  benchmark:
+    if: github.ref == 'refs/heads/hml/openshift-mobile-20261127'
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Parse benchmark and confirm isolated runner
+        run: |
+          bash -n scripts/hml/benchmark-nordeste-graph.sh
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          df -h
+          free -m
+          docker version
+      - name: Measure Northeast graph and interstate routes
+        run: bash scripts/hml/benchmark-nordeste-graph.sh "$RUNNER_TEMP/nordeste-evidence"
+      - name: Retain diagnostics only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nordeste-hml-graph-evidence
+          path: ${{ runner.temp }}/nordeste-evidence/
+          retention-days: 7
+          if-no-files-found: warn

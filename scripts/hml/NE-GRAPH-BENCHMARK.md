@@ -1,0 +1,3 @@
+# Northeast graph benchmark — HML only
+
+The backend repository's hosted job 46145090037 failed twice before exposing any steps or logs. Cause unverified. This is a hosted-runner fallback in the passenger HML branch, where build 46144925085 succeeded. No cluster runner, secrets, APK, production service or PVC is used. The benchmark derives from backend commit f370ff754613d72033be0d609f0f91803935dcef and uses the observed deployed Valhalla image digest. Only public coordinates and evidence, not the built graph, are retained. The 5 GiB memory, 2 CPU and 10 GiB initial free-disk gates are conservative test bounds, not a production sizing decision. Raw routing success is not proof of map delivery, address search, pilot eligibility or long-trip business policy.
